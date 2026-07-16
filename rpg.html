@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Jack's Nightmare: A Halloween Town Story</title>
+<style>
+  :root{
+    --moon:#f2eecb; --orange:#ff8c1a; --orange-dim:#d9690a; --purple:#2c1146;
+  }
+  html,body{
+    margin:0; padding:0; height:100%; background:#0a0412;
+    font-family: Georgia,'Times New Roman', serif;
+    overflow:hidden;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+  }
+  #wrap{
+    position:relative; width:900px; max-width:98vw;
+    box-shadow:0 0 60px rgba(255,140,26,0.25), 0 0 0 2px #3a1a52;
+    border-radius:10px; overflow:hidden;
+  }
+  canvas{ display:block; width:100%; background:#1c0d33; }
+  #overlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; color:var(--moon); text-align:center;
+    background:rgba(6,2,14,0.85); text-shadow:0 0 12px rgba(255,140,26,0.7);
+  }
+  #overlay h1{ font-size:40px; margin:0 0 6px; letter-spacing:3px; color:var(--orange);
+    text-shadow:0 0 20px var(--orange), 0 0 40px rgba(255,140,26,0.6); }
+  #overlay h2{ font-size:18px; margin:0 0 20px; font-weight:normal; color:#d8c9ff; }
+  #overlay p{ margin:4px 0; font-size:14px; color:#cbb9ee; max-width:560px; }
+  #overlay button{
+    margin-top:20px; padding:12px 30px; font-size:18px; font-family:inherit; letter-spacing:1px;
+    background:linear-gradient(#ff9d33,var(--orange-dim)); color:#1a0a2a; border:2px solid #1a0a2a;
+    border-radius:6px; cursor:pointer; box-shadow:0 0 18px rgba(255,140,26,0.6);
+  }
+  #overlay button:hover{ filter:brightness(1.1); }
+  .hidden{ display:none !important; }
+
+  #quest{
+    position:absolute; top:8px; left:10px; color:var(--moon); font-size:12px;
+    text-shadow:0 0 5px #000,0 0 5px #000; line-height:1.5; pointer-events:none;
+  }
+  #quest .done{ color:#8fff8f; }
+  #quest .todo{ color:#ff9d9d; }
+
+  #dialogueBox{
+    position:absolute; left:40px; right:40px; bottom:26px;
+    background:rgba(10,4,20,0.92); border:2px solid var(--orange);
+    border-radius:8px; padding:14px 18px; color:var(--moon); font-size:15px;
+    box-shadow:0 0 20px rgba(255,140,26,0.35);
+  }
+  #dialogueBox .who{ color:var(--orange); font-weight:bold; margin-bottom:6px; letter-spacing:1px; }
+  #dialogueBox .hint{ float:right; color:#8a76ad; font-size:11px; }
+
+  #battlePanel{
+    position:absolute; left:0; right:0; bottom:0; height:150px;
+    background:linear-gradient(#150826,#26123f); border-top:3px solid var(--orange);
+    display:flex; padding:12px 20px; box-sizing:border-box; gap:18px;
+  }
+  #battlePanel .side{ flex:1; color:var(--moon); font-size:13px; }
+  #battlePanel .barbg{ background:#1a0a2a; border:1px solid #6a4a92; border-radius:5px; height:12px; margin:4px 0 10px; overflow:hidden; }
+  #battlePanel .barfill{ height:100%; }
+  #battlePanel .hpfill{ background:linear-gradient(#5cff7a,#1a9c3a); }
+  #battlePanel .mpfill{ background:linear-gradient(#7ab8ff,#1a5c9c); }
+  #battlePanel .ehpfill{ background:linear-gradient(#ff5c5c,#9c1a1a); }
+  #battleActions{ display:flex; flex-direction:column; gap:6px; width:170px; }
+  #battleActions button{
+    font-family:inherit; font-size:14px; padding:8px 10px; background:#2c1146; color:var(--moon);
+    border:1px solid var(--orange); border-radius:5px; cursor:pointer; text-align:left;
+  }
+  #battleActions button:hover:not(:disabled){ background:var(--orange-dim); color:#1a0a2a; }
+  #battleActions button:disabled{ opacity:0.4; cursor:default; }
+  #battleLog{ flex:1.4; color:#d8c9ff; font-size:13px; line-height:1.5; overflow:hidden; }
+  #footer{ color:#7a6a96; font-size:12px; margin-top:10px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="game" width="900" height="480"></canvas>
+
+  <div id="quest"></div>
+  <div id="dialogueBox" class="hidden"></div>
+
+  <div id="battlePanel" class="hidden">
+    <div class="side">
+      <div><b>Jack</b></div>
+      <div class="barbg"><div class="barfill hpfill" id="pHpBar" style="width:100%"></div></div>
+      <div class="barbg"><div class="barfill mpfill" id="pMpBar" style="width:100%"></div></div>
+    </div>
+    <div id="battleLog"></div>
+    <div class="side">
+      <div id="eName"><b>Enemy</b></div>
+      <div class="barbg"><div class="barfill ehpfill" id="eHpBar" style="width:100%"></div></div>
+    </div>
+    <div id="battleActions">
+      <button id="btnAttack">1. Throw Bone</button>
+      <button id="btnFright">2. Fright Scream (4 MP)</button>
+      <button id="btnFlee">3. Flee</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <h1>JACK'S NIGHTMARE</h1>
+    <h2>A Halloween Town Story</h2>
+    <p>You are Jack Skellington. Another Halloween has come and gone, and still something is missing.
+    Talk to your friends around the square, then follow the path into the Hinterlands
+    to the strange door atop Spiral Hill — the one Dr. Finkelstein has been whispering about.</p>
+    <p style="color:#ff8c1a;">Arrows/WASD move &nbsp;|&nbsp; E / Space interact &amp; advance talk &nbsp;|&nbsp; In battle: click or press 1-3</p>
+    <button id="startBtn">Enter Halloween Town</button>
+    <div id="footer">A short exploration RPG — roughly 10 minutes.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('startBtn');
+const questEl = document.getElementById('quest');
+const dialogueBox = document.getElementById('dialogueBox');
+const battlePanel = document.getElementById('battlePanel');
+const pHpBar = document.getElementById('pHpBar');
+const pMpBar = document.getElementById('pMpBar');
+const eHpBar = document.getElementById('eHpBar');
+const eName = document.getElementById('eName');
+const battleLog = document.getElementById('battleLog');
+const btnAttack = document.getElementById('btnAttack');
+const btnFright = document.getElementById('btnFright');
+const btnFlee = document.getElementById('btnFlee');
+
+function rectsOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+function dist(a,b){ return Math.hypot((a.x+a.w/2)-(b.x+b.w/2), (a.y+a.h/2)-(b.y+b.h/2)); }
+
+// ---------------- Input ----------------
+let keys = {};
+window.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyE','Digit1','Digit2','Digit3'].includes(e.code)) e.preventDefault();
+  if(e.code==='KeyE' || e.code==='Space') onInteractPressed();
+  if(gameState==='battle'){
+    if(e.code==='Digit1') doAttack();
+    if(e.code==='Digit2') doFright();
+    if(e.code==='Digit3') doFlee();
+  }
+});
+window.addEventListener('keyup', e=> keys[e.code]=false);
+
+// ---------------- Game / quest state ----------------
+let gameState = 'menu'; // menu | explore | dialogue | battle | ending
+let flags = { talkedSally:false, talkedFinkelstein:false, talkedMayor:false, bossDefeated:false };
+let blockedMsgCooldown = 0;
+
+function questReady(){ return flags.talkedSally && flags.talkedFinkelstein && flags.talkedMayor; }
+
+function renderQuest(){
+  if(currentScreen!=='townSquare'){ questEl.innerHTML=''; return; }
+  questEl.innerHTML =
+    `<div>${flags.talkedSally?'<span class="done">✓</span>':'<span class="todo">○</span>'} Talk to Sally</div>` +
+    `<div>${flags.talkedFinkelstein?'<span class="done">✓</span>':'<span class="todo">○</span>'} Talk to Dr. Finkelstein</div>` +
+    `<div>${flags.talkedMayor?'<span class="done">✓</span>':'<span class="todo">○</span>'} Talk to the Mayor</div>`;
+}
+
+// ---------------- Player & Zero ----------------
+const player = { x:420, y:400, w:22, h:30, speed:2.6, dir:'down', moving:false, anim:0 };
+let trail = [];
+const zero = { x:400, y:420, w:20, h:16 };
+
+// ---------------- Dialogue system ----------------
+let dialogueQueue = [];
+let dialogueOnEnd = null;
+function startDialogue(who, lines, onEnd){
+  dialogueQueue = lines.map(l=>({who,text:l}));
+  dialogueOnEnd = onEnd || null;
+  gameState = 'dialogue';
+  showNextLine();
+}
+function showNextLine(){
+  if(dialogueQueue.length===0){
+    dialogueBox.classList.add('hidden');
+    gameState = 'explore';
+    const cb = dialogueOnEnd; dialogueOnEnd=null;
+    if(cb) cb();
+    return;
+  }
+  const l = dialogueQueue.shift();
+  dialogueBox.classList.remove('hidden');
+  dialogueBox.innerHTML = `<div class="who">${l.who} <span class="hint">[Space/E]</span></div>${l.text}`;
+}
+
+// ---------------- Interactables per screen ----------------
+function makeNPC(x,y,w,h,name,getLines,onEnd){
+  return {x,y,w,h,name,getLines,onEnd,kind:'npc'};
+}
+
+const npcSally = makeNPC(134,286,26,34,'Sally', ()=>{
+  if(!flags.talkedSally){
+    return ["Jack... I have a bad feeling about this scheme of yours.",
+      "But if you truly must go past the Hinterlands... please take care of yourself.",
+      "I stitched something for luck. Keep it close, won't you?"];
+  }
+  return ["Please be careful out there, Jack.", "I'll be watching from the window."];
+}, ()=>{ flags.talkedSally=true; renderQuest(); });
+
+const npcFinkelstein = makeNPC(700,266,30,40,'Dr. Finkelstein', ()=>{
+  if(!flags.talkedFinkelstein){
+    return ["Ah, Jack! I suspected you'd come asking.",
+      "I've read of an old door within the tree atop Spiral Hill.",
+      "My theory: it doesn't lead anywhere in OUR world at all.",
+      "Fascinating, isn't it? Terrifying, but fascinating."];
+  }
+  return ["The mysteries of that door still elude me, Jack.", "Do report back what you find!"];
+}, ()=>{ flags.talkedFinkelstein=true; renderQuest(); });
+
+const npcMayor = makeNPC(340,196,28,34,'The Mayor', ()=>{
+  if(!flags.talkedMayor){
+    return ["J-Jack! As Mayor I really must ask: is this expedition sanctioned??",
+      "...Oh, very well. *flips to happy face* Good luck out there, Jack!",
+      "Halloween Town believes in you! Now go on, before I change my mind!"];
+  }
+  return ["Do hurry back before the town needs you, Jack."];
+}, ()=>{ flags.talkedMayor=true; renderQuest(); });
+
+function zeroLines(){
+  if(!questReady()) return ["Zero floats in a lazy circle, waiting patiently.", "(He seems to want you to finish talking to your friends first.)"];
+  return ["Zero barks silently and nods toward the northern path.", "He's ready to lead the way."];
+}
+
+const gravestone = makeNPC(720,330,26,30,'Old Gravestone', ()=>{
+  return ["\"Here lies a very lost trick-or-treater.\"", "\"...take the path. Don't wander off it.\""];
+});
+
+let lsbDefeatedTalk = false;
+const doorObj = makeNPC(430,60,40,50,'The Door', ()=>{
+  if(!flags.bossDefeated) return ["The door is carved with a strange, twinkling tree.", "Something — or someone — blocks the way forward."];
+  return ["The door creaks open onto a swirl of impossible color..."];
+}, ()=>{
+  if(flags.bossDefeated){ startEnding(); }
+});
+
+// ---------------- Screens ----------------
+const screens = {};
+
+screens.townSquare = {
+  obstacles: [
+    {x:100,y:190,w:100,h:90},   // Sally's cottage
+    {x:660,y:110,w:120,h:150},  // Finkelstein tower
+    {x:300,y:110,w:120,h:80},   // town hall
+    {x:420,y:230,w:60,h:60},    // fountain
+  ],
+  npcs: [npcSally, npcFinkelstein, npcMayor],
+  exits: [
+    {rect:{x:400,y:0,w:100,h:10}, target:'hinterlands', entry:{x:420,y:420}, gate:true}
+  ],
+  draw(){
+    ctx.fillStyle='#1c0d33'; ctx.fillRect(0,0,W,H);
+    drawMoon();
+    // ground
+    ctx.fillStyle='#241238'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#2c1548'; ctx.fillRect(40,40,W-80,H-80);
+    // path north
+    ctx.fillStyle='#1a0c2c'; ctx.fillRect(400,0,100,80);
+    // Sally's cottage
+    drawCottage(100,190,100,90);
+    // town hall
+    drawTownHall(300,110,120,80);
+    // Finkelstein tower
+    drawTower(660,110,120,150);
+    // fountain
+    drawFountain(420,230,60,60);
+    drawSign(400,80,"⇧ Hinterlands");
+  }
+};
+
+screens.hinterlands = {
+  obstacles: [
+    {x:60,y:80,w:50,h:120},{x:180,y:40,w:40,h:100},{x:700,y:90,w:50,h:130},
+    {x:780,y:250,w:46,h:110},{x:140,y:300,w:44,h:120},{x:600,y:320,w:50,h:110},
+  ],
+  npcs:[gravestone],
+  exits:[
+    {rect:{x:400,y:H-10,w:100,h:10}, target:'townSquare', entry:{x:420,y:60}},
+    {rect:{x:400,y:0,w:100,h:10}, target:'spiralHill', entry:{x:420,y:420}}
+  ],
+  draw(){
+    ctx.fillStyle='#160a29'; ctx.fillRect(0,0,W,H);
+    drawMoon();
+    ctx.fillStyle='#1a0c2c'; ctx.fillRect(370,0,160,H);
+    for(const o of this.obstacles) drawTree(o.x,o.y,o.w,o.h);
+    drawSign(400,80,"⇧ Spiral Hill");
+    drawSign(400,H-80,"⇩ Town Square");
+  }
+};
+
+screens.spiralHill = {
+  obstacles: [ {x:0,y:0,w:340,h:H}, {x:560,y:0,w:340,h:H} ],
+  npcs:[doorObj],
+  bossTrigger:{x:370,y:150,w:160,h:80},
+  exits:[
+    {rect:{x:400,y:H-10,w:100,h:10}, target:'hinterlands', entry:{x:420,y:60}}
+  ],
+  draw(){
+    ctx.fillStyle='#120820'; ctx.fillRect(0,0,W,H);
+    drawMoon();
+    drawSpiral(450,H-40);
+    drawTreeDoor(430,50,40,60);
+    if(!flags.bossDefeated) drawLSB(400,190);
+  }
+};
+
+let currentScreen = 'townSquare';
+
+// ---------------- Drawing helpers (world dressing) ----------------
+function drawMoon(){
+  ctx.save();
+  ctx.fillStyle='#f2eecb'; ctx.shadowColor='#f2eecb'; ctx.shadowBlur=36;
+  ctx.beginPath(); ctx.arc(W-90,70,38,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawCottage(x,y,w,h){
+  ctx.fillStyle='#2e1a44'; ctx.fillRect(x,y+h*0.35,w,h*0.65);
+  ctx.fillStyle='#1a0c2c';
+  ctx.beginPath(); ctx.moveTo(x-10,y+h*0.35); ctx.lineTo(x+w/2,y-20); ctx.lineTo(x+w+10,y+h*0.35); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#ffcf6b'; ctx.fillRect(x+w*0.35,y+h*0.5,18,18); // Sally's window glow
+  ctx.strokeStyle='#0a0410'; ctx.lineWidth=1.5;
+  ctx.strokeRect(x+w*0.35,y+h*0.5,18,18);
+}
+function drawTownHall(x,y,w,h){
+  ctx.fillStyle='#241238'; ctx.fillRect(x,y+20,w,h-20);
+  ctx.fillStyle='#1a0c2c';
+  ctx.beginPath(); ctx.moveTo(x-8,y+20); ctx.lineTo(x+w/2,y-20); ctx.lineTo(x+w+8,y+20); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#ff8c1a';
+  ctx.beginPath(); ctx.arc(x+w/2,y-24,7,0,Math.PI*2); ctx.fill(); // jack-o-lantern topper glow
+  for(let i=0;i<3;i++){ ctx.fillStyle='#ffcf6b'; ctx.fillRect(x+16+i*30,y+34,14,20); }
+}
+function drawTower(x,y,w,h){
+  ctx.fillStyle='#2c1146';
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.15,y+h); ctx.lineTo(x+w*0.25,y+10); ctx.lineTo(x+w*0.75,y+10); ctx.lineTo(x+w*0.85,y+h);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#1a0c2c';
+  ctx.beginPath(); ctx.moveTo(x+w*0.2,y+10); ctx.lineTo(x+w/2,y-26); ctx.lineTo(x+w*0.8,y+10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#7fffb0';
+  ctx.beginPath(); ctx.arc(x+w/2,y+40,10,0,Math.PI*2); ctx.fill(); // eerie green window
+}
+function drawFountain(x,y,w,h){
+  ctx.fillStyle='#1a0c2c';
+  ctx.beginPath(); ctx.ellipse(x+w/2,y+h/2,w/2,h/2.6,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#4a2a6a'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.ellipse(x+w/2,y+h/2,w/2-4,h/2.6-4,0,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#5a3a80';
+  ctx.beginPath(); ctx.ellipse(x+w/2,y+h/2-6,6,10,0,0,Math.PI*2); ctx.fill();
+}
+function drawTree(x,y,w,h){
+  ctx.strokeStyle='#0d0616'; ctx.lineWidth=6;
+  ctx.beginPath(); ctx.moveTo(x+w/2,y+h); ctx.lineTo(x+w/2,y+h*0.4); ctx.stroke();
+  ctx.fillStyle='#150826';
+  ctx.beginPath();
+  ctx.moveTo(x+w/2,y-10);
+  ctx.lineTo(x,y+h*0.55);
+  ctx.lineTo(x+w*0.2,y+h*0.5);
+  ctx.lineTo(x-4,y+h*0.35);
+  ctx.lineTo(x+w*0.5,y+h*0.05);
+  ctx.lineTo(x+w+4,y+h*0.35);
+  ctx.lineTo(x+w*0.8,y+h*0.5);
+  ctx.lineTo(x+w,y+h*0.55);
+  ctx.closePath(); ctx.fill();
+}
+function drawSign(x,y,text){
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.font='13px Georgia';
+  const tw = ctx.measureText(text).width;
+  ctx.fillRect(x - tw/2 - 6, y-2, tw+12, 16);
+  ctx.fillStyle='#d8c9ff';
+  ctx.fillText(text, x-tw/2, y+10);
+}
+function drawSpiral(cx,groundY){
+  ctx.fillStyle='#1c0d33';
+  ctx.beginPath(); ctx.moveTo(cx-220,H); ctx.quadraticCurveTo(cx,groundY-260,cx+220,H); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#120820'; ctx.lineWidth=5;
+  ctx.beginPath();
+  for(let t=0;t<1;t+=0.02){
+    const ang=t*Math.PI*7, rad=(1-t)*130;
+    const hx=cx+Math.cos(ang)*rad*0.6, hy=groundY-40-t*260+Math.sin(ang)*10;
+    if(t===0) ctx.moveTo(hx,hy); else ctx.lineTo(hx,hy);
+  }
+  ctx.stroke();
+}
+function drawTreeDoor(x,y,w,h){
+  ctx.fillStyle = flags.bossDefeated? '#ffdca8':'#3a2a10';
+  ctx.save();
+  if(flags.bossDefeated){ ctx.shadowColor='#ffdca8'; ctx.shadowBlur=30; }
+  ctx.beginPath();
+  ctx.moveTo(x,y+h); ctx.lineTo(x,y+12);
+  ctx.quadraticCurveTo(x+w/2,y-10,x+w,y+12);
+  ctx.lineTo(x+w,y+h); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle='#160a05'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(x+w/2,y+h-10,3,0,Math.PI*2); ctx.stroke();
+}
+function drawLSB(x,y){
+  // Lock, Shock & Barrel's tub with three mask heads peeking out
+  ctx.fillStyle='#5a3a1a';
+  ctx.beginPath(); ctx.ellipse(x+30,y+40,42,26,0,0,Math.PI*2); ctx.fill();
+  const heads=[{c:'#ff3030',dx:-24},{c:'#e8e8e8',dx:0},{c:'#7a4fbf',dx:24}];
+  for(const hd of heads){
+    ctx.fillStyle=hd.c;
+    ctx.beginPath(); ctx.arc(x+30+hd.dx,y+16,12,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(x+30+hd.dx-4,y+14,2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+30+hd.dx+4,y+14,2,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ---------------- Character sprites ----------------
+function drawJack(px,py,dir,anim){
+  ctx.save();
+  ctx.translate(px,py);
+  const bob = Math.sin(anim*0.3)*1.5;
+  ctx.fillStyle='#141018';
+  ctx.fillRect(-8,-4+bob,16,20); // suit
+  ctx.strokeStyle='#3a3a44'; ctx.lineWidth=0.7;
+  for(let i=-6;i<=6;i+=4){ ctx.beginPath(); ctx.moveTo(i,-3+bob); ctx.lineTo(i,15+bob); ctx.stroke(); }
+  ctx.fillStyle='#f2eecb';
+  ctx.beginPath(); ctx.ellipse(0,-12+bob,10,11,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#0a0a0a';
+  if(dir==='down'){
+    ctx.beginPath(); ctx.ellipse(-4,-13+bob,2.2,3.4,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4,-13+bob,2.2,3.4,0,0,Math.PI*2); ctx.fill();
+  } else if(dir==='up'){
+    // back of head, no face
+  } else {
+    const fx = dir==='left'? -3:3;
+    ctx.beginPath(); ctx.ellipse(fx,-13+bob,2.4,3.6,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawZero(x,y){
+  ctx.save();
+  ctx.globalAlpha=0.85;
+  ctx.fillStyle='#eef0ff';
+  ctx.beginPath();
+  ctx.ellipse(x+10,y+8,11,8,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x+2,y+10); ctx.quadraticCurveTo(x-8,y+2,x-2,y-6); ctx.quadraticCurveTo(x+2,y+2,x+2,y+10); ctx.fill();
+  ctx.globalAlpha=1;
+  ctx.fillStyle='#ff8c1a'; ctx.beginPath(); ctx.arc(x+19,y+9,2.6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.arc(x+8,y+6,1.2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+13,y+6,1.2,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawGenericNPC(n){
+  const colors = {
+    'Sally':'#3a6fae','Dr. Finkelstein':'#6a8f4a','The Mayor':'#151515',
+    'Zero':null,'Old Gravestone':'#2a2030','The Door':null
+  };
+  if(n.name==='Zero'){ drawZero(n.x,n.y); return; }
+  if(n.name==='Old Gravestone'){
+    ctx.fillStyle='#2a2030';
+    ctx.beginPath();
+    ctx.moveTo(n.x,n.y+n.h); ctx.lineTo(n.x,n.y+8);
+    ctx.quadraticCurveTo(n.x+n.w/2,n.y-6,n.x+n.w,n.y+8);
+    ctx.lineTo(n.x+n.w,n.y+n.h); ctx.closePath(); ctx.fill();
+    return;
+  }
+  if(n.name==='The Door') return; // drawn as part of background
+  ctx.fillStyle = colors[n.name] || '#555';
+  ctx.fillRect(n.x, n.y+n.h*0.3, n.w, n.h*0.7);
+  ctx.fillStyle='#f2eecb';
+  ctx.beginPath(); ctx.ellipse(n.x+n.w/2, n.y+n.h*0.2, n.w*0.35, n.h*0.22,0,0,Math.PI*2); ctx.fill();
+  if(n.name==='The Mayor'){
+    ctx.fillStyle='#111'; ctx.fillRect(n.x+n.w*0.15, n.y-6, n.w*0.7, 8);
+    ctx.fillRect(n.x+n.w*0.25, n.y-16, n.w*0.5, 12);
+  }
+  if(n.name==='Dr. Finkelstein'){
+    ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(n.x+n.w/2, n.y+n.h*0.2, n.w*0.42,n.h*0.28,0,0,Math.PI*2); ctx.stroke();
+  }
+}
+
+// ---------------- Interact prompt bubble ----------------
+function nearestInteractable(){
+  const s = screens[currentScreen];
+  let best=null, bestD=44;
+  for(const n of s.npcs){
+    const d = dist(player, n);
+    if(d<bestD){ bestD=d; best=n; }
+  }
+  if(best) return best; // quest NPCs always take priority over the companion
+  const zeroBox = {x:zero.x,y:zero.y,w:zero.w,h:zero.h,name:'Zero',getLines:zeroLines};
+  if(dist(player, zeroBox) < 26) return zeroBox;
+  return null;
+}
+function drawInteractPrompt(){
+  const n = nearestInteractable();
+  if(!n) return;
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.beginPath(); ctx.arc(n.x+n.w/2, n.y-14, 10,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#ff8c1a'; ctx.font='bold 12px Georgia';
+  ctx.fillText('E', n.x+n.w/2-3, n.y-10);
+  ctx.restore();
+}
+
+function onInteractPressed(){
+  if(gameState==='dialogue'){ showNextLine(); return; }
+  if(gameState!=='explore') return;
+  const n = nearestInteractable();
+  if(!n) return;
+  const lines = n.getLines();
+  startDialogue(n.name, lines, n.onEnd);
+}
+
+// ---------------- Movement / collisions ----------------
+function tryMove(dx,dy){
+  const s = screens[currentScreen];
+  let nx = player.x+dx, ny = player.y;
+  let box = {x:nx,y:ny,w:player.w,h:player.h};
+  if(!s.obstacles.some(o=>rectsOverlap(box,o))) player.x = nx;
+  ny = player.y+dy; nx = player.x;
+  box = {x:nx,y:ny,w:player.w,h:player.h};
+  if(!s.obstacles.some(o=>rectsOverlap(box,o))) player.y = ny;
+}
+
+function updateExplore(){
+  let dx=0,dy=0;
+  if(keys['ArrowLeft']||keys['KeyA']){ dx=-player.speed; player.dir='left'; }
+  else if(keys['ArrowRight']||keys['KeyD']){ dx=player.speed; player.dir='right'; }
+  if(keys['ArrowUp']||keys['KeyW']){ dy=-player.speed; player.dir='up'; }
+  else if(keys['ArrowDown']||keys['KeyS']){ dy=player.speed; player.dir='down'; }
+  player.moving = dx!==0||dy!==0;
+  if(player.moving) player.anim++;
+
+  if(dx!==0||dy!==0){
+    trail.unshift({x:player.x,y:player.y});
+    if(trail.length>400) trail.pop();
+    tryMove(dx,dy);
+  }
+  player.x = Math.max(0,Math.min(W-player.w,player.x));
+  player.y = Math.max(0,Math.min(H-player.h,player.y));
+
+  // zero follows along the trail
+  const followIdx = Math.min(trail.length-1, 26);
+  if(trail[followIdx]){ zero.x += (trail[followIdx].x-6-zero.x)*0.15; zero.y += (trail[followIdx].y+2-zero.y)*0.15; }
+  else { zero.x += (player.x-30-zero.x)*0.08; zero.y += (player.y-zero.y)*0.08; }
+
+  const s = screens[currentScreen];
+  const pbox = {x:player.x,y:player.y,w:player.w,h:player.h};
+  for(const ex of s.exits){
+    if(rectsOverlap(pbox, ex.rect)){
+      if(ex.gate && !questReady()){
+        if(blockedMsgCooldown<=0){
+          startDialogue('', ["Something tells you to speak with your friends before heading north..."]);
+          blockedMsgCooldown = 120;
+        }
+        player.y = Math.min(player.y+6, H-player.h);
+        continue;
+      }
+      currentScreen = ex.target;
+      player.x = ex.entry.x; player.y = ex.entry.y;
+      trail = [];
+      renderQuest();
+      return;
+    }
+  }
+  if(blockedMsgCooldown>0) blockedMsgCooldown--;
+
+  if(currentScreen==='spiralHill' && !flags.bossDefeated){
+    const t = s.bossTrigger;
+    if(t && rectsOverlap(pbox,t)) startBattle();
+  }
+}
+
+// ---------------- Battle system ----------------
+let battle = null;
+function startBattle(){
+  gameState='battle';
+  battle = {
+    enemy:{ name:"Lock, Shock & Barrel", hp:24, maxHp:24, acting:false },
+    playerHp: battle? battle.playerHp : 22,
+    playerMaxHp: 22,
+    playerMp: 10, playerMaxMp: 10,
+    log: ["Lock, Shock & Barrel block the door, snickering in their tub!"],
+    turnLock:false
+  };
+  if(!('savedHp' in flags)) {}
+  battlePanel.classList.remove('hidden');
+  eName.innerHTML = `<b>${battle.enemy.name}</b>`;
+  refreshBattleUI();
+}
+function refreshBattleUI(){
+  pHpBar.style.width = Math.max(0,battle.playerHp/battle.playerMaxHp*100)+'%';
+  pMpBar.style.width = Math.max(0,battle.playerMp/battle.playerMaxMp*100)+'%';
+  eHpBar.style.width = Math.max(0,battle.enemy.hp/battle.enemy.maxHp*100)+'%';
+  battleLog.innerHTML = battle.log.slice(-5).map(l=>`<div>${l}</div>`).join('');
+  btnFright.disabled = battle.playerMp<4;
+}
+function rand(a,b){ return Math.floor(a+Math.random()*(b-a+1)); }
+
+function enemyTurn(){
+  if(battle.enemy.hp<=0) return;
+  const dmg = rand(3,6) - (flags.talkedSally?1:0);
+  const d = Math.max(1,dmg);
+  battle.playerHp = Math.max(0, battle.playerHp-d);
+  const moves = ["hurl a stink bomb", "ram the tub into you", "cackle and pelt you with candy corn"];
+  battle.log.push(`Lock, Shock & Barrel ${moves[rand(0,moves.length-1)]}! -${d} HP`);
+  refreshBattleUI();
+  if(battle.playerHp<=0){
+    battle.log.push("Jack stumbles back, dazed...");
+    refreshBattleUI();
+    setTimeout(loseBattle, 700);
+    return;
+  }
+  battle.turnLock=false;
+}
+function doAttack(){
+  if(!battle || battle.turnLock || battle.enemy.hp<=0) return;
+  battle.turnLock=true;
+  const dmg = rand(4,7);
+  battle.enemy.hp = Math.max(0,battle.enemy.hp-dmg);
+  battle.log.push(`Jack throws a bone! -${dmg} HP`);
+  refreshBattleUI();
+  if(battle.enemy.hp<=0){ setTimeout(winBattle,600); return; }
+  setTimeout(enemyTurn, 700);
+}
+function doFright(){
+  if(!battle || battle.turnLock || battle.enemy.hp<=0) return;
+  if(battle.playerMp<4) return;
+  battle.turnLock=true;
+  battle.playerMp -= 4;
+  const dmg = rand(9,13);
+  battle.enemy.hp = Math.max(0,battle.enemy.hp-dmg);
+  battle.log.push(`Jack lets out a Fright Scream! -${dmg} HP`);
+  refreshBattleUI();
+  if(battle.enemy.hp<=0){ setTimeout(winBattle,600); return; }
+  setTimeout(enemyTurn, 700);
+}
+function doFlee(){
+  if(!battle || battle.turnLock) return;
+  battle.log.push("There's no escaping this one, Jack...");
+  refreshBattleUI();
+}
+btnAttack.addEventListener('click', doAttack);
+btnFright.addEventListener('click', doFright);
+btnFlee.addEventListener('click', doFlee);
+
+function winBattle(){
+  battle.log.push("Lock, Shock & Barrel yelp and scurry off into the dark!");
+  refreshBattleUI();
+  flags.bossDefeated = true;
+  setTimeout(()=>{
+    battlePanel.classList.add('hidden');
+    gameState='explore';
+    startDialogue('', ["The path to the door is finally clear."]);
+  }, 1200);
+}
+function loseBattle(){
+  battlePanel.classList.add('hidden');
+  gameState='explore';
+  currentScreen='townSquare';
+  player.x=420; player.y=400; trail=[];
+  startDialogue('', ["Jack wakes up back in the square, a little worse for wear.", "Perhaps a rest — and a fresh approach — is in order."]);
+}
+
+// ---------------- Ending ----------------
+function startEnding(){
+  gameState='ending';
+  overlay.classList.remove('hidden');
+  overlay.querySelector('h1').textContent = "A WORLD OF COLOR";
+  overlay.querySelector('h2').textContent = "Jack steps through the door...";
+  overlay.querySelectorAll('p').forEach(p=>p.remove());
+  const p = document.createElement('p');
+  p.style.color = '#cbb9ee';
+  p.innerHTML = "Snow. Ribbons. Warm little lights strung between rooftops.<br><br>" +
+    "Jack Skellington, Pumpkin King of Halloween Town, stands frozen in wonder at the strange, " +
+    "beautiful place on the other side of the tree.<br><br>" +
+    "<span style='color:#ff8c1a'>\"What's this? What's this?\"</span>" +
+    "<br><br><i>To be continued...</i>";
+  overlay.insertBefore(p, startBtn);
+  startBtn.textContent = 'Play Again';
+  initSnow();
+}
+let snow=[];
+function initSnow(){ snow=[]; for(let i=0;i<70;i++) snow.push({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*2,v:0.4+Math.random()}); }
+function drawSnow(){
+  ctx.fillStyle='#fff';
+  for(const s of snow){ s.y+=s.v; s.x+=Math.sin(s.y*0.02); if(s.y>H){s.y=0;s.x=Math.random()*W;} ctx.fillRect(s.x,s.y,s.s,s.s); }
+}
+
+// ---------------- Reset / start ----------------
+function resetGame(){
+  flags = { talkedSally:false, talkedFinkelstein:false, talkedMayor:false, bossDefeated:false };
+  currentScreen='townSquare';
+  player.x=420; player.y=400; player.dir='down'; trail=[];
+  zero.x=400; zero.y=420;
+  gameState='explore';
+  battlePanel.classList.add('hidden');
+  dialogueBox.classList.add('hidden');
+  overlay.querySelectorAll('p').forEach(p=>p.remove());
+  const p1=document.createElement('p');
+  p1.textContent = "You are Jack Skellington. Another Halloween has come and gone, and still something is missing. Talk to your friends around the square, then follow the path into the Hinterlands to the strange door atop Spiral Hill.";
+  const p2=document.createElement('p'); p2.style.color='#ff8c1a';
+  p2.innerHTML = "Arrows/WASD move &nbsp;|&nbsp; E / Space interact &amp; advance talk &nbsp;|&nbsp; In battle: click or press 1-3";
+  overlay.insertBefore(p1, startBtn); overlay.insertBefore(p2, startBtn);
+  overlay.querySelector('h1').textContent = "JACK'S NIGHTMARE";
+  overlay.querySelector('h2').textContent = "A Halloween Town Story";
+  startBtn.textContent = 'Enter Halloween Town';
+  renderQuest();
+}
+startBtn.addEventListener('click', ()=>{
+  overlay.classList.add('hidden');
+  resetGame();
+});
+
+// ---------------- Main loop ----------------
+function tick(){
+  if(gameState==='explore') updateExplore();
+
+  const s = screens[currentScreen];
+  s.draw();
+  for(const n of s.npcs) drawGenericNPC(n);
+  drawZero(zero.x, zero.y);
+  drawJack(player.x, player.y, player.dir, player.anim);
+  if(gameState==='explore') drawInteractPrompt();
+  if(gameState==='ending') drawSnow();
+}
+setInterval(tick, 1000/60);
+})();
+</script>
+</body>
+</html>
