@@ -339,6 +339,19 @@ const SFX = new Proxy({
   hit() { tone('square', 2600, .025, .06); },
   kill() { tone('square', 1900, .05, .08); tone('square', 1300, .06, .07, null, .03); },
   reloadOut() { noise(.06, 'bandpass', 1800, .25, 4); },
+  magOut() { noise(.07, 'bandpass', 1700, .32, 4); tone('square', 900, .02, .05); },
+  magIn() { noise(.05, 'bandpass', 2400, .38, 5); tone('square', 650, .03, .07); noise(.04, 'bandpass', 3000, .3, 5, .05); },
+  rack() { noise(.07, 'bandpass', 1500, .38, 4); noise(.06, 'bandpass', 2700, .4, 5, .12); },
+  boltUp() { noise(.04, 'bandpass', 2300, .28, 5); },
+  boltBack() { noise(.07, 'bandpass', 1500, .32, 4); },
+  boltClose() { noise(.05, 'bandpass', 2600, .32, 5); noise(.04, 'bandpass', 2000, .28, 5, .08); },
+  shellIn() { noise(.06, 'bandpass', 1300, .32, 4); tone('square', 480, .03, .05); },
+  pumpNow() { noise(.07, 'bandpass', 1200, .38, 4); noise(.07, 'bandpass', 1750, .38, 4, .14); },
+  cyl() { tone('square', 1900, .02, .06); noise(.04, 'bandpass', 3200, .3, 5); },
+  breakAct() { noise(.09, 'lowpass', 900, .5); noise(.04, 'bandpass', 2200, .3, 5); },
+  coverAct() { noise(.09, 'bandpass', 1000, .38, 3); },
+  slap() { noise(.05, 'lowpass', 700, .4); },
+  casings() { for (let i = 0; i < 4; i++) tone('sine', 3200 + Math.random() * 1500, .08, .03, null, .25 + i * .07 + Math.random() * .04); },
   reloadIn() { noise(.05, 'bandpass', 2400, .3, 5); tone('square', 700, .03, .06); },
   buy() { tone('square', 988, .08, .12); tone('square', 1319, .3, .12, null, .08); },
   deny() { tone('sawtooth', 110, .25, .15); },
@@ -811,7 +824,11 @@ const GM = {
   sleeve: S({ color: 0x4b4a30, roughness: 1 }),
   cuff: S({ color: 0x3a3a26, roughness: 1 }),
   glass: S({ color: 0x101820, metalness: .2, roughness: .05, envMap: envTex }),
+  shell: S({ color: 0x8a1a14, roughness: .5 }),
 };
+const RL_TYPE = { magnum: 'revolver', kar98k: 'stripper', kar98scoped: 'stripper', garand: 'garand', mg42: 'belt', trench: 'shells', doublebarrel: 'break' };
+const CHARGE = { m1carbine: [.03, .035, -.06], g43: [-.03, .04, -.02], thompson: [0, .064, .0], mp40: [-.03, .03, -.05], type100: [.028, .03, 0],
+  ppsh: [.028, .045, -.02], stg44: [-.032, .045, -.16], fg42: [.03, .03, -.03], bar: [-.035, .02, -.12], mg42: [.035, .035, .02] };
 function buildGun(id, up, hands) {
   const d = WEAPONS[id], g = new THREE.Group();
   const st = up ? upgradedMat() : GM.steel, wd = up ? upgradedMat(.5) : GM.wood, bk = up ? st : GM.bake;
@@ -819,7 +836,7 @@ function buildGun(id, up, hands) {
   const B = (w, h, l, mat, x, y, z, rx, ry, rz) => add(new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat), x, y, z, rx, ry, rz);
   const Cz = (r, l, mat, x, y, z, r2) => add(new THREE.Mesh(new THREE.CylinderGeometry(r2 ?? r, r, l, 14), mat), x, y, z, Math.PI / 2);
   const Cx = (r, l, mat, x, y, z) => add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 18), mat), x, y, z, 0, 0, Math.PI / 2);
-  let rearZ = .04, muzzle = -.4, sightY = .06, mag = null, bolt = null, pump = null, lh = [-.01, -.04, -.26], eject = [.03, .04, -.02];
+  let slide = null, cover = null, barrels = null, rearZ = .04, muzzle = -.4, sightY = .06, mag = null, bolt = null, pump = null, lh = [-.01, -.04, -.26], eject = [.03, .04, -.02];
   // shared rifle furniture
   const rifleStock = (len, z0) => {
     B(.05, .062, len, wd, 0, -.005, z0 - len / 2);
@@ -830,7 +847,7 @@ function buildGun(id, up, hands) {
   };
   switch (id) {
     case 'm1911':
-      B(.034, .036, .2, st, 0, .03, -.06); B(.03, .024, .16, st, 0, .004, -.05);
+      slide = B(.034, .036, .2, st, 0, .03, -.06); B(.03, .024, .16, st, 0, .004, -.05);
       B(.032, .1, .052, wd, 0, -.045, .025, .22); B(.008, .022, .045, st, 0, -.016, -.018);
       B(.012, .02, .012, st, 0, .052, .04, -.3); B(.006, .012, .008, st, 0, .052, -.15); B(.02, .01, .008, st, 0, .051, .03);
       Cz(.012, .012, st, 0, .03, -.165);
@@ -928,7 +945,9 @@ function buildGun(id, up, hands) {
       B(.055, .075, .35, st, 0, .03, -.02); Cz(.026, .36, st, 0, .035, -.38); Cz(.03, .06, st, 0, .035, -.59);
       for (let i = 0; i < 6; i++) B(.006, .01, .03, GM.bake, .026, .035, -.24 - i * .05);
       B(.007, .16, .007, st, .035, -.04, -.5, .4); B(.007, .16, .007, st, -.035, -.04, -.5, .4);
-      B(.045, .09, .25, bk, 0, 0, .27, -.03); B(.032, .085, .045, bk, 0, -.06, .05, .3); B(.05, .015, .2, st, 0, .072, -.02);
+      B(.045, .09, .25, bk, 0, 0, .27, -.03); B(.032, .085, .045, bk, 0, -.06, .05, .3);
+      cover = new THREE.Group(); cover.position.set(0, .072, .08); g.add(cover);
+      { const cv = new THREE.Mesh(new THREE.BoxGeometry(.05, .015, .2), st); cv.position.z = -.1; cover.add(cv); }
       B(.012, .03, .012, st, 0, .085, -.55); B(.02, .02, .02, st, 0, .085, .06);
       mag = B(.07, .1, .12, GM.steelL, -.065, -.04, -.05);
       muzzle = -.63; rearZ = 0.06; sightY = .093; lh = [-.005, -.06, -.12]; break;
@@ -941,8 +960,13 @@ function buildGun(id, up, hands) {
       B(.008, .008, .008, GM.brass, 0, .076, -.55);
       muzzle = -.58; rearZ = 0.0; sightY = .08; lh = [-.005, -.03, -.25]; eject = [.03, .03, -.02]; break;
     case 'doublebarrel':
-      Cz(.016, .55, st, .016, .035, -.33); Cz(.016, .55, st, -.016, .035, -.33); B(.008, .01, .55, st, 0, .054, -.33);
-      B(.05, .03, .2, wd, 0, .005, -.24); B(.05, .06, .12, st, 0, .025, .0); B(.045, .11, .3, wd, 0, -.035, .22, -.12);
+      barrels = new THREE.Group(); barrels.position.set(0, .02, -.05); g.add(barrels);
+      { const bAdd = (m, x, y, z, rx = 0) => { m.position.set(x, y - .02, z + .05); m.rotation.x = rx; barrels.add(m); };
+        const bc = () => new THREE.CylinderGeometry(.016, .016, .55, 14);
+        bAdd(new THREE.Mesh(bc(), st), .016, .035, -.33, Math.PI / 2); bAdd(new THREE.Mesh(bc(), st), -.016, .035, -.33, Math.PI / 2);
+        bAdd(new THREE.Mesh(new THREE.BoxGeometry(.008, .01, .55), st), 0, .054, -.33);
+        bAdd(new THREE.Mesh(new THREE.BoxGeometry(.05, .03, .2), wd), 0, .005, -.24); }
+      B(.05, .06, .12, st, 0, .025, .0); B(.045, .11, .3, wd, 0, -.035, .22, -.12);
       B(.012, .018, .02, st, .01, .06, .055, -.4); B(.012, .018, .02, st, -.01, .06, .055, -.4);
       muzzle = -.6; rearZ = 0.05; sightY = .062; lh = [-.005, -.025, -.24]; eject = null; break;
     case 'ptrs':
@@ -958,6 +982,7 @@ function buildGun(id, up, hands) {
       const glow = new THREE.MeshBasicMaterial({ color: up ? new THREE.Color(3, .6, 3) : new THREE.Color(.6, 3, .9) });
       for (let i = 0; i < 3; i++) add(new THREE.Mesh(new THREE.TorusGeometry(.05, .011, 8, 18), glow), 0, 0, -.13 - i * .05);
       Cz(.032, .08, st, 0, 0, -.25); B(.02, .02, .2, glow, 0, .05, -.05); B(.016, .02, .02, st, 0, .062, .04);
+      mag = B(.04, .05, .07, glow, 0, -.065, -.12);
       muzzle = -.3; rearZ = 0.04; sightY = .07; lh = [-.03, -.08, .05]; eject = null; break;
     }
   }
@@ -982,7 +1007,52 @@ function buildGun(id, up, hands) {
     seg([lh[0] - .02, lh[1] - .03, lh[2] + .04], [lh[0] - .06, lh[1] - .1, lh[2] + .14], GM.cuff, .066);
     seg([lh[0] - .06, lh[1] - .1, lh[2] + .14], [-.22, -.44, .55], GM.sleeve, .085);
   }
-  g.userData = { rearZ, muzzle, sightY, mag, bolt, pump, eject, magBase: mag ? mag.position.clone() : null };
+  const ud = { id, rearZ, muzzle, sightY, mag, bolt, pump, eject, slide, cover, barrels, magBase: mag ? mag.position.clone() : null, lhRest: lh.slice() };
+  if (slide) ud.slideZ = slide.position.z;
+  if (hands) {
+    // left hand + forearm as one rig so reload animations can move it independently of the gun
+    const lhand = new THREE.Group(); lhand.position.set(...lh); g.add(lhand); ud.lhand = lhand;
+    const lseg = (a, b, mat, t) => {
+      const A = new THREE.Vector3(...a), Bv = new THREE.Vector3(...b);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(t, t * 1.1, A.distanceTo(Bv)), mat);
+      m.position.copy(A).add(Bv).multiplyScalar(.5); lhand.add(m); m.lookAt(Bv); return m;
+    };
+    lhand.add(new THREE.Mesh(new THREE.BoxGeometry(.06, .06, .1), GM.glove));
+    lseg([-.02, -.03, .04], [-.06, -.1, .14], GM.cuff, .066);
+    lseg([-.06, -.1, .14], [-.22 - lh[0], -.44 - lh[1], .55 - lh[2]], GM.sleeve, .085);
+    // the thing the hand brings in during a reload
+    const rt = RL_TYPE[id] || 'mag', item = new THREE.Group();
+    const round = (r, l, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 8), mat); m.position.set(x, y, z); m.rotation.x = rx; item.add(m); return m; };
+    if (rt === 'stripper') {
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(.012, .008, .06), GM.brass); fr.position.y = .0; item.add(fr);
+      for (let i = 0; i < 5; i++) round(.0055, .06, GM.brass, 0, .032, -.024 + i * .012);
+      item.position.set(0, .035, 0);
+    } else if (rt === 'shells') {
+      round(.011, .05, GM.shell, 0, 0, 0, Math.PI / 2); round(.0115, .012, GM.brass, 0, 0, .025, Math.PI / 2);
+      item.position.set(0, .035, -.02);
+    } else if (rt === 'break') {
+      for (const x of [-.016, .016]) { round(.011, .05, GM.shell, x, 0, 0, Math.PI / 2); round(.0115, .012, GM.brass, x, 0, .025, Math.PI / 2); }
+      item.position.set(0, .04, 0);
+    } else if (rt === 'revolver') {
+      const sl = new THREE.Mesh(new THREE.CylinderGeometry(.028, .028, .02, 12), st); sl.rotation.x = Math.PI / 2; item.add(sl);
+      for (let i = 0; i < 6; i++) round(.006, .03, GM.brass, Math.cos(i * 1.047) * .017, Math.sin(i * 1.047) * .017, -.022, Math.PI / 2);
+      item.position.set(0, .04, -.02);
+    }
+    item.visible = false; lhand.add(item); ud.item = item;
+    // visible charging handle that racks on empty reloads
+    const cp = CHARGE[id];
+    if (cp) {
+      const ch = new THREE.Mesh(new THREE.BoxGeometry(cp[1] > .055 && Math.abs(cp[0]) < .01 ? .02 : .02, .012, .022), st);
+      ch.position.set(cp[0] + Math.sign(cp[0]) * .01, cp[1], cp[2]); g.add(ch); ud.charge = ch; ud.chargeZ = ch.position.z; ud.cp = cp;
+    }
+    if (mag) {
+      const bb = new THREE.Box3().setFromObject(mag), sz = bb.getSize(new THREE.Vector3());
+      ud.magSide = id === 'fg42' || id === 'type100';
+      ud.magHalf = ud.magSide ? sz.x / 2 : sz.y / 2;
+      ud.magCenter = bb.getCenter(new THREE.Vector3()).toArray();
+    }
+  }
+  g.userData = ud;
   g.traverse(m => { if (m.isMesh) m.castShadow = false; });
   return g;
 }
@@ -1131,7 +1201,7 @@ function newPlayer() {
     hp: 100, maxHp: 100, lastHurt: -10, invuln: 0, points: 500,
     weapons: [{ id: 'm1911', up: false, mag: 8, res: 80 }], cur: 0,
     perks: new Set(), grenades: 2, stamina: 1, sprinting: false,
-    fireCD: 0, fireDur: 1, reloadT: 0, reloadDur: 0, swapT: 0, knifeT: 0, upgradeT: 0, rebuildT: 0,
+    fireCD: 0, fireDur: 1, rl: null, rlG: [0, 0, 0, 0, 0, 0], rlH: null, reloadT: 0, reloadDur: 0, swapT: 0, knifeT: 0, upgradeT: 0, rebuildT: 0,
     ads: 0, bobT: 0, lastStep: 0, recoil: 0, recoilYaw: 0, kick: 0, onGround: true, nadeCD: 0, reloadSnd: 0,
   };
 }
@@ -1221,7 +1291,7 @@ function giveWeapon(id) {
   equip();
 }
 function equip() {
-  player.reloadT = 0; player.swapT = .5;
+  cancelReload(); player.swapT = .5;
   if (vmRoot.userData.gun) vmRoot.remove(vmRoot.userData.gun);
   const w = curW(), g = buildGun(w.id, w.up, true);
   vmRoot.add(g); vmRoot.userData.gun = g;
@@ -1330,7 +1400,7 @@ function useInteract(it) {
         else if (b.state === 'ready') { giveWeapon(b.result); SFX.pickup(); b.state = 'idle'; clearBoxDisplay(); }
       } else if (p.type === 'U') {
         if (!power || curW().up || player.upgradeT > 0) return;
-        if (spend(5000)) { player.upgradeT = 3.2; player.reloadT = 0; SFX.upgrade(); }
+        if (spend(5000)) { player.upgradeT = 3.2; cancelReload(); SFX.upgrade(); }
       } else if (p.type === 'X') {
         if (!power) { setPower(true); SFX.power(); announce('POWER ON', '#ffcc33', 3); flashScreen(.5); }
       }
@@ -1887,11 +1957,173 @@ function updateGrenades(dt) {
   }
 }
 function obstacleAt(x, z) { for (const o of obstacles) if (x > o.minx && x < o.maxx && z > o.minz && z < o.maxz) return true; return false; }
+/* ---------- keyframed reload animations ----------
+   Each reload is a list of phases; every phase eases the viewmodel pose from the previous
+   phase's target to its own. Pose: g = gun offset [x,y,z,rx,ry,rz], h = left hand position,
+   m = magazine offset, mv/xv = magazine / hand item visible, b/br = bolt or charging handle
+   travel/rotation, c = cover / cylinder / barrel hinge, pu = pump travel. */
+const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+const v3 = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+const g6 = (a, d) => a.map((v, i) => v + (d[i] || 0));
+function restPose(ud) { return { g: [0, 0, 0, 0, 0, 0], h: ud.lhRest.slice(), m: [0, 0, 0], mv: 1, xv: 0, b: 0, br: 0, c: 0, pu: 0 }; }
+function vmDebris(src, vx, vy, vz, spin = 6) {
+  if (!src) return;
+  src.updateMatrixWorld(true);
+  const m = src.clone(true); src.matrixWorld.decompose(m.position, m.quaternion, m.scale); m.visible = true;
+  vmScene.add(m); debris.push({ m, vx, vy, vz, sx: (Math.random() - .5) * spin, sz: (Math.random() - .5) * spin, life: 1 });
+}
+function shellDebris(n, color, x, y, z) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .03, 6), color === 'red' ? GM.shell : GM.brass);
+    m.position.set(x, y, z);
+    vmScene.add(m); debris.push({ m, vx: (Math.random() - .5) * .3, vy: -.2 - Math.random() * .3, vz: .1 + Math.random() * .2, sx: (Math.random() - .5) * 12, sz: (Math.random() - .5) * 12, life: 1 });
+  }
+}
+const debris = [];
+function buildReloadPlan(w, s, ud, empty) {
+  const id = w.id, type = RL_TYPE[id] || 'mag', rest = restPose(ud), phases = [];
+  const quick = player.perks.has('quick') ? .5 : 1;
+  const start = Object.assign({}, rest, { g: rest.g.slice(), h: rest.h.slice(), m: rest.m.slice() });
+  if (type === 'garand' && empty) start.mv = 0;
+  let cur = start;
+  const ph = (dur, o, ev = {}) => { cur = Object.assign({}, cur, o); phases.push(Object.assign({ dur, to: cur }, ev)); };
+  const off = (cp) => cp[0] < -.01 ? [-.035, 0, 0] : cp[0] > .01 ? [.035, 0, 0] : [0, .035, .0];
+  const back = () => ph(.15, { g: rest.g, h: rest.h, xv: 0 });
+  let total = s.reload * quick, absolute = false;
+  const charge = (tilt) => {
+    const cp = ud.cp; if (!cp) return;
+    const hp = v3(cp, off(cp));
+    ph(.1, { g: g6(tilt, [0, 0, 0, -.05, -.12, cp[0] > .01 ? .6 : .25]), h: hp });
+    ph(.08, { b: .055, h: v3(hp, [0, 0, .055]) }, { start: () => SFX.rack() });
+    ph(.05, { b: 0, h: hp });
+  };
+  if (type === 'mag') {
+    const pistol = s.kind === 'pistol';
+    const md = ud.magSide ? [-1, 0, 0] : [0, -1, 0];
+    const mc = ud.magCenter || ud.lhRest, gp = v3(mc, md, (ud.magHalf || .04) + .028);
+    const lift = Math.max(0, (ud.magHalf || .04) * 2 - .06) * .9;
+    const tilt = pistol ? [-.04, .1, -.03, .25, .2, -.3] : ud.magSide ? [-.04, .04, -.02, .06, .18, -.12] : [-.04, .045 + lift * .45, -.04, .06, .2, -.36];
+    ph(.14, { g: tilt, h: gp });
+    ph(.12, { m: md.map(v => v * .1), h: v3(gp, md, .1) }, { start: () => SFX.magOut() });
+    ph(.14, { mv: 0, h: [-.28, -.5, .2] }, { start: () => { vmDebris(ud.mag, -.1, -.5, .05); } });
+    ph(.17, { mv: 1, m: md.map(v => v * .13), h: v3(gp, md, .13) });
+    ph(.1, { m: [0, 0, 0], h: gp }, { end: () => { applyReload(); SFX.magIn(); } });
+    ph(.06, { g: g6(tilt, [0, .014, 0, .07, 0, 0]) }, { start: () => SFX.slap() });
+    if (empty && !pistol && ud.cp) { charge(tilt); total *= 1.25; }
+    else if (empty && pistol) { ph(.07, { g: g6(tilt, [0, 0, 0, -.08, 0, -.1]) }, { start: () => SFX.boltClose() }); total *= 1.1; }
+    back();
+  } else if (type === 'garand') {
+    const mb = ud.magBase.toArray();
+    const tilt = [-.05, .03, .04, .08, .16, .3];
+    ph(.14, { g: tilt, h: [-.14, .12, .05] });
+    if (!empty) ph(.1, { mv: 0 }, { start: () => { vmDebris(ud.mag, .05, 1.1, .1, 10); SFX.ping(); } });
+    ph(.18, { mv: 1, m: [0, .11, 0], h: v3(mb, [0, .15, 0]) });
+    ph(.14, { m: [0, 0, 0], h: v3(mb, [0, .045, 0]) }, { end: () => { applyReload(); SFX.magIn(); } });
+    ph(.07, { h: [-.12, .18, .02] });
+    ph(.07, { g: g6(tilt, [0, .01, .015, .1, 0, 0]) }, { start: () => SFX.boltClose() });
+    back();
+  } else if (type === 'stripper') {
+    const tilt = [-.05, .03, .04, .06, .16, .28];
+    ph(.12, { g: tilt, h: [-.12, -.25, -.05] });
+    ph(.07, { br: 1.2 }, { start: () => SFX.boltUp() });
+    ph(.08, { b: .07 }, { start: () => SFX.boltBack() });
+    ph(.15, { xv: 1, h: [-.01, .085, -.06] });
+    ph(.2, { h: [-.01, .045, -.06] }, { end: () => { applyReload(); SFX.magIn(); } });
+    ph(.07, { xv: 0, h: [-.09, .14, -.04] }, { start: () => vmDebris(ud.item && ud.item.children[0], -.2, .6, 0, 10) });
+    ph(.07, { b: 0, h: v3(rest.h, [-.05, -.06, 0]) });
+    ph(.06, { br: 0 }, { start: () => SFX.boltClose() });
+    back();
+  } else if (type === 'shells') {
+    absolute = true;
+    const need = Math.min(statsOf(w).mag - w.mag, w.res);
+    const port = [0, -.06, -.02];
+    const tilt = [-.05, .03, .04, .1, .18, -.5];
+    ph(.3, { g: tilt, h: [-.1, -.22, .05] });
+    for (let i = 0; i < need; i++) {
+      ph(.13, { xv: 0, h: [-.1, -.22, .05] });
+      ph(.24, { xv: 1, h: port }, { end: loadShell });
+    }
+    if (empty) {
+      ph(.14, { xv: 0, g: [0, 0, 0, 0, 0, 0], h: rest.h });
+      ph(.12, { pu: .08, h: v3(rest.h, [0, 0, .08]) }, { start: () => SFX.pumpNow() });
+      ph(.1, { pu: 0, h: rest.h });
+    }
+    back();
+    phases.forEach(p => p.dur *= quick);
+  } else if (type === 'break') {
+    const tilt = [-.05, .04, .04, -.18, .18, .22];
+    ph(.12, { g: tilt, h: v3(rest.h, [0, -.03, .02]) });
+    ph(.1, { c: .6, h: v3(rest.h, [0, -.1, .06]) }, { start: () => SFX.breakAct() });
+    ph(.08, {}, { start: () => { shellDebris(2, 'red', vmRoot.position.x, vmRoot.position.y + .05, vmRoot.position.z - .05); } });
+    ph(.12, { h: [-.22, -.42, .15] });
+    ph(.17, { xv: 1, h: [0, .01, .03] });
+    ph(.12, { h: [0, -.015, -.01] }, { end: () => { applyReload(); SFX.shellIn(); } });
+    ph(.08, { xv: 0, c: 0, g: g6(tilt, [0, .01, 0, .3, 0, 0]), h: v3(rest.h, [0, -.03, .02]) }, { start: () => SFX.breakAct() });
+    back();
+  } else if (type === 'revolver') {
+    const tilt = [-.05, .03, .03, .12, .18, -.4];
+    ph(.12, { g: tilt });
+    ph(.1, { m: [-.045, -.012, 0], h: v3(rest.h, [-.02, .02, -.04]) }, { start: () => SFX.cyl() });
+    ph(.13, { g: [-.07, .06, .02, .9, .3, -.3], h: [-.08, -.1, .08] }, { end: () => { shellDebris(6, 'brass', vmRoot.position.x - .03, vmRoot.position.y, vmRoot.position.z + .02); SFX.casings(); } });
+    ph(.1, { g: tilt, h: [-.22, -.42, .15] });
+    ph(.17, { xv: 1, h: [-.045, -.075, .07] });
+    ph(.12, { h: [-.045, -.055, .04] }, { end: () => { applyReload(); SFX.magIn(); } });
+    ph(.08, { xv: 0, m: [0, 0, 0], g: [-.04, .02, .02, .1, .2, .2], h: rest.h }, { start: () => SFX.cyl() });
+    back();
+  } else if (type === 'belt') {
+    const mb = ud.magBase.toArray(), cvp = [0, .09, -.06];
+    const tilt = [-.05, .03, .04, .06, .16, .28];
+    ph(.1, { g: tilt, h: v3(cvp, [-.02, .02, 0]) });
+    ph(.08, { c: 1.3, h: v3(cvp, [-.02, .1, .03]) }, { start: () => SFX.coverAct() });
+    ph(.1, { h: v3(mb, [-.06, 0, 0]) });
+    ph(.1, { m: [-.05, -.08, 0], h: v3(mb, [-.11, -.08, 0]) }, { start: () => SFX.magOut() });
+    ph(.12, { mv: 0, h: [-.3, -.48, .15] }, { start: () => vmDebris(ud.mag, -.2, -.5, .05) });
+    ph(.16, { mv: 1, m: [-.05, -.08, 0], h: v3(mb, [-.11, -.08, 0]) });
+    ph(.1, { m: [0, 0, 0], h: v3(mb, [-.06, 0, 0]) }, { end: () => SFX.magIn() });
+    ph(.12, { h: v3(cvp, [-.01, .035, 0]) });
+    ph(.07, { c: 0, g: g6(tilt, [0, .012, 0, .06, 0, 0]), h: v3(cvp, [-.02, .07, .02]) }, { start: () => SFX.coverAct(), end: applyReload });
+    if (empty) { charge(tilt); total *= 1.1; }
+    back();
+  }
+  if (!absolute) { const sum = phases.reduce((a, p) => a + p.dur, 0); phases.forEach(p => p.dur *= total / sum); }
+  return { type, phases, start, t: 0, idx: 0, applied: false, total: phases.reduce((a, p) => a + p.dur, 0) };
+}
+function samplePlan(rl) {
+  let t = rl.t, from = rl.start, i = 0;
+  for (; i < rl.phases.length - 1 && t > rl.phases[i].dur; i++) { t -= rl.phases[i].dur; from = rl.phases[i].to; }
+  const ph = rl.phases[i], to = ph.to, k = ease(t / ph.dur);
+  const L = (a, b) => a + (b - a) * k, LA = (a, b) => a.map((v, j) => L(v, b[j]));
+  return { g: LA(from.g, to.g), h: LA(from.h, to.h), m: LA(from.m, to.m), mv: to.mv, xv: to.xv, b: L(from.b, to.b), br: L(from.br, to.br), c: L(from.c, to.c), pu: L(from.pu, to.pu) };
+}
 function startReload() {
+  const w = curW(), s = statsOf(w), P = player;
+  if (P.rl || w.mag >= s.mag || w.res <= 0 || !vmRoot.userData.gun) return;
+  P.rl = buildReloadPlan(w, s, vmRoot.userData.gun.userData, w.mag === 0);
+  if (P.rl.phases[0].start) P.rl.phases[0].start();
+  P.reloadT = P.reloadDur = P.rl.total;
+}
+function advanceReload(dt) {
+  const P = player, rl = P.rl; if (!rl) return;
+  rl.t += dt;
+  let acc = 0;
+  for (let i = 0; i < rl.phases.length; i++) {
+    acc += rl.phases[i].dur;
+    if (i < rl.idx) continue;
+    if (rl.t >= acc) {
+      if (rl.phases[i].end) rl.phases[i].end();
+      rl.idx = i + 1;
+      if (rl.phases[i + 1] && rl.phases[i + 1].start) rl.phases[i + 1].start();
+    } else break;
+  }
+  P.reloadT = Math.max(0, rl.total - rl.t);
+  if (rl.idx >= rl.phases.length) cancelReload();
+}
+function cancelReload() { if (player) { player.rl = null; player.reloadT = 0; } }
+function applyReload() { finishReload(); if (player.rl) player.rl.applied = true; }
+function loadShell() {
   const w = curW(), s = statsOf(w);
-  if (player.reloadT > 0 || w.mag >= s.mag || w.res <= 0) return;
-  player.reloadDur = s.reload * (player.perks.has('quick') ? .5 : 1);
-  player.reloadT = player.reloadDur; player.reloadSnd = 0; SFX.reloadOut();
+  if (w.res > 0 && w.mag < s.mag) { w.mag++; w.res--; SFX.shellIn(); }
+  if (player.rl) player.rl.applied = true;
 }
 function finishReload() {
   const w = curW(), s = statsOf(w), need = s.mag - w.mag, take = Math.min(need, w.res);
@@ -2030,19 +2262,17 @@ function update(dt) {
       equip(); announce(us.name.toUpperCase(), '#d58cff', 2.5); SFX.pickup();
     }
   }
-  if (P.reloadT > 0) {
-    P.reloadT -= dt;
-    if (P.reloadSnd === 0 && P.reloadT < P.reloadDur * .35) { P.reloadSnd = 1; SFX.reloadIn(); }
-    if (P.reloadT <= 0) finishReload();
-  }
+  advanceReload(dt);
+  // reload cancel: once the new rounds are in (or at least one shell), firing ends the animation early
+  if (P.rl && mouseL && !triggerLatch && w.mag > 0 && P.rl.applied) cancelReload();
   if (swapReq && P.weapons.length > 1 && P.upgradeT <= 0) {
     const ni = swapReq === 99 ? (P.cur + 1) % P.weapons.length : swapReq - 1;
     if (ni !== P.cur && ni < P.weapons.length) { P.cur = ni; equip(); }
   }
   swapReq = 0;
-  const busy = P.swapT > 0 || P.knifeT > 0 || P.upgradeT > 0 || P.reloadT > 0;
+  const busy = P.swapT > 0 || P.knifeT > 0 || P.upgradeT > 0 || !!P.rl;
   if (rPressed) startReload();
-  if (vPressed && P.knifeT <= 0 && P.upgradeT <= 0) { P.reloadT = 0; knife(); }
+  if (vPressed && P.knifeT <= 0 && P.upgradeT <= 0) { cancelReload(); knife(); }
   if (gPressed && P.upgradeT <= 0) throwGrenade();
   const adsWant = mouseR && !P.sprinting && P.reloadT <= 0 && P.swapT <= 0 && P.upgradeT <= 0 && P.knifeT <= 0;
   P.ads += ((adsWant ? 1 : 0) - P.ads) * Math.min(1, dt * 11);
@@ -2052,7 +2282,7 @@ function update(dt) {
     else if (!triggerLatch) { SFX.click(); triggerLatch = true; }
   }
   if (!mouseL) triggerLatch = false;
-  if (w.mag === 0 && w.res > 0 && P.reloadT <= 0 && !busy && !mouseL) startReload();
+  if (w.mag === 0 && w.res > 0 && !P.rl && !busy && !mouseL && P.fireCD <= 0) startReload();
   P.recoil *= Math.max(0, 1 - dt * 9);
   P.recoilYaw *= Math.max(0, 1 - dt * 7);
   // ---- interactions
@@ -2162,23 +2392,47 @@ function updateVisuals(dt) {
   let rx = P.kick * (heavy ? .14 : .04), ry = -swayX * 2.5, rz = -swayX * 3;
   if (P.sprinting) { pos.x -= .02; pos.y -= .06; ry += .75; rx -= .3; rz += .2; }
   if (P.swapT > 0) { pos.y -= Math.min(1, P.swapT / .3) * .35; rx -= Math.min(1, P.swapT / .3) * .6; }
-  if (ud.mag) { ud.mag.position.copy(ud.magBase); ud.mag.visible = true; }
-  if (P.reloadT > 0) {
-    const pr = 1 - P.reloadT / P.reloadDur, k = Math.sin(pr * Math.PI);
-    rx -= k * .35; rz += k * .45; pos.y -= k * .06; pos.x -= k * .03;
-    if (ud.mag) {
-      if (pr < .35) ud.mag.position.y = ud.magBase.y - (pr / .35) * .3;
-      else if (pr < .55) ud.mag.visible = false;
-      else if (pr < .85) ud.mag.position.y = ud.magBase.y - (1 - (pr - .55) / .3) * .3;
-    } else if (ud.bolt) ud.bolt.rotation.z = Math.min(1, k * 2) * 1.2;
-  } else if (ud.bolt) {
-    const pr = P.fireDur > 0 ? 1 - Math.max(0, P.fireCD) / P.fireDur : 1;
-    const k = pr > .2 && pr < .95 ? Math.sin((pr - .2) / .75 * Math.PI) : 0;
-    ud.bolt.rotation.z = Math.min(1, k * 2) * 1.2; ud.bolt.position.z = .045 + k * .07; rz += k * .15;
+  const rp = P.rl && ud.lhand ? samplePlan(P.rl) : null;
+  const cw = curW();
+  if (ud.lhand) {
+    // ease toward the sampled pose so a cancelled reload glides back instead of snapping
+    const tg = rp ? rp.g : [0, 0, 0, 0, 0, 0], th = rp ? rp.h : ud.lhRest, kk = 1 - Math.exp(-dt * 30);
+    if (!P.rlH || P.rlH.length !== 3) P.rlH = ud.lhRest.slice();
+    for (let i = 0; i < 6; i++) P.rlG[i] += (tg[i] - P.rlG[i]) * kk;
+    for (let i = 0; i < 3; i++) P.rlH[i] += (th[i] - P.rlH[i]) * kk;
+    pos.x += P.rlG[0]; pos.y += P.rlG[1]; pos.z += P.rlG[2]; rx += P.rlG[3]; ry += P.rlG[4]; rz += P.rlG[5];
+    ud.lhand.position.set(P.rlH[0], P.rlH[1], P.rlH[2]);
+    if (ud.item) ud.item.visible = !!(rp && rp.xv);
   }
+  if (ud.mag) {
+    ud.mag.position.copy(ud.magBase);
+    if (rp) { ud.mag.position.x += rp.m[0]; ud.mag.position.y += rp.m[1]; ud.mag.position.z += rp.m[2]; ud.mag.visible = !!rp.mv; }
+    else ud.mag.visible = ud.id !== 'garand' || cw.mag > 0;
+  }
+  if (ud.bolt) {
+    if (rp) { ud.bolt.rotation.z = rp.br; ud.bolt.position.z = .045 + rp.b; }
+    else {
+      const pr = P.fireDur > 0 ? 1 - Math.max(0, P.fireCD) / P.fireDur : 1;
+      const k = pr > .2 && pr < .95 ? Math.sin((pr - .2) / .75 * Math.PI) : 0;
+      ud.bolt.rotation.z = Math.min(1, k * 2) * 1.2; ud.bolt.position.z = .045 + k * .07; rz += k * .15;
+    }
+  }
+  if (ud.charge) ud.charge.position.z = ud.chargeZ + (rp ? rp.b : P.kick * .02);
+  if (ud.slide) ud.slide.position.z = ud.slideZ + Math.max(cw.mag === 0 && !(P.rl && P.rl.applied) ? .045 : 0, P.kick * .035);
+  if (ud.cover) ud.cover.rotation.x = rp ? rp.c : 0;
+  if (ud.barrels) ud.barrels.rotation.x = rp ? -rp.c : 0;
   if (ud.pump) {
-    const pr = P.fireDur > 0 ? 1 - Math.max(0, P.fireCD) / P.fireDur : 1;
-    ud.pump.position.z = -.25 + (pr > .25 && pr < .9 ? Math.sin((pr - .25) / .65 * Math.PI) * .08 : 0);
+    if (rp) ud.pump.position.z = -.25 + rp.pu;
+    else {
+      const pr = P.fireDur > 0 ? 1 - Math.max(0, P.fireCD) / P.fireDur : 1;
+      ud.pump.position.z = -.25 + (pr > .25 && pr < .9 ? Math.sin((pr - .25) / .65 * Math.PI) * .08 : 0);
+    }
+  }
+  for (let i = debris.length - 1; i >= 0; i--) {
+    const d = debris[i]; d.life -= dt; d.vy -= 3.5 * dt;
+    d.m.position.x += d.vx * dt; d.m.position.y += d.vy * dt; d.m.position.z += d.vz * dt;
+    d.m.rotation.x += d.sx * dt; d.m.rotation.z += d.sz * dt;
+    if (d.life <= 0) { vmScene.remove(d.m); debris.splice(i, 1); }
   }
   if (P.upgradeT > 0) pos.y -= .45;
   if (P.knifeT > 0) { const k = Math.sin((1 - P.knifeT / .45) * Math.PI); pos.x -= k * .22; pos.z -= k * .12; rz += k * 1.1; ry -= k * .4; }
@@ -2319,7 +2573,7 @@ requestAnimationFrame(loop);
 window.__dr = { get state() { return state; }, get player() { return player; }, get zombies() { return zombies; }, get round() { return round; },
   startGame, equip, step: (n = 60, dt = 1 / 60, draw = true) => { for (let i = 0; i < n; i++) { if (state === 'playing') { update(dt); updateHUD(dt); } updateVisuals(dt); } if (draw) render(); },
   input: { keys, set mouseL(v) { mouseL = v; }, set mouseR(v) { mouseR = v; }, press(k) { if (k === 'F') fPressed = true; if (k === 'R') rPressed = true; if (k === 'V') vPressed = true; if (k === 'G') gPressed = true; } },
-  setPower, doors, windows, mysteryBox, props, hasPost: !!composer };
+  clearZombies() { toSpawn = 0; spawnT = 1e9; for (const z of zombies) scene.remove(z.m.g); zombies = []; }, setPower, doors, windows, mysteryBox, props, hasPost: !!composer };
 })();
 </script>
 </body>
