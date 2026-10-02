@@ -1611,7 +1611,7 @@ function startGame() {
 function gameOver() {
   state = 'over';
   SFX.down();
-  const best = Math.max(round, +(localStorage.getItem('dr_best') || 0));
+  const best = Math.max(round, readBest());
   try { localStorage.setItem('dr_best', best); } catch (e) {}
   $('overSub').textContent = `YOU SURVIVED ${round} ROUND${round === 1 ? '' : 'S'}`;
   $('overStats').innerHTML = `Kills: <span>${stats.kills}</span> &nbsp; Headshots: <span>${stats.heads}</span><br>Points earned: <span>${stats.pointsTotal}</span>`;
@@ -1626,7 +1626,8 @@ function toMenu() {
   state = 'menu'; $('pause').classList.add('hidden'); $('over').classList.add('hidden'); $('hud').classList.add('hidden');
   $('menu').classList.remove('hidden'); showBest();
 }
-function showBest() { const b = +(localStorage.getItem('dr_best') || 0); $('bestMenu').textContent = b ? 'BEST: ROUND ' + b : ''; }
+function readBest() { try { return +(localStorage.getItem('dr_best') || 0); } catch (e) { return 0; } }
+function showBest() { const b = readBest(); $('bestMenu').textContent = b ? 'BEST: ROUND ' + b : ''; }
 
 $('playBtn').onclick = startGame;
 $('againBtn').onclick = startGame;
