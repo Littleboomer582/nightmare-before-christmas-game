@@ -147,15 +147,19 @@ const pick = arr => arr[Math.random() * arr.length | 0];
 /* =====================================================================
    RENDERER / SCENES
    ===================================================================== */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.autoClear = false;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.prepend(renderer.domElement);
 
+const FOG_COL = 0x151a20;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x06070b);
-scene.fog = new THREE.FogExp2(0x06070b, 0.055);
+scene.background = new THREE.Color(FOG_COL);
+scene.fog = new THREE.FogExp2(FOG_COL, 0.05);
+renderer.setClearColor(FOG_COL);
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 200);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
@@ -164,15 +168,89 @@ scene.add(camera);
 const gunScene = new THREE.Scene();
 const gunCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 10);
 gunScene.add(gunCam);
-gunScene.add(new THREE.AmbientLight(0xffffff, 0.45));
-const gunSun = new THREE.DirectionalLight(0xfff0dd, 0.7); gunSun.position.set(1, 2, 1); gunScene.add(gunSun);
+const gunAmb = new THREE.AmbientLight(0xc8d0e0, 0.24); gunScene.add(gunAmb);
+const gunSun = new THREE.DirectionalLight(0xffe2c0, 0.45); gunSun.position.set(1, 2, 1); gunScene.add(gunSun);
+const gunRim = new THREE.DirectionalLight(0x6f8cc8, 0.5); gunRim.position.set(-1, 1, -2); gunScene.add(gunRim);
 const gunFlashLight = new THREE.PointLight(0xffb050, 0, 3); gunFlashLight.position.set(0.2, 0, -0.9); gunCam.add(gunFlashLight);
 
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = gunCam.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix(); gunCam.updateProjectionMatrix();
+  Post.size();
 });
+
+/* =====================================================================
+   POST-PROCESSING: bloom, filmic tone curve, gritty colour grade,
+   chromatic fringe, vignette, film grain, damage tint
+   ===================================================================== */
+const Post = (() => {
+  const gl2 = renderer.capabilities.isWebGL2;
+  const mk = (w, h, main) => {
+    const o = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: !!main, stencilBuffer: false };
+    if (main && gl2 && THREE.WebGLMultisampleRenderTarget) { const t = new THREE.WebGLMultisampleRenderTarget(w, h, o); t.samples = 4; return t; }
+    return new THREE.WebGLRenderTarget(w, h, o);
+  };
+  const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quadScene = new THREE.Scene();
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)); quad.frustumCulled = false; quadScene.add(quad);
+  const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+  const sm = (uniforms, fs) => new THREE.ShaderMaterial({ uniforms, vertexShader: vs, fragmentShader: fs, depthTest: false, depthWrite: false });
+  const bright = sm({ tDiffuse: { value: null } }, `
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; float l = max(c.r, max(c.g, c.b));
+      gl_FragColor = vec4(c * smoothstep(.62, 1.05, l), 1.0); }`);
+  const blur = sm({ tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } }, `
+    uniform sampler2D tDiffuse; uniform vec2 uDir; varying vec2 vUv;
+    void main(){ vec3 s = texture2D(tDiffuse, vUv).rgb * .227027;
+      s += (texture2D(tDiffuse, vUv + uDir * 1.3846).rgb + texture2D(tDiffuse, vUv - uDir * 1.3846).rgb) * .316216;
+      s += (texture2D(tDiffuse, vUv + uDir * 3.2308).rgb + texture2D(tDiffuse, vUv - uDir * 3.2308).rgb) * .070270;
+      gl_FragColor = vec4(s, 1.0); }`);
+  const final = sm({ tDiffuse: { value: null }, tBloom: { value: null }, tBloom2: { value: null },
+      uTime: { value: 0 }, uDamage: { value: 0 }, uLow: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) } }, `
+    uniform sampler2D tDiffuse, tBloom, tBloom2; uniform float uTime, uDamage, uLow; uniform vec2 uRes; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    vec3 aces(vec3 x){ return clamp((x * (2.51 * x + .03)) / (x * (2.43 * x + .59) + .14), 0., 1.); }
+    void main(){
+      vec2 d = vUv - .5; float r = length(d);
+      vec2 off = d * r * .012;
+      vec3 c = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
+      c += texture2D(tBloom, vUv).rgb * .6 + texture2D(tBloom2, vUv).rgb * .7;
+      c = aces(c * 1.3);
+      float l = dot(c, vec3(.299, .587, .114));
+      c = mix(vec3(l), c, .68 - uLow * .55);                 // washed-out, desaturated look
+      c += vec3(-.012, .01, .032) * (1. - l) * (1. - l);      // cold teal shadows
+      c += vec3(.06, .03, -.025) * l * l;                     // warm sodium highlights
+      c = (c - .5) * 1.12 + .5;
+      float edge = smoothstep(.2, .78, r);
+      c = mix(c, vec3(.32, .0, .0), edge * uDamage);          // blood-red screen edges when hurt
+      c *= 1. - smoothstep(.3, .95, r) * .6;                   // vignette
+      c += (hash(vUv * uRes + fract(uTime * 7.31) * 113.) - .5) * .065;   // film grain
+      c += (hash(vec2(floor(uTime * 24.), 3.)) - .5) * .012;   // subtle exposure flicker
+      gl_FragColor = vec4(clamp(c, 0., 1.), 1.);
+    }`);
+  let rtMain, rtH1, rtH2, rtQ1, rtQ2;
+  function size() {
+    const pr = renderer.getPixelRatio(), w = Math.max(4, Math.floor(innerWidth * pr)), h = Math.max(4, Math.floor(innerHeight * pr));
+    [rtMain, rtH1, rtH2, rtQ1, rtQ2].forEach(t => t && t.dispose());
+    rtMain = mk(w, h, true); rtH1 = mk(w >> 1, h >> 1); rtH2 = mk(w >> 1, h >> 1); rtQ1 = mk(w >> 2, h >> 2); rtQ2 = mk(w >> 2, h >> 2);
+    final.uniforms.uRes.value.set(w, h);
+  }
+  size();
+  function pass(m, target) { quad.material = m; renderer.setRenderTarget(target); renderer.render(quadScene, quadCam); }
+  function blurPass(src, dst, dx, dy) { blur.uniforms.tDiffuse.value = src.texture; blur.uniforms.uDir.value.set(dx, dy); pass(blur, dst); }
+  function render(draw, time, damage, low) {
+    renderer.setRenderTarget(rtMain); renderer.clear(); draw();
+    bright.uniforms.tDiffuse.value = rtMain.texture; pass(bright, rtH1);
+    blurPass(rtH1, rtH2, 1 / rtH1.width, 0); blurPass(rtH2, rtH1, 0, 1 / rtH1.height);
+    blurPass(rtH1, rtQ1, 2 / rtQ1.width, 0); blurPass(rtQ1, rtQ2, 0, 2 / rtQ1.height);
+    const u = final.uniforms;
+    u.tDiffuse.value = rtMain.texture; u.tBloom.value = rtH1.texture; u.tBloom2.value = rtQ2.texture;
+    u.uTime.value = time; u.uDamage.value = damage; u.uLow.value = low;
+    pass(final, null);
+  }
+  return { render, size };
+})();
 
 /* =====================================================================
    PROCEDURAL TEXTURES
@@ -222,6 +300,45 @@ const T = {
   dirt: (rx, ry) => canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = '#1c1a15'; g.fillRect(0, 0, w, h); speckle(g, w, h, 9000, 0.12); stains(g, w, h, 12, 'rgba(40,35,20,0.4)');
   }, rx, ry),
+  // one texture = 2.5 m of wall, full 4 m height: green ceramic wainscot below, stained plaster above
+  depotWall: () => canvasTex(512, 512, (g, w, h) => {
+    const band = h * .7;   // v=0 is the floor; canvas y grows downward
+    g.fillStyle = '#8f8a78'; g.fillRect(0, 0, w, band);
+    speckle(g, w, band, 9000, .09);
+    for (let i = 0; i < 26; i++) {   // water streaks running down from the ceiling
+      const x = Math.random() * w, len = rand(40, band * .9), gr = g.createLinearGradient(0, 0, 0, len);
+      gr.addColorStop(0, 'rgba(60,45,25,.35)'); gr.addColorStop(1, 'rgba(60,45,25,0)');
+      g.fillStyle = gr; g.fillRect(x, 0, rand(3, 14), len);
+    }
+    stains(g, w, band, 8, 'rgba(70,60,40,.18)');
+    g.strokeStyle = 'rgba(30,25,20,.45)'; g.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) { g.beginPath(); let x = Math.random() * w, y = Math.random() * band * .6; g.moveTo(x, y); for (let k = 0; k < 9; k++) { x += rand(-12, 12); y += rand(4, 16); g.lineTo(x, y); } g.stroke(); }
+    // tile wainscot
+    const ts = 32;
+    for (let y = band; y < h; y += ts) for (let x = 0; x < w; x += ts) {
+      const s = rand(-12, 12);
+      g.fillStyle = `rgb(${62 + s},${92 + s},${78 + s})`; g.fillRect(x + 1, y + 1, ts - 2, ts - 2);
+      if (Math.random() < .06) { g.fillStyle = 'rgba(20,18,15,.8)'; g.fillRect(x + 1, y + 1, ts - 2, ts - 2); }
+    }
+    g.fillStyle = '#2c3a33'; g.fillRect(0, band - 6, w, 10);
+    speckle(g, w, h - band, 3000, .08);
+    const grime = g.createLinearGradient(0, h - 70, 0, h); grime.addColorStop(0, 'rgba(15,12,8,0)'); grime.addColorStop(1, 'rgba(15,12,8,.75)');
+    g.fillStyle = grime; g.fillRect(0, h - 70, w, 70);
+    stains(g, w, h, 3, 'rgba(70,5,5,.22)');
+  }),
+  ceilingTiles: () => canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#2a2b2c'; g.fillRect(0, 0, w, h);
+    const n = 4, s = w / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const r = Math.random();
+      if (r < .1) continue;                               // missing tile: black void
+      const v = 150 + rand(-15, 15) | 0;
+      g.fillStyle = `rgb(${v},${v - 4},${v - 14})`; g.fillRect(x * s + 3, y * s + 3, s - 6, s - 6);
+      if (r > .75) { g.fillStyle = 'rgba(110,80,35,.35)'; g.beginPath(); g.arc(x * s + rand(10, s - 10), y * s + rand(10, s - 10), rand(8, 26), 0, 7); g.fill(); }
+    }
+    speckle(g, w, h, 5000, .14);
+  }),
+  sleeve: () => canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#4a4d40'; g.fillRect(0, 0, w, h); speckle(g, w, h, 900, .15); for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(0, rand(0, h), w, 2); } }),
   wood: () => canvasTex(128, 32, (g, w, h) => {
     g.fillStyle = '#6b4a2b'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 14; i++) { g.strokeStyle = `rgba(30,15,5,${rand(.15, .4)})`; g.beginPath(); g.moveTo(0, rand(0, h)); g.bezierCurveTo(40, rand(0, h), 80, rand(0, h), w, rand(0, h)); g.stroke(); }
@@ -257,10 +374,10 @@ function textTex(lines, { w = 512, h = 256, bg = null, color = '#fff', font = 'S
    ===================================================================== */
 const mat = (color, o = {}) => new THREE.MeshPhongMaterial(Object.assign({ color, shininess: 6 }, o));
 const M = {
-  floor: mat(0xffffff, { map: T.tile(12, 8) }),
-  wall: mat(0xbfb8a8, { map: T.concrete(6, 1) }),
+  floor: mat(0xd8d4cc, { map: T.tile(12, 8), shininess: 40, specular: 0x2a2a2a }),
+  wall: mat(0xc8c2b4, { map: T.depotWall() }),
   wallOut: mat(0x8c8478, { map: T.concrete(6, 1, '#5a5650') }),
-  ceiling: mat(0x3a3936, { map: T.concrete(8, 6, '#3d3b37') }),
+  ceiling: mat(0x9a968e, { map: T.ceilingTiles() }),
   asphalt: mat(0xffffff, { map: T.asphalt(9, 5) }),
   dirt: mat(0xffffff, { map: T.dirt(40, 40) }),
   wood: mat(0xffffff, { map: T.wood() }),
@@ -277,14 +394,31 @@ const M = {
   crate: mat(0x7a5a33),
   lamp: mat(0xfff2c8, { emissive: 0xffe2a0 }),
   fixture: mat(0xd8e6ff, { emissive: 0x334055 }),
+  sleeve: mat(0x9a9a90, { map: T.sleeve(), shininess: 6 }),
+  glove: mat(0x1f1d1a, { shininess: 25 }),
+  gunMetal: mat(0x1a1b1d, { shininess: 80, specular: 0x555555 }),
 };
+for (const k of ['floor', 'wall', 'wallOut', 'ceiling', 'asphalt', 'dirt', 'wood']) { M[k].bumpMap = M[k].map; M[k].bumpScale = k === 'floor' ? .015 : .035; }
+
+// Box UVs in metres so wall textures line up across segments (wainscot band stays at the same height).
+function worldUV(geo, w, h, d, y0) {
+  const uv = geo.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) {
+    const idx = f * 4 + i, [du, dv] = dims[f];
+    const v = f === 2 || f === 3 ? uv.getY(idx) * dv / 2.5 : (y0 + uv.getY(idx) * dv) / WALL_H;
+    uv.setXY(idx, uv.getX(idx) * du / 2.5, v);
+  }
+  uv.needsUpdate = true;
+}
 
 const staticMeshes = [];   // things bullets can hit
 const colliders = [];      // {minX,maxX,minZ,maxZ,minY,maxY,off}
 const navObstacles = [];   // big free-standing things zombies steer around
 
-function box(w, h, d, x, y, z, material, { collide = true, shoot = true, nav = false, parent = scene } = {}) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+function box(w, h, d, x, y, z, material, { collide = true, shoot = true, nav = false, parent = scene, uvWorld = false } = {}) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  if (uvWorld) worldUV(geo, w, h, d, y - h / 2);
+  const m = new THREE.Mesh(geo, material);
   m.position.set(x, y, z); parent.add(m);
   if (shoot) staticMeshes.push(m);
   if (collide) {
@@ -311,8 +445,8 @@ function wallRun(axis, fixed, a0, a1, gaps, material) {
   const seg = (s, e, y0, y1) => {
     if (e - s < 0.01 || y1 - y0 < 0.01) return;
     const len = e - s, mid = (s + e) / 2, h = y1 - y0, my = (y0 + y1) / 2;
-    if (axis === 'x') box(len, h, WALL_T, mid, my, fixed, material);
-    else box(WALL_T, h, len, fixed, my, mid, material);
+    if (axis === 'x') box(len, h, WALL_T, mid, my, fixed, material, { uvWorld: true });
+    else box(WALL_T, h, len, fixed, my, mid, material, { uvWorld: true });
   };
   for (const g of [...gaps].sort((p, q) => p.c - q.c)) {
     const s = g.c - g.w / 2, e = g.c + g.w / 2;
@@ -365,7 +499,7 @@ function buildMap() {
   for (let i = 0; i < 3; i++) box(3, 0.01, 0.12, -15, 0.005, 11 + i * 3, stripe, { collide: false, shoot: false });
 
   // ceiling + roof
-  box(24.3, 0.25, 16.3, 0, WALL_H + 0.12, 0, M.ceiling, { collide: false });
+  box(24.3, 0.25, 16.3, 0, WALL_H + 0.12, 0, M.ceiling, { collide: false, uvWorld: true });
   box(25, 0.5, 17, 0, WALL_H + 0.5, 0, M.wallOut, { collide: false });
 
   // walls (inside face material; it's all one slab for simplicity)
@@ -502,13 +636,122 @@ function buildMap() {
 /* =====================================================================
    LIGHTING
    ===================================================================== */
-scene.add(new THREE.HemisphereLight(0x3a4a66, 0x0d0a08, 0.32));
-const moon = new THREE.DirectionalLight(0x6f86b8, 0.25); moon.position.set(-20, 30, 10); scene.add(moon);
+scene.add(new THREE.HemisphereLight(0x3a4a66, 0x0d0a08, 0.3));
+const moon = new THREE.DirectionalLight(0x7f96c8, 0.38); moon.position.set(-18, 30, 22); scene.add(moon); scene.add(moon.target);
+moon.target.position.set(0, 0, 10);
+moon.castShadow = true;
+Object.assign(moon.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 90 });
+moon.shadow.mapSize.set(2048, 2048); moon.shadow.bias = -0.0006; moon.shadow.normalBias = 0.03;
 const interiorLights = [-7, 0, 7].map(x => { const l = new THREE.PointLight(0xdfe8ff, 0.35, 16, 1.6); l.position.set(x, 3.6, 0); scene.add(l); return l; });
 const lotLights = [[-12, 21], [12, 21]].map(([x, z]) => { const l = new THREE.PointLight(0xffb066, 1.1, 18, 1.5); l.position.set(x, 4.9, z); scene.add(l); return l; });
 const fireLight = new THREE.PointLight(0xff7a2a, 1.2, 9, 2); fireLight.position.set(9.6, 1.6, 13.8); scene.add(fireLight);
 const flashlight = new THREE.SpotLight(0xfff2d6, 0.9, 24, 0.55, 0.6, 1.4);
 flashlight.position.set(0.25, -0.2, 0); camera.add(flashlight); camera.add(flashlight.target); flashlight.target.position.set(0, 0, -1);
+flashlight.castShadow = true; flashlight.shadow.mapSize.set(1024, 1024);
+flashlight.shadow.camera.near = 0.3; flashlight.shadow.camera.far = 25; flashlight.shadow.bias = -0.0008; flashlight.shadow.normalBias = 0.02;
+
+// ---- atmosphere: light shafts, dust motes, ground fog, puddles, grime decals ----
+const shaftTex = canvasTex(8, 128, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#fff'); gr.addColorStop(.35, '#777'); gr.addColorStop(1, '#000'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+const shafts = [];
+function lightShaft(x, y, z, rTop, rBot, color, opacity) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, y, 28, 1, true),
+    new THREE.MeshBasicMaterial({ map: shaftTex, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  m.position.set(x, y / 2, z); scene.add(m); shafts.push(m); return m;
+}
+const lotShafts = [[-12, 21], [12, 21]].map(([x, z]) => lightShaft(x, 5.1, z, .3, 2.6, 0xffb066, .16));
+const roomShafts = [-7, 0, 7].flatMap(x => [-4, 3].map(z => lightShaft(x, 3.95, z, .7, 2.2, 0xcfdcff, .035)));
+
+const moteTex = canvasTex(32, 32, (g) => { const r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 32, 32); });
+const motes = (() => {
+  const n = 500, pos = new Float32Array(n * 3), vel = [];
+  for (let i = 0; i < n; i++) {
+    const inLot = i % 3 === 0;
+    pos[i * 3] = inLot ? rand(-17, 17) : rand(-11.5, 11.5);
+    pos[i * 3 + 1] = rand(.2, 3.8);
+    pos[i * 3 + 2] = inLot ? rand(9, 25) : rand(-7.5, 7.5);
+    vel.push(rand(-.05, .05), rand(-.02, .03), rand(-.05, .05));
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  // custom point shader: size capped in pixels and faded out near the lens, so motes never become blobs
+  const pts = new THREE.Points(geo, new THREE.ShaderMaterial({
+    uniforms: { tMap: { value: moteTex }, uScale: { value: innerHeight * renderer.getPixelRatio() } },
+    vertexShader: `uniform float uScale; varying float vA;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); float d = -mv.z;
+        gl_PointSize = clamp(.03 * uScale / d, 1.0, 5.0);
+        vA = smoothstep(.6, 2.0, d) * (1.0 - smoothstep(10.0, 18.0, d)) * .55;
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform sampler2D tMap; varying float vA;
+      void main(){ float a = texture2D(tMap, gl_PointCoord).a * vA; gl_FragColor = vec4(vec3(.91, .86, .75) * a, a); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  pts.frustumCulled = false;
+  scene.add(pts);
+  return { pts, pos, vel, n };
+})();
+function updateMotes(dt, t) {
+  const p = motes.pos;
+  for (let i = 0; i < motes.n; i++) {
+    p[i * 3] += (motes.vel[i * 3] + Math.sin(t * .3 + i) * .02) * dt;
+    p[i * 3 + 1] += motes.vel[i * 3 + 1] * dt;
+    p[i * 3 + 2] += motes.vel[i * 3 + 2] * dt;
+    if (p[i * 3 + 1] > 3.9) p[i * 3 + 1] = .2; else if (p[i * 3 + 1] < .1) p[i * 3 + 1] = 3.8;
+  }
+  motes.pts.geometry.attributes.position.needsUpdate = true;
+}
+
+const fogTex = canvasTex(128, 128, (g) => {
+  for (let i = 0; i < 30; i++) {
+    const x = rand(30, 98), y = rand(30, 98), r = rand(15, 40);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  }
+});
+const fogBanks = [];
+for (let i = 0; i < 34; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fogTex, color: 0x6c7886, transparent: true, opacity: rand(.12, .24), depthWrite: false }));
+  const a = Math.random() * Math.PI * 2, r = i < 12 ? rand(0, 1) : rand(14, 30);
+  if (i < 12) s.position.set(rand(-16, 16), rand(.4, 1.2), rand(10, 25)); else s.position.set(Math.cos(a) * r, rand(.4, 1.6), Math.sin(a) * r);
+  s.scale.set(rand(7, 12), rand(2.5, 4), 1); s.userData.drift = rand(-.25, .25);
+  scene.add(s); fogBanks.push(s);
+}
+
+const splatTex = canvasTex(128, 128, (g) => {
+  g.fillStyle = 'rgba(70,4,4,.85)';
+  g.beginPath(); g.arc(64, 64, 26, 0, 7); g.fill();
+  for (let i = 0; i < 18; i++) { const a = rand(0, 7), d = rand(20, 55); g.beginPath(); g.arc(64 + Math.cos(a) * d, 64 + Math.sin(a) * d, rand(3, 10), 0, 7); g.fill(); }
+});
+const decals = [];
+function decal(x, z, size, opacity = .9, life = Infinity) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshPhongMaterial({ map: splatTex, transparent: true, opacity, depthWrite: false, shininess: 60, specular: 0x331111, polygonOffset: true, polygonOffsetFactor: -2 }));
+  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, .012, z); m.receiveShadow = true;
+  scene.add(m);
+  if (life !== Infinity) { decals.push({ m, life, o: opacity }); if (decals.length > 40) { const d = decals.shift(); scene.remove(d.m); d.m.material.dispose(); } }
+  return m;
+}
+function updateDecals(dt) {
+  for (let i = decals.length - 1; i >= 0; i--) {
+    const d = decals[i]; d.life -= dt;
+    if (d.life < 4) d.m.material.opacity = d.o * Math.max(0, d.life / 4);
+    if (d.life <= 0) { scene.remove(d.m); d.m.material.dispose(); decals.splice(i, 1); }
+  }
+}
+function buildAtmosphere() {
+  const puddleMat = mat(0x07090b, { shininess: 160, specular: 0x8a8f99, transparent: true, opacity: .92 });
+  for (const [x, z, s] of [[-6, 20, 2.4], [7, 11, 1.6], [13, 24, 2], [-15, 15, 1.4], [2, 18.5, 1.2]]) {
+    const pd = new THREE.Mesh(new THREE.CircleGeometry(s, 20), puddleMat);
+    pd.rotation.x = -Math.PI / 2; pd.position.set(x, .008, z); pd.scale.set(1, rand(.5, .8), 1); pd.rotation.z = rand(0, 3); pd.receiveShadow = true;
+    scene.add(pd);
+  }
+  for (const [x, z, s] of [[-4, -6, 1.2], [6.5, -6.6, 1.6], [-10.6, .4, 1.4], [10.8, -2, 1.1], [2, 3.5, .8], [-7, 6, .9]]) decal(x, z, s, .8);
+  const paperM = mat(0xb8b2a2, { side: THREE.DoubleSide });
+  for (let i = 0; i < 40; i++) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(rand(.15, .3), rand(.2, .35)), paperM);
+    const lot = Math.random() < .4;
+    p.rotation.set(-Math.PI / 2 + rand(-.15, .15), 0, rand(0, 6));
+    p.position.set(lot ? rand(-17, 17) : rand(-11.5, 11.5), .015, lot ? rand(9, 25) : rand(-7.5, 7.5));
+    scene.add(p);
+  }
+}
 const muzzleLight = new THREE.PointLight(0xffb050, 0, 8, 2); muzzleLight.position.set(0.2, -0.1, -0.8); camera.add(muzzleLight);
 
 /* =====================================================================
@@ -645,7 +888,36 @@ function buildGun(def, up) {
   }
   if (k === 'arc') for (let i = 0; i < 4; i++) add(new THREE.TorusGeometry(.055, .012, 6, 14), glow, 0, .01, -L * .3 - i * .08);
   if (up) add(new THREE.BoxGeometry(thick + .01, .015, L * .8), new THREE.MeshBasicMaterial({ color: 0xd36bff }), 0, .045, -L / 2);
+  // detail: sights, top rail, ejection port, trigger guard
+  add(new THREE.BoxGeometry(.012, .028, .012), M.gunMetal, 0, .056, -L + .02);
+  add(new THREE.BoxGeometry(.034, .022, .02), M.gunMetal, 0, .052, -.02);
+  if (L > .3 && k !== 'shotgun') add(new THREE.BoxGeometry(thick * .6, .012, L * .55), M.gunMetal, 0, .049, -L * .4);
+  add(new THREE.BoxGeometry(.004, .025, .05), M.gunMetal, thick / 2 + .002, .015, -L * .3);
+  add(new THREE.TorusGeometry(.025, .005, 4, 10, Math.PI), M.gunMetal, 0, -.05, -.09).rotation.set(0, Math.PI / 2, Math.PI);
   g.userData.muzzle = new V3(0, .01, -L - bl);
+  return g;
+}
+
+// First-person hands: gloved hands and jacket sleeves reaching in from off-screen.
+function limbBetween(a, b, r0, r1, m) {
+  const len = a.distanceTo(b), mesh = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 12), m);
+  mesh.position.copy(a).add(b).multiplyScalar(.5);
+  mesh.quaternion.setFromUnitVectors(new V3(0, 1, 0), b.clone().sub(a).normalize());
+  return mesh;
+}
+function buildArms(def) {
+  const g = new THREE.Group(), L = def.len;
+  const oneHand = def.kind === 'pistol' || def.kind === 'cannon' || def.kind === 'plasma';
+  const rh = new V3(.012, -.105, -.035);
+  g.add(limbBetween(new V3(.2, -.42, .42), rh.clone().add(new V3(.015, -.03, .07)), .062, .048, M.sleeve));
+  g.add(limbBetween(rh.clone().add(new V3(.015, -.03, .07)), rh.clone().add(new V3(.008, -.01, .02)), .048, .042, M.glove));
+  const hand = new THREE.Mesh(new THREE.BoxGeometry(.072, .085, .1), M.glove); hand.position.copy(rh); hand.rotation.x = .3; g.add(hand);
+  const thumb = new THREE.Mesh(new THREE.BoxGeometry(.02, .02, .06), M.glove); thumb.position.set(-.04, -.06, -.06); g.add(thumb);
+  const lh = oneHand ? new V3(-.035, -.125, -.03) : new V3(-.005, -.06, -L * .68);
+  const lElbow = oneHand ? new V3(-.24, -.44, .32) : new V3(-.3, -.38, .1);
+  g.add(limbBetween(lElbow, lh.clone().add(new V3(-.03, -.04, .06)), .06, .046, M.sleeve));
+  const hand2 = new THREE.Mesh(new THREE.BoxGeometry(.08, .06, .11), M.glove); hand2.position.copy(lh); hand2.rotation.z = oneHand ? .5 : .2; g.add(hand2);
+  for (let i = 0; i < 3; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(.016, .045, .016), M.glove); f.position.set(lh.x + .045, lh.y + .015, lh.z - .03 + i * .025); g.add(f); }
   return g;
 }
 
@@ -694,6 +966,7 @@ function refreshViewModel() {
   if (vm.gun) vm.holder.remove(vm.gun);
   const w = P.weapons[P.cur];
   vm.gun = buildGun(w.def, w.up);
+  vm.gun.add(buildArms(w.def));
   vm.gun.add(flashSprite); flashSprite.position.copy(vm.gun.userData.muzzle);
   vm.holder.add(vm.gun);
   updateHud();
@@ -707,15 +980,22 @@ const pGeo = new THREE.BoxGeometry(.05, .05, .05);
 const pMats = { blood: new THREE.MeshBasicMaterial({ color: 0x7a0606 }), dust: new THREE.MeshBasicMaterial({ color: 0x8a8578 }),
   spark: new THREE.MeshBasicMaterial({ color: 0xffd070 }), green: new THREE.MeshBasicMaterial({ color: 0x8dff6a }),
   purple: new THREE.MeshBasicMaterial({ color: 0xd36bff }), wood: new THREE.MeshBasicMaterial({ color: 0x6b4a2b }),
-  fire: new THREE.MeshBasicMaterial({ color: 0xff8a2a }) };
+  fire: new THREE.MeshBasicMaterial({ color: 0xff8a2a }), brass: new THREE.MeshBasicMaterial({ color: 0xc9a23a }) };
+function ejectCasing() {
+  const right = new V3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const p = burst(camera.localToWorld(new V3(.22, -.12, -.45)), 'brass', 1, 0, .7);
+  if (p) { p.vel.copy(right).multiplyScalar(rand(2, 3)).add(new V3(0, rand(1.8, 2.6), 0)); p.life = 1.2; }
+}
 function burst(pos, type, n = 6, speed = 2.5, size = 1) {
+  let p = null;
   for (let i = 0; i < n; i++) {
-    let p = particles.find(q => !q.alive);
-    if (!p) { if (particles.length > 260) return; p = { mesh: new THREE.Mesh(pGeo, pMats[type]), vel: new V3(), alive: false }; scene.add(p.mesh); particles.push(p); }
+    p = particles.find(q => !q.alive);
+    if (!p) { if (particles.length > 300) return null; p = { mesh: new THREE.Mesh(pGeo, pMats[type]), vel: new V3(), alive: false }; scene.add(p.mesh); particles.push(p); }
     p.mesh.material = pMats[type]; p.mesh.visible = true; p.alive = true; p.life = rand(.3, .7);
     p.mesh.position.copy(pos); p.mesh.scale.setScalar(size * rand(.6, 1.4));
     p.vel.set(rand(-1, 1), rand(0, 1.4), rand(-1, 1)).multiplyScalar(speed);
   }
+  return p;
 }
 function updateParticles(dt) {
   for (const p of particles) {
@@ -823,10 +1103,73 @@ const zoneOf = p => p.z >= 8 ? 'lot' : (Math.abs(p.x) < 12 && p.z > -8 ? 'in' : 
    ===================================================================== */
 let shootables = [];
 const zombies = [];
-const skinTones = [0x7d8a72, 0x8a8c7a, 0x6e7a6a, 0x9a9180, 0x7c7468];
-const clothTones = [0x3a4652, 0x4a3b2c, 0x2e3a2e, 0x5a4a3a, 0x3a2e40, 0x524b44, 0x2a3f5c];
-const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffa21a });
-const bloodMat = new THREE.MeshPhongMaterial({ color: 0x4a0505 });
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffb030 });
+const socketMat = new THREE.MeshBasicMaterial({ color: 0x0a0505 });
+const bloodMat = new THREE.MeshPhongMaterial({ color: 0x4a0505, shininess: 60 });
+// Rotting skin: grey-green base, bruised blotches, dark veins, dried blood.
+const skinTex = ['#7d8672', '#8c8a7a', '#6f7a68', '#958b7c'].map(base => canvasTex(128, 128, (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h); speckle(g, w, h, 2500, .12);
+  stains(g, w, h, 10, 'rgba(70,50,70,.28)'); stains(g, w, h, 6, 'rgba(60,80,40,.25)');
+  g.strokeStyle = 'rgba(40,30,50,.45)'; g.lineWidth = 1;
+  for (let i = 0; i < 10; i++) { g.beginPath(); let x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-9, 9); y += rand(-9, 9); g.lineTo(x, y); } g.stroke(); }
+  stains(g, w, h, 4, 'rgba(90,10,10,.45)');
+}));
+// Torn work clothes: dirty fabric, sweat/blood stains, rips showing skin.
+const clothTex = ['#3a4652', '#4a3b2c', '#2e3a2e', '#5a4a3a', '#2a3f5c', '#6a6458', '#3b3b3b'].map(base => canvasTex(128, 128, (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 3) { g.fillStyle = `rgba(0,0,0,${rand(.02, .08)})`; g.fillRect(0, y, w, 1); }
+  speckle(g, w, h, 2500, .1);
+  stains(g, w, h, 6, 'rgba(30,20,10,.35)'); stains(g, w, h, 4, 'rgba(85,8,8,.5)');
+  for (let i = 0; i < 4; i++) { g.fillStyle = '#7a7e6c'; g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 6; k++) g.lineTo(x + rand(-14, 14), y + rand(-10, 10)); g.fill(); }
+}));
+const zMat = (map, tint = 0xffffff) => new THREE.MeshPhongMaterial({ map, color: tint, shininess: 8, bumpMap: map, bumpScale: .02 });
+
+function buildZombieBody() {
+  const g = new THREE.Group(), parts = [];
+  const skin = zMat(pick(skinTex), 0xa8a89c), shirt = zMat(pick(clothTex)), pants = zMat(pick(clothTex), 0xbbbbbb), shoe = mat(0x1d1a17);
+  const add = (geo, m, parent, x, y, z, kind) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); if (kind) { o.userData.part = kind; parts.push(o); } return o; };
+  const limb = (r0, r1, len) => new THREE.CylinderGeometry(r0, r1, len, 9);
+  // hips & legs
+  const pelvis = add(limb(.19, .17, .24), pants, g, 0, .88, 0, 'body'); pelvis.scale.z = .72;
+  const legs = [], knees = [];
+  for (const s of [-1, 1]) {
+    const hip = new THREE.Group(); hip.position.set(s * .11, .84, 0); g.add(hip);
+    add(limb(.085, .068, .42), pants, hip, 0, -.21, 0, 'body');
+    const knee = new THREE.Group(); knee.position.y = -.42; hip.add(knee);
+    add(limb(.068, .052, .4), pants, knee, 0, -.2, 0, 'body');
+    add(new THREE.BoxGeometry(.11, .08, .24), shoe, knee, 0, -.41, .045, 'body');
+    legs.push(hip); knees.push(knee);
+  }
+  // hunched torso
+  const torso = new THREE.Group(); torso.position.y = .96; g.add(torso);
+  const chest = add(limb(.25, .19, .62), shirt, torso, 0, .3, 0, 'body'); chest.scale.z = .62;
+  // head
+  const neck = new THREE.Group(); neck.position.y = .62; torso.add(neck);
+  add(limb(.055, .06, .12), skin, neck, 0, .03, 0, 'head');
+  const head = add(new THREE.SphereGeometry(.13, 14, 10), skin, neck, 0, .17, .02, 'head'); head.scale.set(.95, 1.12, 1.05);
+  const jaw = add(new THREE.BoxGeometry(.15, .055, .12), skin, neck, 0, .05, .07, 'head'); jaw.rotation.x = rand(.2, .5);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(.03, 8, 6), socketMat, head, s * .048, .02, .11);
+    add(new THREE.SphereGeometry(.014, 6, 5), eyeMat, head, s * .048, .02, .128);
+  }
+  add(new THREE.BoxGeometry(.09, .02, .01), bloodMat, head, 0, -.06, .125);
+  if (Math.random() < .5) { const hair = add(new THREE.SphereGeometry(.135, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.2), mat(0x1c1914), head, 0, .02, -.01); hair.rotation.x = -.3; }
+  // arms with elbows; sometimes a forearm is missing
+  const arms = [], elbows = [];
+  const missing = Math.random() < .15 ? (Math.random() < .5 ? -1 : 1) : 0;
+  for (const s of [-1, 1]) {
+    const sh = new THREE.Group(); sh.position.set(s * .29, .54, 0); torso.add(sh);
+    add(limb(.065, .055, .32), shirt, sh, 0, -.16, 0, 'body');
+    const el = new THREE.Group(); el.position.y = -.32; sh.add(el);
+    if (missing === s) add(new THREE.CylinderGeometry(.056, .05, .03, 8), bloodMat, el, 0, -.01, 0);
+    else {
+      add(limb(.055, .042, .3), skin, el, 0, -.15, 0, 'body');
+      const hand = add(new THREE.BoxGeometry(.075, .11, .04), skin, el, 0, -.35, 0, 'body'); hand.rotation.y = s * .3;
+    }
+    arms.push(sh); elbows.push(el);
+  }
+  return { g, parts, head, neck, torso, arms, elbows, legs, knees };
+}
 
 function zombieHealth(r) { return r < 10 ? 150 + 100 * (r - 1) : Math.round(950 * Math.pow(1.1, r - 9)); }
 function zombieCount(r) { return r <= 5 ? [6, 8, 13, 18, 24][r - 1] : 24 + (r - 5) * 6; }
@@ -847,23 +1190,8 @@ function spawnZombie() {
   let tot = cands.reduce((s, c) => s + c.weight, 0), r = Math.random() * tot, c = cands[0];
   for (const cc of cands) { r -= cc.weight; if (r <= 0) { c = cc; break; } }
 
-  const g = new THREE.Group();
-  const skin = new THREE.MeshPhongMaterial({ color: pick(skinTones), shininess: 5 });
-  const cloth = new THREE.MeshPhongMaterial({ color: pick(clothTones), shininess: 5 });
-  const pants = new THREE.MeshPhongMaterial({ color: pick(clothTones), shininess: 5 });
-  const parts = [];
-  const part = (geo, m, parent, x, y, z, kind) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); if (kind) { o.userData.part = kind; parts.push(o); } return o; };
-  part(new THREE.BoxGeometry(.46, .22, .26), pants, g, 0, .82, 0, 'body');
-  const torso = part(new THREE.BoxGeometry(.5, .68, .28), cloth, g, 0, 1.25, 0, 'body');
-  part(new THREE.BoxGeometry(.2, .2, .02), bloodMat, torso, rand(-.12, .12), rand(-.15, .2), .15);
-  const neck = new THREE.Group(); neck.position.set(0, 1.6, 0); g.add(neck);
-  const head = part(new THREE.BoxGeometry(.27, .3, .28), skin, neck, 0, .14, .02, 'head');
-  part(new THREE.BoxGeometry(.05, .035, .02), eyeMat, head, -.065, .03, .145);
-  part(new THREE.BoxGeometry(.05, .035, .02), eyeMat, head, .065, .03, .145);
-  part(new THREE.BoxGeometry(.14, .04, .02), bloodMat, head, 0, -.08, .145);
-  const arms = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * .33, 1.5, 0); g.add(p); part(new THREE.BoxGeometry(.13, .64, .13), s < 0 ? cloth : skin, p, 0, -.3, 0, 'body'); return p; });
-  const legs = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * .12, .78, 0); g.add(p); part(new THREE.BoxGeometry(.17, .78, .17), pants, p, 0, -.39, 0, 'body'); return p; });
-  const scale = rand(.95, 1.08); g.scale.setScalar(scale);
+  const { g, parts, head, neck, torso, arms, elbows, legs, knees } = buildZombieBody();
+  g.scale.setScalar(rand(.94, 1.1));
 
   const spawnPos = c.pos.clone().add(new V3(rand(-1.5, 1.5), 0, rand(-1.5, 1.5)));
   g.position.copy(spawnPos); g.position.y = -1.9;
@@ -874,7 +1202,7 @@ function spawnZombie() {
   const roll = Math.random();
   const gait = roll < sprC ? 'sprint' : roll < sprC + runC ? 'run' : 'walk';
   const z = {
-    g, parts, head, neck, arms, legs, torso,
+    g, parts, head, neck, arms, legs, torso, elbows, knees, limp: Math.random() < .3 ? rand(.3, .6) : 0,
     hp: zombieHealth(r0), gait, speed: { walk: rand(1, 1.3), run: rand(2.8, 3.3), sprint: rand(4.1, 4.6) }[gait],
     state: c.w ? 'toWindow' : 'chase', win: c.w, zone: c.w ? 'out' : 'lot',
     rise: 0, phase: Math.random() * 6, atkCd: 0, swing: 0, breakT: 0, climbT: 0,
@@ -895,7 +1223,8 @@ function killZombie(z, how, hitPoint) {
   if (z.dead) return;
   z.dead = true; G.alive--; P.kills++;
   removeZombieParts(z);
-  if (how === 'head') { z.head.visible = false; P.headshots++; burst(z.head.getWorldPosition(new V3()), 'blood', 18, 3.5, 1.4); }
+  if (how === 'head') { burst(z.head.getWorldPosition(new V3()), 'blood', 22, 3.5, 1.5); z.neck.visible = false; P.headshots++; }
+  if (z.state !== 'climb' && z.zone !== 'out') decal(z.pos.x + rand(-.3, .3), z.pos.z + rand(-.3, .3), rand(.9, 1.5), .85, 25);
   const pts = { head: 100, body: 60, melee: 130, splash: 50, nuke: 0 }[how] ?? 50;
   if (pts) addPoints(pts);
   hitmarker(true);
@@ -1002,12 +1331,22 @@ function updateZombies(dt) {
       // animation
       z.phase += dt * (z.gait === 'walk' ? 4.5 : z.gait === 'run' ? 9 : 12);
       const sw = z.gait === 'walk' ? .45 : .8;
-      z.legs[0].rotation.x = Math.sin(z.phase) * sw; z.legs[1].rotation.x = -Math.sin(z.phase) * sw;
-      if (z.gait === 'walk') z.arms.forEach((a, k) => a.rotation.x = -1.45 + Math.sin(z.phase + k) * .12);
-      else z.arms.forEach((a, k) => a.rotation.x = -.6 + Math.sin(z.phase + k * Math.PI) * .9);
-      g.position.y = Math.abs(Math.sin(z.phase)) * (z.gait === 'walk' ? .03 : .07);
-      z.torso.rotation.x = z.gait === 'walk' ? .05 : .2;
-      z.neck.rotation.z = Math.sin(z.phase * .5) * .15;
+      const s0 = Math.sin(z.phase);
+      z.legs[0].rotation.x = s0 * sw * (1 - z.limp * .6); z.legs[1].rotation.x = -s0 * sw;
+      z.knees[0].rotation.x = Math.max(0, -s0) * (z.gait === 'walk' ? .5 : 1.1) * (1 - z.limp);
+      z.knees[1].rotation.x = Math.max(0, s0) * (z.gait === 'walk' ? .5 : 1.1);
+      if (z.gait === 'walk') {
+        z.arms.forEach((a, k) => { a.rotation.x = -1.3 + Math.sin(z.phase + k) * .12; a.rotation.z = (k ? -1 : 1) * .08; });
+        z.elbows.forEach((e, k) => e.rotation.x = -.25 + Math.sin(z.phase * .7 + k) * .1);
+      } else {
+        z.arms.forEach((a, k) => { a.rotation.x = -.5 + Math.sin(z.phase + k * Math.PI) * .9; a.rotation.z = 0; });
+        z.elbows.forEach(e => e.rotation.x = -.9);
+      }
+      g.position.y = Math.abs(s0) * (z.gait === 'walk' ? .03 : .07) - z.limp * Math.max(0, s0) * .05;
+      g.rotation.z = z.limp * s0 * .08;
+      z.torso.rotation.x = z.gait === 'walk' ? .28 : .42;
+      z.neck.rotation.z = Math.sin(z.phase * .5) * .2;
+      z.neck.rotation.x = -.15 + Math.sin(z.phase * .25) * .1;
     } else if (z.state === 'chase') {
       z.yaw = Math.atan2(P.pos.x - z.pos.x, P.pos.z - z.pos.z);
     }
@@ -1436,6 +1775,8 @@ function fire() {
   vm.kick = Math.min(1, vm.kick + (d.kind === 'sniper' || d.kind === 'cannon' || d.kind === 'shotgun' ? 1 : .45));
   recoilPitch += d.kind === 'sniper' ? .03 : d.kind === 'shotgun' || d.kind === 'cannon' ? .025 : d.auto ? .006 : .012;
   flashSprite.visible = d.kind !== 'plasma' && d.kind !== 'arc'; flashSprite.material.rotation = Math.random() * 6;
+  flashSprite.scale.setScalar(rand(.28, .4));
+  if (d.kind !== 'plasma' && d.kind !== 'arc' && d.kind !== 'shotgun') ejectCasing();
   muzzleLight.color.setHex(d.kind === 'plasma' ? 0x7dff5a : d.kind === 'arc' ? 0x7fdcff : 0xffb050);
   muzzleLight.intensity = 2.5; gunFlashLight.intensity = 2; vm.flashT = .05;
 
@@ -1631,7 +1972,7 @@ function updatePlayer(dt) {
   P.invuln = Math.max(0, P.invuln - dt);
   if (G.time - P.lastHurt > 2.5) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * .6 * dt);
   const hurt = 1 - P.hp / P.maxHp;
-  $('vignette').style.opacity = clamp(hurt * 1.3, 0, .95);
+  $('vignette').style.opacity = clamp(hurt * .4, 0, .4);
   $('lowHp').style.opacity = P.hp / P.maxHp < .45 ? .9 : 0;
 
   // camera
@@ -1799,6 +2140,12 @@ perkMachine('quick', -17.2, 9.3, Math.PI / 2);
 perkMachine('wind', 17.2, 24.6, -Math.PI / 2 - .4);
 buildBox();
 buildPowerAndForge();
+buildAtmosphere();
+// every opaque static mesh casts and receives shadows
+scene.traverse(o => {
+  if (!o.isMesh || o.material.transparent || o.material.blending === THREE.AdditiveBlending || o.material.isMeshBasicMaterial) return;
+  o.castShadow = o.receiveShadow = true;
+});
 shootables = staticMeshes.slice();
 P.weapons.push(makeWeapon('pistol'));
 refreshViewModel();
@@ -1839,11 +2186,16 @@ function frame(now) {
   interiorLights.forEach((l, i) => l.intensity = i === 1 && !G.power && Math.random() < .08 ? 0 : flick);
   fireLight.intensity = 1 + Math.sin(now * .02) * .25 + Math.random() * .2;
   if (forge.ring) forge.ring.rotation.z += .02 * (G.power ? 3 : .2);
-  updateParticles(dt); updateTracers(dt); updateFlashes(dt);
+  roomShafts.forEach(s => s.material.opacity = G.power ? .05 : .035 * flick / .32);
+  lotShafts.forEach(s => s.material.opacity = .15 + Math.sin(now * .0013) * .015);
+  for (const f of fogBanks) { f.position.x += f.userData.drift * dt; if (Math.abs(f.position.x) > 34) f.userData.drift *= -1; }
+  updateParticles(dt); updateTracers(dt); updateFlashes(dt); updateMotes(dt, now / 1000); updateDecals(dt);
 
-  renderer.clear();
-  renderer.render(scene, camera);
-  if (G.state !== 'menu') { renderer.clearDepth(); renderer.render(gunScene, gunCam); }
+  const hurt = G.state === 'menu' ? 0 : clamp(1 - P.hp / P.maxHp, 0, 1);
+  Post.render(() => {
+    renderer.render(scene, camera);
+    if (G.state !== 'menu') { renderer.clearDepth(); renderer.render(gunScene, gunCam); }
+  }, now / 1000, Math.min(.95, hurt * 1.25), hurt > .55 ? (hurt - .55) * 2 : 0);
 }
 requestAnimationFrame(frame);
 
