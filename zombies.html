@@ -55,6 +55,7 @@
   #ammo #res{font-size:22px;color:#aaa}
   #ammo.low #mag{color:#ff4b4b}
   #nades{margin-top:4px;font-size:16px;color:#9bd36b}
+  #equip{margin-top:6px;font-size:15px;line-height:1.35;color:#dde;text-shadow:0 0 4px #000}
   #powerups{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;gap:14px}
   .pu{font-size:14px;font-weight:600;text-align:center;padding:4px 10px;border:2px solid #7fff6a;border-radius:6px;
     color:#c9ffbf;background:rgba(0,40,0,.5);text-shadow:0 0 4px #000}
@@ -101,6 +102,7 @@
     <div id="wname"></div>
     <div id="ammo"><span id="mag">8</span> <span id="res">/ 80</span></div>
     <div id="nades"></div>
+    <div id="equip"></div>
   </div>
 </div>
 
@@ -115,6 +117,7 @@
       <b>F / E</b><span>Buy · use · hold to rebuild barriers</span>
       <b>V</b><span>Knife</span>
       <b>G</b><span>Throw frag grenade</span>
+      <b>T</b><span>Place a built turret or shock trap</span>
       <b>Q / 1 / 2 / Wheel</b><span>Switch weapon</span>
       <b>Esc</b><span>Pause</span>
     </div>
@@ -890,20 +893,34 @@ const SFX = {
 /* =====================================================================
    WEAPONS
    ===================================================================== */
+// Real-world firearms. Upgraded ("forged") names are this game's own.
 const W = {
-  pistol:  { name: 'P-9 Service Pistol', up: 'P-9 Hellbringer', kind: 'pistol', dmg: 45, head: 3, rpm: 420, auto: false, mag: 8, reserve: 80, reload: 1.5, spread: .012, len: .2, color: 0x2a2a2e },
-  shotgun: { name: 'Trench Pump', up: 'Trench Reaper', kind: 'shotgun', dmg: 55, pellets: 8, head: 1.5, rpm: 75, auto: false, mag: 6, reserve: 48, reload: 2.8, spread: .075, cost: 500, len: .5, color: 0x3b3b3b, wood: true },
-  smg:     { name: 'MP-K Submachine Gun', up: 'MP-K Wraith', kind: 'smg', dmg: 55, head: 2.5, rpm: 780, auto: true, mag: 32, reserve: 192, reload: 2.1, spread: .028, cost: 1000, len: .38, color: 0x222428 },
-  carbine: { name: 'AR-4 Carbine', up: 'AR-4 Nightfall', kind: 'rifle', dmg: 80, head: 3, rpm: 620, auto: true, mag: 30, reserve: 210, reload: 2.3, spread: .02, cost: 1200, len: .55, color: 0x34352f },
-  dmr:     { name: 'Marksman DMR', up: 'Marksman Executioner', kind: 'rifle', dmg: 170, head: 3.5, rpm: 300, auto: false, mag: 12, reserve: 96, reload: 2.4, spread: .006, pierce: 2, cost: 1500, len: .62, color: 0x3d3628, wood: true },
-  lmg:     { name: 'Hailstorm LMG', up: 'Hailstorm Tempest', kind: 'lmg', dmg: 100, head: 2.5, rpm: 720, auto: true, mag: 100, reserve: 400, reload: 4.2, spread: .035, pierce: 2, len: .7, color: 0x2e3326, box: 3 },
-  cannon:  { name: 'Hand Cannon .50', up: 'Hand Cannon Judgment', kind: 'cannon', dmg: 340, head: 3, rpm: 210, auto: false, mag: 7, reserve: 56, reload: 1.9, spread: .014, pierce: 2, len: .26, color: 0x8a8a90, box: 3 },
-  sniper:  { name: 'Longshot Sniper', up: 'Longshot Oblivion', kind: 'sniper', dmg: 1200, head: 3, rpm: 50, auto: false, mag: 5, reserve: 40, reload: 3.2, spread: .002, pierce: 5, len: .85, color: 0x223322, box: 2, zoom: 28 },
-  plasma:  { name: 'Plasma Disruptor', up: 'Plasma Annihilator', kind: 'plasma', dmg: 1000, head: 1, rpm: 180, auto: false, mag: 20, reserve: 160, reload: 2.6, spread: .008, splash: 2.6, len: .32, color: 0x2a3a2a, box: 1 },
-  arc:     { name: 'Arc Thrower', up: 'Arc Storm', kind: 'arc', dmg: 1500, head: 1, rpm: 90, auto: false, mag: 6, reserve: 36, reload: 3, spread: .01, chain: 5, len: .45, color: 0x2b2f3a, box: 1 },
+  // starting pistol
+  m1911:    { name: 'M1911', up: 'M1911 Twin Fury', kind: 'pistol', dmg: 45, head: 3, rpm: 420, auto: false, mag: 8, reserve: 80, reload: 1.5, spread: .012, len: .2, color: 0x2a2a2e },
+  // wall weapons
+  m14:      { name: 'M14', up: 'M14 Ironclad', kind: 'rifle', dmg: 110, head: 3.5, rpm: 360, auto: false, mag: 8, reserve: 96, reload: 2.2, spread: .008, pierce: 2, cost: 500, len: .66, color: 0x2e2e2c, wood: true },
+  dbl:      { name: 'Double-Barrel', up: 'Double-Barrel Widowmaker', kind: 'shotgun', twin: true, dmg: 60, pellets: 9, head: 1.5, rpm: 220, auto: false, mag: 2, reserve: 40, reload: 2.3, spread: .085, cost: 500, len: .3, color: 0x2b2b2b, wood: true },
+  mp5:      { name: 'MP5', up: 'MP5 Phantom', kind: 'smg', dmg: 55, head: 2.5, rpm: 780, auto: true, mag: 30, reserve: 180, reload: 2.1, spread: .028, cost: 1000, len: .38, color: 0x222428 },
+  ak74u:    { name: 'AK-74u', up: 'AK-74u Red Fang', kind: 'smg', dmg: 70, head: 2.5, rpm: 720, auto: true, mag: 30, reserve: 180, reload: 2.3, spread: .03, cost: 1200, len: .42, color: 0x2a2620, wood: true },
+  m16:      { name: 'M16', up: 'M16 Tri-Shot Tyrant', kind: 'rifle', dmg: 95, head: 3, rpm: 900, burst: 3, auto: false, mag: 30, reserve: 180, reload: 2.4, spread: .016, cost: 1200, len: .62, color: 0x262729 },
+  r870:     { name: 'Remington 870', up: 'Remington 870 Grave Digger', kind: 'shotgun', dmg: 65, pellets: 8, head: 1.5, rpm: 70, auto: false, mag: 8, reserve: 48, reload: 2.8, spread: .075, cost: 1500, len: .5, color: 0x262626 },
+  // mystery box
+  galil:    { name: 'Galil', up: 'Galil Ironhowl', kind: 'rifle', dmg: 95, head: 3, rpm: 650, auto: true, mag: 35, reserve: 315, reload: 2.6, spread: .024, len: .6, color: 0x2b2c28, box: 3 },
+  fal:      { name: 'FAL', up: 'FAL Warden', kind: 'rifle', dmg: 150, head: 3, rpm: 400, auto: false, mag: 20, reserve: 180, reload: 2.5, spread: .012, pierce: 2, len: .66, color: 0x2f2c25, wood: true, box: 3 },
+  mtar:     { name: 'MTAR', up: 'MTAR Rampart', kind: 'rifle', dmg: 85, head: 3, rpm: 780, auto: true, mag: 30, reserve: 270, reload: 2.2, spread: .022, len: .48, color: 0x30332a, box: 3 },
+  skorpion: { name: 'Skorpion EVO', up: 'Skorpion EVO Venomstrike', kind: 'smg', dmg: 50, head: 2.5, rpm: 1000, auto: true, mag: 32, reserve: 224, reload: 1.9, spread: .035, len: .32, color: 0x1e1f22, box: 3 },
+  m1216:    { name: 'M1216', up: 'M1216 Thunderwheel', kind: 'shotgun', dmg: 55, pellets: 8, head: 1.5, rpm: 240, auto: true, mag: 16, reserve: 96, reload: 3.2, spread: .08, len: .5, color: 0x23252a, box: 2 },
+  rpd:      { name: 'RPD', up: 'RPD Bonestorm', kind: 'lmg', dmg: 110, head: 2.5, rpm: 700, auto: true, mag: 100, reserve: 400, reload: 4.4, spread: .036, pierce: 2, len: .72, color: 0x2b2a26, wood: true, box: 3 },
+  lsat:     { name: 'LSAT', up: 'LSAT Deathgrip', kind: 'lmg', dmg: 100, head: 2.5, rpm: 800, auto: true, mag: 100, reserve: 500, reload: 4, spread: .034, pierce: 2, len: .68, color: 0x262a26, box: 3 },
+  python:   { name: 'Python', up: 'Python Cobra King', kind: 'cannon', dmg: 340, head: 3, rpm: 200, auto: false, mag: 6, reserve: 54, reload: 2.2, spread: .014, pierce: 2, len: .26, color: 0x8a8a90, box: 3 },
+  barrett:  { name: 'Barrett M82A1', up: 'Barrett Annihilator', kind: 'sniper', dmg: 1300, head: 3, rpm: 110, auto: false, mag: 10, reserve: 60, reload: 3.4, spread: .003, pierce: 5, len: .9, color: 0x262a24, box: 2, zoom: 28 },
+  dsr:      { name: 'DSR 50', up: 'DSR 50 Longreach', kind: 'sniper', dmg: 1600, head: 3, rpm: 50, auto: false, mag: 4, reserve: 40, reload: 3.2, spread: .002, pierce: 5, len: .85, color: 0x1f2320, box: 2, zoom: 24 },
+  // this game's own wonder weapons
+  plasma:   { name: 'Plasma Disruptor', up: 'Plasma Annihilator', kind: 'plasma', dmg: 1000, head: 1, rpm: 180, auto: false, mag: 20, reserve: 160, reload: 2.6, spread: .008, splash: 2.6, len: .32, color: 0x2a3a2a, box: 1 },
+  arc:      { name: 'Arc Thrower', up: 'Arc Storm', kind: 'arc', dmg: 1500, head: 1, rpm: 90, auto: false, mag: 6, reserve: 36, reload: 3, spread: .01, chain: 5, len: .45, color: 0x2b2f3a, box: 1 },
 };
 for (const k in W) W[k].id = k;
-for (const k of ['smg', 'shotgun', 'carbine', 'dmr']) W[k].box = 3;
+for (const k of ['m14', 'dbl', 'mp5', 'ak74u', 'm16', 'r870']) W[k].box = 2;
 
 function makeWeapon(id, upgraded = false) {
   const d = W[id];
@@ -957,7 +974,7 @@ function buildGun(def, up) {
   const bl = k === 'pistol' ? .02 : k === 'cannon' ? .1 : k === 'sniper' ? .38 : k === 'shotgun' ? .3 : k === 'lmg' ? .25 : .2;
   const br = k === 'shotgun' || k === 'cannon' ? .02 : k === 'lmg' ? .017 : .013;
   const by = k === 'pistol' || k === 'cannon' ? .018 : .006;
-  cyl(br, br, bl, dark, 0, by, -L - bl / 2);
+  cyl(br, br, bl, dark, def.twin ? -.016 : 0, def.twin ? -.01 : by, -L - bl / 2);
   if (k === 'rifle' || k === 'smg' || k === 'lmg' || k === 'sniper') cyl(br * 1.6, br * 1.6, .05, dark, 0, by, -L - bl - .02, 8);
   if (k === 'cannon') add(new THREE.CylinderGeometry(.034, .034, .07, 6), dark, 0, .0, -L * .5, Math.PI / 2);   // cylinder
   // pistol grip, raked back
@@ -971,7 +988,8 @@ function buildGun(def, up) {
   if (k === 'smg') add(new THREE.BoxGeometry(.012, .012, .18), dark, 0, -.01, .09);
   if (k === 'rifle' || k === 'lmg' || k === 'sniper') add(sideProfile([[0, .03], [0, -.035], [-.21, -.07], [-.25, -.07], [-.25, .03]], .044, .008), def.wood ? wood : poly, 0, 0, 0);
   if (k === 'rifle' || k === 'sniper' || k === 'lmg') add(sideProfile([[0, .012], [L * .38, .012], [L * .38, -.03], [0, -.034]], thick + .012, .006), def.wood ? wood : poly, 0, 0, -L * .58);
-  if (k === 'shotgun') {
+  if (def.twin) { cyl(.016, .016, bl, dark, .016, -.01, -L - bl / 2); add(sideProfile([[0, .03], [0, -.04], [-.24, -.08], [-.27, -.075], [-.26, .02]], .046, .008), wood); add(sideProfile([[0, .0], [L * .9, .0], [L * .9, -.03], [0, -.035]], .05, .006), wood, 0, -.012, -L); }
+  else if (k === 'shotgun') {
     cyl(.03, .03, .16, wood, 0, -.035, -L - .1, 12);                                                             // pump
     cyl(.012, .012, bl * .9, dark, 0, -.028, -L - bl * .45, 8);                                                  // tube magazine
     add(sideProfile([[0, .03], [0, -.04], [-.24, -.08], [-.27, -.075], [-.26, .02]], .046, .008), wood);          // stock
@@ -1031,7 +1049,7 @@ function buildArms(def) {
 const P = {
   pos: new V3(0, 0, 2), vy: 0, onGround: true,
   yaw: Math.PI, pitch: 0,
-  hp: 100, maxHp: 100, lastHurt: -99, invuln: 0,
+  hp: 100, maxHp: 100, lastHurt: -99, invuln: 0, shieldHp: 0,
   points: 500, kills: 0, headshots: 0, downs: 0,
   weapons: [], cur: 0, grenades: 2,
   perks: new Set(),
@@ -1236,7 +1254,7 @@ function buildZombieBody() {
   const add = (geo, m, parent, x, y, z, kind) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); if (kind) { o.userData.part = kind; parts.push(o); } return o; };
   const limb = (r0, r1, len) => new THREE.CylinderGeometry(r0, r1, len, 14);
   const joint = (r, m, parent, x, y, z) => add(new THREE.SphereGeometry(r, 12, 8), m, parent, x, y, z, 'body');
-  const belt = mat(0x2a2018, { roughness: .6 }), boneM = mat(0xb9ad92, { roughness: .7 }), teethM = mat(0x9c8f6a, { roughness: .5 });
+  const belt = mat(0x2a2018, { roughness: .6 }), boneM = mat(0x7d725c, { roughness: .7 }), teethM = mat(0x9c8f6a, { roughness: .5 });
   // hips & legs
   const pelvis = add(limb(.19, .17, .24), pants, g, 0, .88, 0, 'body'); pelvis.scale.z = .72;
   const legs = [], knees = [];
@@ -1255,9 +1273,9 @@ function buildZombieBody() {
   add(new THREE.TorusGeometry(.2, .025, 6, 18), belt, g, 0, .96, 0).scale.set(1, 1, .72);
   add(new THREE.TorusGeometry(.085, .022, 6, 14), shirt, torso, 0, .6, 0).rotation.x = Math.PI / 2;
   for (const s of [-1, 1]) joint(.085, shirt, torso, s * .27, .54, 0);
-  if (Math.random() < .35) {   // shirt ripped open: rotten flesh and exposed ribs
-    const gash = add(new THREE.BoxGeometry(.2, .24, .03), bloodMat, torso, rand(-.05, .05), .32, .145);
-    for (let i = 0; i < 4; i++) add(new THREE.BoxGeometry(.17 - i * .015, .014, .02), boneM, gash, 0, .08 - i * .05, .012);
+  if (Math.random() < .25) {   // shirt ripped open: rotten flesh and exposed ribs
+    const gash = add(new THREE.BoxGeometry(.13, .16, .03), bloodMat, torso, rand(-.08, .08), rand(.25, .4), .14); gash.rotation.z = rand(-.4, .4);
+    for (let i = 0; i < 3; i++) add(new THREE.BoxGeometry(.1 - i * .015, .01, .015), boneM, gash, 0, .045 - i * .04, .012);
   }
   // head
   const neck = new THREE.Group(); neck.position.y = .62; torso.add(neck);
@@ -1498,6 +1516,7 @@ function repairBoard(w) {
 function attackPlayer(z) {
   z.atkCd = 1.0; z.swing = .3;
   if (P.invuln > 0 || G.state !== 'playing') return;
+  if (shieldBlocks(z)) return;
   P.hp -= 60; P.lastHurt = G.time;
   SFX.hurt();
   camShake = .25;
@@ -1825,6 +1844,209 @@ function turnOnPower() {
 }
 
 /* =====================================================================
+   BUILDABLES: find three parts, build at a workbench, take the item.
+   Riot Shield (blocks hits from the front), Sentry Turret, Shock Trap.
+   ===================================================================== */
+const BUILDS = {
+  shield: { name: 'Riot Shield', parts: ['Car Door', 'Hand Truck', 'Grip Bracket'], color: 0x8fc3ff },
+  turret: { name: 'Sentry Turret', parts: ['Gun Mount', 'Ammo Belt', 'Car Battery'], color: 0xffb85a },
+  trap:   { name: 'Shock Trap', parts: ['Copper Coil', 'Jumper Cables', 'Transformer'], color: 0x7de8ff },
+};
+const B = { have: { shield: new Set(), turret: new Set(), trap: new Set() }, built: {}, cool: { shield: 0, turret: 0, trap: 0 }, carry: null, placed: [], partMeshes: [] };
+const SHIELD_HITS = 8;
+
+function buildParts() {
+  // five spots inside the depot, four in the bus lot; parts are shuffled each game
+  const spots = [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6]];
+  for (let i = spots.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [spots[i], spots[j]] = [spots[j], spots[i]]; }
+  let n = 0;
+  for (const k in BUILDS) BUILDS[k].parts.forEach(part => {
+    const [x, z] = spots[n++];
+    const g = new THREE.Group(); g.position.set(x, .35, z); scene.add(g);
+    const m = mat(0x5a5d62, { roughness: .5, metalness: .6 });
+    if (k === 'shield') g.add(new THREE.Mesh(new THREE.BoxGeometry(.5, .35, .05), m));
+    if (k === 'turret') { const c = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .45, 10), m); c.rotation.z = Math.PI / 2; g.add(c); g.add(new THREE.Mesh(new THREE.BoxGeometry(.18, .14, .14), m)); }
+    if (k === 'trap') g.add(new THREE.Mesh(new THREE.TorusGeometry(.13, .04, 8, 16), mat(0xb87333, { roughness: .35, metalness: .9 })));
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: moteTex, color: BUILDS[k].color, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false }));
+    halo.scale.set(1.1, 1.1, 1); g.add(halo);
+    const item = { k, part, g, taken: false };
+    B.partMeshes.push(item);
+    interactables.push({
+      pos: new V3(x, 0, z), r: 1.4,
+      prompt() { return item.taken ? null : `Press <b>F</b> to pick up ${part} <span style="color:#9cf">(${BUILDS[k].name} part)</span>`; },
+      use() {
+        if (item.taken) return;
+        item.taken = true; scene.remove(g); B.have[k].add(part); SFX.hammer();
+        const left = 3 - B.have[k].size;
+        announce(left ? `${part.toUpperCase()} · ${left} MORE FOR ${BUILDS[k].name.toUpperCase()}` : `${BUILDS[k].name.toUpperCase()} READY TO BUILD`, '#9cf', 1.8);
+        updateEquipHud();
+      },
+    });
+  });
+}
+
+function canTake(k) {
+  if (!B.built[k] || B.cool[k] > 0) return false;
+  if (k === 'shield') return P.shieldHp <= 0;
+  return !B.carry && !B.placed.some(o => o.k === k);
+}
+function benchAction() {
+  for (const k in BUILDS) if (!B.built[k] && B.have[k].size === 3) return { type: 'build', k };
+  for (const k in BUILDS) if (canTake(k)) return { type: 'take', k };
+  return null;
+}
+function workbench(x, z, rotY) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  const top = mat(0x5e4630, { map: T.wood(), roughness: .8 });
+  box(1.8, .08, .8, 0, .92, 0, top, { collide: false, parent: g });
+  for (const [lx, lz] of [[-.82, -.34], [.82, -.34], [-.82, .34], [.82, .34]]) box(.07, .9, .07, lx, .45, lz, M.darkMetal, { collide: false, parent: g });
+  box(1.7, .05, .7, 0, .3, 0, top, { collide: false, parent: g });
+  box(.35, .18, .2, -.55, 1.05, -.1, mat(0xa02020, { roughness: .4, metalness: .5 }), { collide: false, parent: g });   // toolbox
+  box(.12, .14, .16, .6, 1.03, .1, M.darkMetal, { collide: false, parent: g });                                         // vise
+  const lamp = new THREE.PointLight(0xffd6a0, .7, 4, 2); lamp.position.set(0, 1.9, 0); g.add(lamp);
+  box(.4, .04, .25, 0, 1.92, 0, M.lamp, { collide: false, shoot: false, parent: g });
+  g.updateMatrixWorld();
+  const c = Math.abs(Math.cos(rotY)) > .5;
+  addCollider(x - (c ? .9 : .4), x + (c ? .9 : .4), z - (c ? .4 : .9), z + (c ? .4 : .9), 0, 1);
+  const front = new V3(Math.sin(rotY), 0, Math.cos(rotY));
+  interactables.push({
+    pos: new V3(x, 0, z).addScaledVector(front, .9), r: 1.7, t: 0, lastHold: 0,
+    prompt() {
+      const a = benchAction();
+      if (!a) {
+        const any = Object.keys(BUILDS).some(k => !B.built[k]);
+        return any ? 'Workbench — find parts around the depot and bus lot to build equipment' : null;
+      }
+      const name = BUILDS[a.k].name;
+      if (a.type === 'build') return `Hold <b>F</b> to build ${name}` + (this.t > 0 ? ` <b>${Math.round(this.t / 2.5 * 100)}%</b>` : '');
+      return `Press <b>F</b> to take ${name}`;
+    },
+    use() {
+      const a = benchAction();
+      if (!a || a.type !== 'take') return;
+      if (a.k === 'shield') { P.shieldHp = SHIELD_HITS; shieldVm.visible = true; }
+      else B.carry = a.k;
+      SFX.buy(); announce(BUILDS[a.k].name.toUpperCase(), '#9cf', 1.4); updateEquipHud();
+    },
+    hold(dt) {
+      const a = benchAction();
+      if (!a || a.type !== 'build') return;
+      if (G.time - this.lastHold > .25) this.t = 0;
+      this.lastHold = G.time; this.t += dt;
+      if (Math.random() < dt * 6) SFX.hammer();
+      if (this.t >= 2.5) { this.t = 0; B.built[a.k] = true; SFX.upgrade(); announce(`${BUILDS[a.k].name.toUpperCase()} BUILT`, '#9cf', 1.6); updateEquipHud(); }
+    },
+  });
+}
+
+// Riot shield in the view: a battered car-door panel with a mesh viewport, held low on the left.
+const shieldVm = (() => {
+  const g = new THREE.Group();
+  const tex = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#4f565e'; c.fillRect(0, 0, w, h); speckle(c, w, h, 4000, .15); stains(c, w, h, 8, 'rgba(90,50,20,.35)');
+    c.fillStyle = '#111'; c.fillRect(60, 30, 136, 70);
+    c.strokeStyle = '#777'; c.lineWidth = 3; for (let i = 0; i < 8; i++) { c.beginPath(); c.moveTo(60 + i * 18, 30); c.lineTo(60 + i * 18, 100); c.stroke(); }
+    c.strokeStyle = 'rgba(20,20,20,.6)'; c.lineWidth = 2; for (let i = 0; i < 14; i++) { c.beginPath(); c.moveTo(rand(0, w), rand(110, h)); c.lineTo(rand(0, w), rand(110, h)); c.stroke(); }
+    stains(c, w, h, 3, 'rgba(80,5,5,.5)');
+  });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(.55, .62, .03), pbr({ map: tex, roughness: .55, metalness: .6 }));
+  g.add(panel);
+  g.position.set(-.5, -.42, -.55); g.rotation.set(-.2, .55, .12);
+  g.visible = false; gunCam.add(g);
+  return g;
+})();
+
+function placeEquipment() {
+  if (!B.carry) return;
+  const k = B.carry;
+  const fwd = new V3(-Math.sin(P.yaw), 0, -Math.cos(P.yaw));
+  const pos = P.pos.clone().setY(0).addScaledVector(fwd, 1.4);
+  resolve(pos, .45, 0, 1);
+  if (zoneOf(pos) === 'out') { SFX.deny(); return; }
+  const g = new THREE.Group(); g.position.copy(pos); scene.add(g);
+  const o = { k, g, life: k === 'turret' ? 90 : 60, cd: 0, kills: 0 };
+  if (k === 'turret') {
+    for (let i = 0; i < 3; i++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .8, 6), M.darkMetal); const a = i / 3 * Math.PI * 2; leg.position.set(Math.cos(a) * .22, .35, Math.sin(a) * .22); leg.rotation.set(Math.sin(a) * .5, 0, -Math.cos(a) * .5); g.add(leg); }
+    o.head = new THREE.Group(); o.head.position.y = .82; g.add(o.head);
+    o.head.add(new THREE.Mesh(new THREE.BoxGeometry(.22, .2, .4), M.darkMetal));
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .5, 8), M.gunMetal); bar.rotation.x = Math.PI / 2; bar.position.set(0, .03, .4); o.head.add(bar);
+    const can = new THREE.Mesh(new THREE.BoxGeometry(.12, .14, .18), mat(0x3d4a2c)); can.position.set(.17, -.04, 0); o.head.add(can);
+    o.light = new THREE.PointLight(0xffb050, 0, 5, 2); o.light.position.set(0, .03, .7); o.head.add(o.light);
+  } else {
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(.55, .6, .08, 20), M.darkMetal); base.position.y = .04; g.add(base);
+    for (let i = 0; i < 3; i++) { const coil = new THREE.Mesh(new THREE.TorusGeometry(.38 - i * .1, .025, 6, 20), mat(0xb87333, { roughness: .35, metalness: .9 })); coil.rotation.x = Math.PI / 2; coil.position.y = .1 + i * .02; g.add(coil); }
+    o.glow = new THREE.PointLight(0x7de8ff, .8, 4, 2); o.glow.position.y = .4; g.add(o.glow);
+  }
+  B.placed.push(o); B.carry = null; SFX.hammer(); updateEquipHud();
+}
+
+function updateBuildables(dt) {
+  for (const k in B.cool) if (B.cool[k] > 0) { B.cool[k] -= dt; if (B.cool[k] <= 0) updateEquipHud(); }
+  for (const it of B.partMeshes) if (!it.taken) { it.g.rotation.y += dt * 1.2; it.g.position.y = .35 + Math.sin(G.time * 2 + it.g.position.x) * .05; }
+  for (let i = B.placed.length - 1; i >= 0; i--) {
+    const o = B.placed[i]; o.life -= dt; o.cd -= dt;
+    if (o.k === 'turret') {
+      let best = null, bd = 16;
+      for (const z of zombies) { if (z.dead || z.rise < 1 || z.zone === 'out' && z.state !== 'break') continue; const d = z.pos.distanceTo(o.g.position); if (d < bd) { bd = d; best = z; } }
+      o.light.intensity = Math.max(0, o.light.intensity - dt * 30);
+      if (best) {
+        const want = Math.atan2(best.pos.x - o.g.position.x, best.pos.z - o.g.position.z);
+        let da = want - o.head.rotation.y; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+        o.head.rotation.y += da * Math.min(1, dt * 10);
+        if (Math.abs(da) < .2 && o.cd <= 0) {
+          o.cd = .11; o.light.intensity = 2.5;
+          const from = o.head.localToWorld(new V3(0, .03, .66)), to = best.pos.clone().setY(1.2 + rand(-.2, .3));
+          tracer(from, to, 0xffd890); burst(to, 'blood', 2, 1.5);
+          damageZombie(best, 60 + G.round * 25, 'body', null);
+          if (Math.random() < .5) noiseHit({ dur: .06, freq: 2000, vol: .12 });
+        }
+      }
+    } else {
+      o.glow.intensity = .6 + Math.random() * .6;
+      if (Math.random() < dt * 8) bolt(o.g.position.clone().add(new V3(rand(-.4, .4), .1, rand(-.4, .4))), o.g.position.clone().add(new V3(rand(-.4, .4), rand(.3, .8), rand(-.4, .4))), 0x9ff0ff);
+      for (const z of zombies) {
+        if (z.dead || z.rise < 1 || z.state === 'climb') continue;
+        if (Math.hypot(z.pos.x - o.g.position.x, z.pos.z - o.g.position.z) < 1.3) {
+          bolt(o.g.position.clone().setY(.2), z.pos.clone().setY(1.2), 0x9ff0ff); burst(z.pos.clone().setY(1.2), 'spark', 8, 3);
+          damageZombie(z, 1e9, 'splash', null); o.kills++;
+          noiseHit({ dur: .25, freq: 3000, type: 'highpass', vol: .3 });
+        }
+      }
+      if (o.kills >= 25) o.life = 0;
+    }
+    if (o.life <= 0) {
+      scene.remove(o.g); B.placed.splice(i, 1); B.cool[o.k] = 30;
+      announce(`${BUILDS[o.k].name.toUpperCase()} WORN OUT`, '#9cf', 1.4); updateEquipHud();
+    }
+  }
+}
+
+function shieldBlocks(z) {
+  if (P.shieldHp <= 0) return false;
+  const toZ = new V3(z.pos.x - P.pos.x, 0, z.pos.z - P.pos.z).normalize();
+  const fwd = new V3(-Math.sin(P.yaw), 0, -Math.cos(P.yaw));
+  if (toZ.dot(fwd) < .2) return false;
+  P.shieldHp--;
+  noiseHit({ dur: .2, freq: 2500, type: 'bandpass', q: 4, vol: .5 }); tone(320, .25, { type: 'square', vol: .12, slide: .6 });
+  camShake = .12;
+  if (P.shieldHp <= 0) { shieldVm.visible = false; B.cool.shield = 30; announce('RIOT SHIELD BROKEN', '#ff8a6a', 1.6); }
+  updateEquipHud();
+  return true;
+}
+
+function updateEquipHud() {
+  const lines = [];
+  if (P.shieldHp > 0) lines.push(`Riot Shield <span style="color:#8fc3ff">${'▮'.repeat(P.shieldHp)}${'▯'.repeat(SHIELD_HITS - P.shieldHp)}</span>`);
+  if (B.carry) lines.push(`${BUILDS[B.carry].name} — press <b style="color:#ffd24a">T</b> to place`);
+  for (const k in BUILDS) {
+    if (B.built[k]) continue;
+    const n = B.have[k].size;
+    if (n) lines.push(`<span style="color:#9aa">${BUILDS[k].name} parts ${n}/3</span>`);
+  }
+  $('equip').innerHTML = lines.join('<br>');
+}
+
+/* =====================================================================
    GRENADES
    ===================================================================== */
 const grenades = [];
@@ -1876,7 +2098,7 @@ function explode(pos, radius, dmg, hurtsPlayer) {
    ===================================================================== */
 const ray = new THREE.Raycaster();
 let camShake = 0, recoilPitch = 0;
-const W_STATE = { fireCd: 0, reloading: 0, fired: false, knifeCd: 0 };
+const W_STATE = { fireCd: 0, reloading: 0, fired: false, knifeCd: 0, burstLeft: 0 };
 
 function currentSpread(w) {
   const moving = input.keys.KeyW || input.keys.KeyA || input.keys.KeyS || input.keys.KeyD;
@@ -2009,7 +2231,7 @@ function switchWeapon(idx) {
   if (P.weapons.length < 2) return;
   if (idx === undefined) idx = (P.cur + 1) % P.weapons.length;
   if (idx === P.cur || idx >= P.weapons.length) return;
-  P.cur = idx; W_STATE.reloading = 0; vm.swap = .45;
+  P.cur = idx; W_STATE.reloading = 0; W_STATE.burstLeft = 0; vm.swap = .45;
   refreshViewModel();
 }
 
@@ -2116,7 +2338,15 @@ function updateWeapon(dt) {
   if (W_STATE.reloading > 0) { W_STATE.reloading -= dt; if (W_STATE.reloading <= 0) finishReload(); }
   const canFire = W_STATE.reloading <= 0 && vm.swap <= 0 && vm.knife <= 0 && !P.sprinting;
   const w = P.weapons[P.cur];
-  if (input.lmb && canFire && W_STATE.fireCd <= 0 && (w.def.auto || !W_STATE.fired)) { fire(); W_STATE.fired = true; }
+  if (W_STATE.burstLeft > 0 && canFire && W_STATE.fireCd <= 0) {          // rest of a burst (M16)
+    W_STATE.burstLeft--; fire();
+    if (w.mag <= 0) W_STATE.burstLeft = 0;
+    if (W_STATE.burstLeft === 0) W_STATE.fireCd += .22;
+  } else if (input.lmb && canFire && W_STATE.fireCd <= 0 && (w.def.auto || !W_STATE.fired)) {
+    if (w.def.burst && w.mag > 1) W_STATE.burstLeft = w.def.burst - 1;
+    fire(); W_STATE.fired = true;
+    if (w.def.burst && W_STATE.burstLeft === 0) W_STATE.fireCd += .22;
+  }
   if (!input.lmb) W_STATE.fired = false;
 
   // view model pose
@@ -2237,6 +2467,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyR') startReload();
   if (e.code === 'KeyV') knife();
   if (e.code === 'KeyG') throwGrenade();
+  if (e.code === 'KeyT') placeEquipment();
   if (e.code === 'KeyQ') switchWeapon();
   if (e.code === 'Digit1') switchWeapon(0);
   if (e.code === 'Digit2') switchWeapon(1);
@@ -2252,10 +2483,12 @@ addEventListener('blur', () => { input.keys = {}; input.lmb = input.rmb = false;
    BUILD WORLD
    ===================================================================== */
 buildMap();
-chalk('smg', -11.83, 1.7, -4.5, Math.PI / 2);
-chalk('carbine', 11.83, 1.7, 2.2, -Math.PI / 2);
-chalk('shotgun', -2.3, 1.7, -7.83, 0);
-chalk('dmr', -6, 1.7, 8.17, 0);
+chalk('m14', -2.3, 1.7, -7.83, 0);
+chalk('mp5', -11.83, 1.7, -4.5, Math.PI / 2);
+chalk('ak74u', 11.83, 1.7, 2.2, -Math.PI / 2);
+chalk('dbl', -5.5, 1.7, 7.83, Math.PI);
+chalk('r870', -6, 1.7, 8.17, 0);
+chalk('m16', 6, 1.7, 8.17, 0);
 perkMachine('iron', -11.2, -7.2, Math.PI / 4);
 perkMachine('dbl', 11.2, -7.2, -Math.PI / 4);
 perkMachine('quick', -17.2, 9.3, Math.PI / 2);
@@ -2263,13 +2496,16 @@ perkMachine('wind', 17.2, 24.6, -Math.PI / 2 - .4);
 buildBox();
 buildPowerAndForge();
 buildAtmosphere();
+buildParts();
+workbench(8.6, -7.35, 0);
+workbench(10, 25.35, Math.PI);
 // every opaque static mesh casts and receives shadows
 scene.traverse(o => {
   if (!o.isMesh || o.material.transparent || o.material.blending === THREE.AdditiveBlending || o.material.isMeshBasicMaterial) return;
   o.castShadow = o.receiveShadow = true;
 });
 shootables = staticMeshes.slice();
-P.weapons.push(makeWeapon('pistol'));
+P.weapons.push(makeWeapon('m1911'));
 refreshViewModel();
 renderRound(false);
 renderPerks();
@@ -2287,6 +2523,7 @@ function frame(now) {
     updatePlayer(dt);
     updateWeapon(dt);
     updateGrenades(dt);
+    updateBuildables(dt);
     updateZombies(dt);
     updateRounds(dt);
     updatePowerups(dt);
