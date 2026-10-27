@@ -79,6 +79,7 @@
   #overlay .stats{font-family:'Special Elite',monospace;font-size:20px;color:#e6dcc3;line-height:1.6;margin-bottom:12px}
   #overlay .small{font-size:13px;color:#888;margin:14px auto 0;font-family:'Special Elite',monospace;max-width:560px}
   #overlay label{font-family:'Special Elite',monospace;font-size:15px;color:#ccc}
+  #overlay select{font-family:inherit;font-size:14px;background:#1a1414;color:#eee;border:1px solid #733;padding:3px 6px}
   #best{color:#ffd24a}
 </style>
 </head>
@@ -124,7 +125,11 @@
   </div>
   <div id="menuPause" class="hidden">
     <h1 style="font-size:72px">Paused</h1>
-    <div style="margin:10px 0 16px"><label>Mouse sensitivity <input id="sens" type="range" min="0.5" max="3" step="0.1" value="1.2"></label></div>
+    <div style="margin:10px 0 16px;display:flex;flex-direction:column;gap:10px;align-items:center">
+      <label>Mouse sensitivity <input id="sens" type="range" min="0.5" max="3" step="0.1" value="1.2"></label>
+      <label>Graphics <select id="quality"><option value="high">High (shadows, anti-aliasing)</option><option value="low">Low (faster)</option></select>
+        <span style="color:#888;font-size:12px">· changing this restarts the game</span></label>
+    </div>
     <button id="resumeBtn">RESUME</button>
     <button id="quitBtn">RESTART</button>
   </div>
@@ -147,11 +152,14 @@ const pick = arr => arr[Math.random() * arr.length | 0];
 /* =====================================================================
    RENDERER / SCENES
    ===================================================================== */
+let QUALITY = 'high';
+try { QUALITY = localStorage.getItem('ded_quality') === 'low' ? 'low' : 'high'; } catch (e) {}
+const HIGH = QUALITY === 'high';
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setPixelRatio(HIGH ? Math.min(devicePixelRatio, 1.5) : 1);
 renderer.setSize(innerWidth, innerHeight);
 renderer.autoClear = false;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = HIGH;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.prepend(renderer.domElement);
 
@@ -188,7 +196,7 @@ const Post = (() => {
   const gl2 = renderer.capabilities.isWebGL2;
   const mk = (w, h, main) => {
     const o = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: !!main, stencilBuffer: false };
-    if (main && gl2 && THREE.WebGLMultisampleRenderTarget) { const t = new THREE.WebGLMultisampleRenderTarget(w, h, o); t.samples = 4; return t; }
+    if (main && HIGH && gl2 && THREE.WebGLMultisampleRenderTarget) { const t = new THREE.WebGLMultisampleRenderTarget(w, h, o); t.samples = 4; return t; }
     return new THREE.WebGLRenderTarget(w, h, o);
   };
   const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -372,7 +380,16 @@ function textTex(lines, { w = 512, h = 256, bg = null, color = '#fff', font = 'S
 /* =====================================================================
    MATERIALS & STATIC GEOMETRY HELPERS
    ===================================================================== */
-const mat = (color, o = {}) => new THREE.MeshPhongMaterial(Object.assign({ color, shininess: 6 }, o));
+// Physically based materials. Older call sites pass Phong-style shininess/specular; translate them to roughness.
+function pbr(o = {}) {
+  o = Object.assign({}, o);
+  const sh = o.shininess ?? 6; delete o.shininess; delete o.specular;
+  if (o.roughness === undefined) o.roughness = clamp(1 - sh / 110, .12, 1);
+  if (o.metalness === undefined) o.metalness = 0;
+  if (o.envMapIntensity === undefined) o.envMapIntensity = o.metalness > .3 ? 1 : (o.roughness < .3 ? .7 : .3);
+  return new THREE.MeshStandardMaterial(o);
+}
+const mat = (color, o = {}) => pbr(Object.assign({ color }, o));
 const M = {
   floor: mat(0xd8d4cc, { map: T.tile(12, 8), shininess: 40, specular: 0x2a2a2a }),
   wall: mat(0xc8c2b4, { map: T.depotWall() }),
@@ -381,22 +398,22 @@ const M = {
   asphalt: mat(0xffffff, { map: T.asphalt(9, 5) }),
   dirt: mat(0xffffff, { map: T.dirt(40, 40) }),
   wood: mat(0xffffff, { map: T.wood() }),
-  metal: mat(0x55595e, { shininess: 40 }),
-  darkMetal: mat(0x26282b, { shininess: 30 }),
-  rust: mat(0x6b3a22),
+  metal: mat(0x6a6e73, { roughness: .45, metalness: .75 }),
+  darkMetal: mat(0x303236, { roughness: .55, metalness: .7 }),
+  rust: mat(0x6b3a22, { roughness: .9, metalness: .25 }),
   counter: mat(0x5d4430),
   bench: mat(0x40505a, { shininess: 30 }),
   locker: mat(0x46604f, { shininess: 25 }),
   bus: mat(0x4e6e7c, { shininess: 25 }),
   busStripe: mat(0x9a7f2f),
-  glass: mat(0x111820, { shininess: 90, specular: 0x556677 }),
+  glass: mat(0x0c1218, { roughness: .08, metalness: .1 }),
   tire: mat(0x111111),
   crate: mat(0x7a5a33),
   lamp: mat(0xfff2c8, { emissive: 0xffe2a0 }),
   fixture: mat(0xd8e6ff, { emissive: 0x334055 }),
   sleeve: mat(0x9a9a90, { map: T.sleeve(), shininess: 6 }),
   glove: mat(0x1f1d1a, { shininess: 25 }),
-  gunMetal: mat(0x1a1b1d, { shininess: 80, specular: 0x555555 }),
+  gunMetal: mat(0x1c1d20, { roughness: .35, metalness: .85 }),
 };
 for (const k of ['floor', 'wall', 'wallOut', 'ceiling', 'asphalt', 'dirt', 'wood']) { M[k].bumpMap = M[k].map; M[k].bumpScale = k === 'floor' ? .015 : .035; }
 
@@ -563,7 +580,7 @@ function buildMap() {
   // ---- fence around the lot ----
   const fence = (x0, z0, x1, z1) => {
     const len = Math.hypot(x1 - x0, z1 - z0);
-    const fm = new THREE.MeshPhongMaterial({ map: T.chain(len / 1.2, 2.5), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, color: 0x9aa0a6 });
+    const fm = pbr({ map: T.chain(len / 1.2, 2.5), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, color: 0x9aa0a6 });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 3), fm);
     m.position.set((x0 + x1) / 2, 1.5, (z0 + z1) / 2); m.rotation.y = -Math.atan2(z1 - z0, x1 - x0); scene.add(m);
     const n = Math.ceil(len / 3);
@@ -722,7 +739,7 @@ const splatTex = canvasTex(128, 128, (g) => {
 });
 const decals = [];
 function decal(x, z, size, opacity = .9, life = Infinity) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshPhongMaterial({ map: splatTex, transparent: true, opacity, depthWrite: false, shininess: 60, specular: 0x331111, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), pbr({ map: splatTex, transparent: true, opacity, depthWrite: false, shininess: 60, specular: 0x331111, polygonOffset: true, polygonOffsetFactor: -2 }));
   m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, .012, z); m.receiveShadow = true;
   scene.add(m);
   if (life !== Infinity) { decals.push({ m, life, o: opacity }); if (decals.length > 40) { const d = decals.shift(); scene.remove(d.m); d.m.material.dispose(); } }
@@ -753,6 +770,44 @@ function buildAtmosphere() {
   }
 }
 const muzzleLight = new THREE.PointLight(0xffb050, 0, 8, 2); muzzleLight.position.set(0.2, -0.1, -0.8); camera.add(muzzleLight);
+
+// Reflections: a tiny procedural "night yard" captured into a prefiltered environment map.
+const envTex = (() => {
+  const es = new THREE.Scene(); es.background = new THREE.Color(0x0b0e13);
+  const slab = (w, h, d, x, y, z, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: c })); m.position.set(x, y, z); es.add(m); };
+  slab(60, 1, 60, 0, -4, 0, 0x16130f);       // dark ground
+  slab(8, .5, 3, 0, 7, 0, 0x5a6578);         // cold overhead fluorescents
+  slab(2, 2, .5, 9, 3, -8, 0xc87a3a);        // sodium lamp
+  slab(2, 2, .5, -9, 3, 8, 0xc87a3a);
+  slab(30, 12, 1, 0, 3, -18, 0x1d2430);      // fog wall / night sky
+  slab(30, 12, 1, 0, 3, 18, 0x1a2029);
+  const pm = new THREE.PMREMGenerator(renderer); const t = pm.fromScene(es, .03).texture; pm.dispose(); return t;
+})();
+scene.environment = envTex; gunScene.environment = envTex;
+
+// Night sky dome: fog-coloured horizon, near-black zenith, slow fbm clouds, a haloed moon.
+const sky = new THREE.Mesh(new THREE.SphereGeometry(150, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uHorizon: { value: new THREE.Color(FOG_COL) }, uZenith: { value: new THREE.Color(0x04060a) }, uTime: { value: 0 } },
+  vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform vec3 uHorizon, uZenith; uniform float uTime; varying vec3 vDir;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+      return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 5; i++){ s += a * n(p); p *= 2.03; a *= .5; } return s; }
+    void main(){
+      vec3 d = normalize(vDir); float y = max(d.y, 0.);
+      vec3 c = mix(uHorizon, uZenith, pow(y, .5));
+      vec2 uv = d.xz / (d.y + .2) * 1.2 + vec2(uTime * .006, uTime * .002);
+      float cl = smoothstep(.42, .85, fbm(uv));
+      vec3 md = normalize(vec3(-.42, .71, .52)); float m = max(dot(d, md), 0.);
+      vec3 moonGlow = vec3(.08, .1, .14) * pow(m, 10.) + vec3(.9, .95, 1.1) * smoothstep(.9994, .9997, m) * 1.6;
+      c += moonGlow * (1. - cl * .8);
+      c = mix(c, vec3(.1, .115, .135) + moonGlow * .3 * cl, cl * .55 * step(0., d.y));
+      gl_FragColor = vec4(c, 1.);
+    }`,
+}));
+sky.frustumCulled = false; sky.renderOrder = -10; scene.add(sky);
 
 /* =====================================================================
    AUDIO (all synthesized)
@@ -858,43 +913,79 @@ function makeWeapon(id, upgraded = false) {
 const wDamage = w => w.def.dmg * (w.up ? (w.def.kind === 'plasma' || w.def.kind === 'arc' ? 1.6 : 2.6) : 1);
 const wName = w => w.up ? w.def.up : w.def.name;
 
+// Extrude a side silhouette (x = forward, y = up) into a beveled solid; forward maps to -z.
+function sideProfile(pts, thick, bevel = .004) {
+  const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+  sh.closePath();
+  const depth = Math.max(.002, thick - bevel * 2);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, steps: 1, curveSegments: 4 });
+  geo.translate(0, 0, -depth / 2); geo.rotateY(Math.PI / 2);
+  return geo;
+}
 function buildGun(def, up) {
   const g = new THREE.Group();
-  const body = new THREE.MeshPhongMaterial({ color: up ? 0x4a1f7a : def.color, emissive: up ? 0x220733 : 0x000000, shininess: 40 });
-  const dark = new THREE.MeshPhongMaterial({ color: 0x131315, shininess: 50 });
-  const wood = new THREE.MeshPhongMaterial({ color: up ? 0x6a2a8a : 0x5c3a1e, shininess: 10 });
+  const body = pbr({ color: up ? 0x4a1f7a : def.color, emissive: up ? 0x220733 : 0x000000, roughness: .42, metalness: .65 });
+  const poly = pbr({ color: up ? 0x2a1240 : 0x17181a, roughness: .7, metalness: .05 });
+  const dark = M.gunMetal;
+  const wood = pbr({ color: up ? 0x6a2a8a : 0x5c3a1e, roughness: .6, map: T.wood() });
   const glowCol = up ? 0xd36bff : (def.kind === 'arc' ? 0x6bdcff : 0x7dff5a);
   const glow = new THREE.MeshBasicMaterial({ color: glowCol });
-  const add = (geo, m, x, y, z, rx = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.x = rx; g.add(o); return o; };
+  const add = (geo, m, x = 0, y = 0, z = 0, rx = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.x = rx; g.add(o); return o; };
+  const cyl = (r0, r1, len, m, x, y, z, seg = 14) => add(new THREE.CylinderGeometry(r1, r0, len, seg), m, x, y, z, Math.PI / 2);
   const L = def.len, k = def.kind;
-  const thick = k === 'lmg' ? .1 : k === 'pistol' || k === 'cannon' ? .055 : .07;
-  add(new THREE.BoxGeometry(thick, .085, L), body, 0, 0, -L / 2);
-  const bl = k === 'pistol' ? .05 : k === 'cannon' ? .14 : k === 'sniper' ? .4 : k === 'shotgun' ? .32 : .22;
-  const br = k === 'shotgun' || k === 'cannon' ? .022 : .014;
-  add(new THREE.CylinderGeometry(br, br, bl, 8), dark, 0, .01, -L - bl / 2, Math.PI / 2);
-  add(new THREE.BoxGeometry(.05, .13, .06), k === 'pistol' || k === 'cannon' ? dark : body, 0, -.1, -.03, .3);
-  if (k === 'cannon') add(new THREE.CylinderGeometry(.04, .04, .07, 8), dark, 0, 0, -L * .55, Math.PI / 2);
-  if (k === 'smg' || k === 'rifle' || k === 'lmg' || k === 'sniper') {
-    add(new THREE.BoxGeometry(.04, k === 'lmg' ? .1 : .16, .07), dark, 0, -.11, -L * .45);
-    add(new THREE.BoxGeometry(.05, .08, .2), def.wood ? wood : body, 0, -.01, .1);
+  const thick = k === 'lmg' ? .085 : k === 'pistol' || k === 'cannon' ? .05 : .062;
+  const P = (arr) => arr.map(([x, y]) => [x * L, y]);
+  const profiles = {
+    pistol:  [[-.06, -.01], [-.06, .04], [1, .04], [1.02, .03], [1, -.005], [-.02, -.012]],
+    cannon:  [[-.06, -.015], [-.06, .045], [1, .045], [1.02, .03], [1, -.01], [-.02, -.02]],
+    smg:     [[0, -.04], [0, .045], [.92, .045], [1, .028], [1, -.03], [.62, -.045], [.2, -.05]],
+    rifle:   [[0, -.038], [0, .04], [.6, .04], [.66, .03], [1, .028], [1, -.026], [.55, -.034], [.42, -.042]],
+    lmg:     [[0, -.05], [0, .052], [.5, .058], [.56, .04], [1, .035], [1, -.03], [.4, -.052]],
+    sniper:  [[0, -.035], [0, .036], [.5, .036], [.56, .022], [1, .02], [1, -.02], [.36, -.04]],
+    shotgun: [[0, -.036], [0, .032], [.34, .036], [.4, .02], [.4, -.036]],
+    plasma:  [[-.05, -.04], [-.05, .025], [.25, .05], [.8, .05], [1, .02], [1, -.03], [.5, -.055]],
+    arc:     [[0, -.045], [0, .035], [.3, .055], [.85, .045], [1, .015], [1, -.035], [.45, -.06]],
+  };
+  // receiver / slide
+  add(sideProfile(P(profiles[k]), thick, .005), body);
+  if (k === 'pistol' || k === 'cannon') {
+    add(sideProfile([[-.04, -.012], [L * .85, -.012], [L * .85, -.035], [-.03, -.035]], thick - .006, .003), poly);   // frame
+    for (let i = 0; i < 6; i++) add(new THREE.BoxGeometry(thick + .002, .028, .004), dark, 0, .024, .03 - i * .009); // slide serrations
   }
-  if (k === 'lmg') add(new THREE.BoxGeometry(.12, .1, .12), dark, -.06, -.06, -L * .45);
-  if (k === 'shotgun') { add(new THREE.BoxGeometry(.06, .06, .16), wood, 0, -.05, -L - .08); add(new THREE.BoxGeometry(.05, .08, .22), wood, 0, -.02, .12); }
-  if (k === 'rifle' && def.wood) add(new THREE.BoxGeometry(.06, .05, L * .5), wood, 0, -.04, -L * .7);
-  if (k === 'sniper') add(new THREE.CylinderGeometry(.025, .025, .3, 10), dark, 0, .08, -L * .45, Math.PI / 2);
-  if (k === 'plasma') {
-    add(new THREE.CylinderGeometry(.035, .035, .18, 12), glow, 0, .06, -L * .5, Math.PI / 2);
-    add(new THREE.TorusGeometry(.05, .012, 6, 14), glow, 0, .01, -L - .02);
+  // barrel + muzzle
+  const bl = k === 'pistol' ? .02 : k === 'cannon' ? .1 : k === 'sniper' ? .38 : k === 'shotgun' ? .3 : k === 'lmg' ? .25 : .2;
+  const br = k === 'shotgun' || k === 'cannon' ? .02 : k === 'lmg' ? .017 : .013;
+  const by = k === 'pistol' || k === 'cannon' ? .018 : .006;
+  cyl(br, br, bl, dark, 0, by, -L - bl / 2);
+  if (k === 'rifle' || k === 'smg' || k === 'lmg' || k === 'sniper') cyl(br * 1.6, br * 1.6, .05, dark, 0, by, -L - bl - .02, 8);
+  if (k === 'cannon') add(new THREE.CylinderGeometry(.034, .034, .07, 6), dark, 0, .0, -L * .5, Math.PI / 2);   // cylinder
+  // pistol grip, raked back
+  add(sideProfile([[.0, 0], [.048, 0], [.028, -.13], [-.022, -.13]], .046, .006), poly, 0, -.03, .03);
+  add(new THREE.TorusGeometry(.022, .004, 5, 10, Math.PI), dark, 0, -.045, -.07).rotation.set(0, Math.PI / 2, Math.PI);   // trigger guard
+  // magazines
+  if (k === 'smg') add(sideProfile([[0, 0], [.045, 0], [.05, -.17], [.008, -.17]], .036, .004), dark, 0, -.035, -L * .45 + .03);
+  if (k === 'rifle' || k === 'sniper') add(sideProfile([[0, 0], [.055, 0], [.075, -.15], [.03, -.17], [-.005, -.16]], .04, .004), dark, 0, -.03, -L * .45 + .04);
+  if (k === 'lmg') { add(new THREE.BoxGeometry(.11, .09, .12), poly, -.07, -.06, -L * .4); add(new THREE.BoxGeometry(thick + .01, .015, L * .4), dark, 0, .06, -L * .3); }
+  // stocks & furniture
+  if (k === 'smg') add(new THREE.BoxGeometry(.012, .012, .18), dark, 0, -.01, .09);
+  if (k === 'rifle' || k === 'lmg' || k === 'sniper') add(sideProfile([[0, .03], [0, -.035], [-.21, -.07], [-.25, -.07], [-.25, .03]], .044, .008), def.wood ? wood : poly, 0, 0, 0);
+  if (k === 'rifle' || k === 'sniper' || k === 'lmg') add(sideProfile([[0, .012], [L * .38, .012], [L * .38, -.03], [0, -.034]], thick + .012, .006), def.wood ? wood : poly, 0, 0, -L * .58);
+  if (k === 'shotgun') {
+    cyl(.03, .03, .16, wood, 0, -.035, -L - .1, 12);                                                             // pump
+    cyl(.012, .012, bl * .9, dark, 0, -.028, -L - bl * .45, 8);                                                  // tube magazine
+    add(sideProfile([[0, .03], [0, -.04], [-.24, -.08], [-.27, -.075], [-.26, .02]], .046, .008), wood);          // stock
   }
-  if (k === 'arc') for (let i = 0; i < 4; i++) add(new THREE.TorusGeometry(.055, .012, 6, 14), glow, 0, .01, -L * .3 - i * .08);
-  if (up) add(new THREE.BoxGeometry(thick + .01, .015, L * .8), new THREE.MeshBasicMaterial({ color: 0xd36bff }), 0, .045, -L / 2);
-  // detail: sights, top rail, ejection port, trigger guard
-  add(new THREE.BoxGeometry(.012, .028, .012), M.gunMetal, 0, .056, -L + .02);
-  add(new THREE.BoxGeometry(.034, .022, .02), M.gunMetal, 0, .052, -.02);
-  if (L > .3 && k !== 'shotgun') add(new THREE.BoxGeometry(thick * .6, .012, L * .55), M.gunMetal, 0, .049, -L * .4);
-  add(new THREE.BoxGeometry(.004, .025, .05), M.gunMetal, thick / 2 + .002, .015, -L * .3);
-  add(new THREE.TorusGeometry(.025, .005, 4, 10, Math.PI), M.gunMetal, 0, -.05, -.09).rotation.set(0, Math.PI / 2, Math.PI);
-  g.userData.muzzle = new V3(0, .01, -L - bl);
+  if (k === 'sniper') { cyl(.026, .026, .26, dark, 0, .085, -L * .42); cyl(.032, .026, .05, dark, 0, .085, -L * .42 - .15); cyl(.03, .026, .04, dark, 0, .085, -L * .42 + .14); add(new THREE.BoxGeometry(.02, .04, .03), dark, 0, .055, -L * .42); }
+  if (k === 'plasma') { cyl(.034, .034, .18, glow, 0, .062, -L * .5, 16); add(new THREE.TorusGeometry(.05, .012, 8, 18), glow, 0, .005, -L - .02); }
+  if (k === 'arc') for (let i = 0; i < 4; i++) add(new THREE.TorusGeometry(.058, .012, 8, 18), glow, 0, .0, -L * .3 - i * .08);
+  if (up) add(new THREE.BoxGeometry(thick + .012, .012, L * .7), new THREE.MeshBasicMaterial({ color: 0xd36bff }), 0, .02, -L / 2);
+  // sights, top rail, ejection port
+  add(new THREE.BoxGeometry(.01, .024, .01), dark, 0, .052, -L + .02);
+  add(new THREE.BoxGeometry(.032, .02, .016), dark, 0, .05, -.02);
+  if (L > .3 && k !== 'shotgun' && k !== 'sniper') for (let i = 0; i < Math.floor(L * .55 / .016); i++) add(new THREE.BoxGeometry(thick * .55, .008, .009), dark, 0, .046, -L * .12 - i * .016);
+  add(new THREE.BoxGeometry(.003, .022, .045), dark, thick / 2 + .002, .015, -L * .3);
+  g.userData.muzzle = new V3(0, by, -L - bl - .03);
   return g;
 }
 
@@ -911,13 +1002,26 @@ function buildArms(def) {
   const rh = new V3(.012, -.105, -.035);
   g.add(limbBetween(new V3(.2, -.42, .42), rh.clone().add(new V3(.015, -.03, .07)), .062, .048, M.sleeve));
   g.add(limbBetween(rh.clone().add(new V3(.015, -.03, .07)), rh.clone().add(new V3(.008, -.01, .02)), .048, .042, M.glove));
-  const hand = new THREE.Mesh(new THREE.BoxGeometry(.072, .085, .1), M.glove); hand.position.copy(rh); hand.rotation.x = .3; g.add(hand);
-  const thumb = new THREE.Mesh(new THREE.BoxGeometry(.02, .02, .06), M.glove); thumb.position.set(-.04, -.06, -.06); g.add(thumb);
+  const knuckle = mat(0x2c2a26, { roughness: .5 });
+  // a rounded gloved hand: palm, four curled fingers, thumb, knuckle pad
+  const glovedHand = (pos, rotX, rotZ, gripR) => {
+    const h = new THREE.Group(); h.position.copy(pos); h.rotation.set(rotX, 0, rotZ); g.add(h);
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(.045, 14, 10), M.glove); palm.scale.set(.85, 1, 1.15); palm.position.x = .03; h.add(palm);
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Mesh(new THREE.TorusGeometry(gripR, .0105, 6, 10, Math.PI * 1.1), M.glove);
+      f.rotation.set(0, Math.PI / 2, -Math.PI * .55); f.position.set(-.005, -.028 + i * .019, -.006); h.add(f);
+    }
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(.012, .07, .05), knuckle); pad.position.set(.052, -.005, -.01); h.add(pad);
+    const thumb = new THREE.Mesh(new THREE.CylinderGeometry(.011, .013, .055, 8), M.glove); thumb.position.set(-.03, .03, -.02); thumb.rotation.set(-.9, 0, .4); h.add(thumb);
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .03, 14), knuckle); cuff.position.set(.035, -.045, .04); cuff.rotation.set(.9, 0, .3); h.add(cuff);
+    return h;
+  };
+  glovedHand(rh.clone().add(new V3(-.01, .005, .005)), .3, 0, .026);
   const lh = oneHand ? new V3(-.035, -.125, -.03) : new V3(-.005, -.06, -L * .68);
   const lElbow = oneHand ? new V3(-.24, -.44, .32) : new V3(-.3, -.38, .1);
   g.add(limbBetween(lElbow, lh.clone().add(new V3(-.03, -.04, .06)), .06, .046, M.sleeve));
-  const hand2 = new THREE.Mesh(new THREE.BoxGeometry(.08, .06, .11), M.glove); hand2.position.copy(lh); hand2.rotation.z = oneHand ? .5 : .2; g.add(hand2);
-  for (let i = 0; i < 3; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(.016, .045, .016), M.glove); f.position.set(lh.x + .045, lh.y + .015, lh.z - .03 + i * .025); g.add(f); }
+  const left = glovedHand(lh, oneHand ? .5 : -1.35, oneHand ? .5 : .15, oneHand ? .028 : .032);
+  left.scale.x = -1;
   return g;
 }
 
@@ -937,6 +1041,8 @@ const input = { keys: {}, lmb: false, rmb: false, fPressed: false, fHeld: false 
 let sens = 1.2;
 try { sens = parseFloat(localStorage.getItem('ded_sens')) || 1.2; } catch (e) {}
 $('sens').value = sens;
+$('quality').value = QUALITY;
+$('quality').addEventListener('change', e => { try { localStorage.setItem('ded_quality', e.target.value); } catch (e2) {} location.reload(); });
 $('sens').addEventListener('input', e => { sens = parseFloat(e.target.value); try { localStorage.setItem('ded_sens', sens); } catch (e2) {} });
 
 const G = {
@@ -958,8 +1064,8 @@ const flashSprite = new THREE.Sprite(new THREE.SpriteMaterial({
 flashSprite.scale.set(.25, .25, .25); flashSprite.visible = false;
 const knifeMesh = (() => {
   const g = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(.02, .04, .26), new THREE.MeshPhongMaterial({ color: 0xcfd4d8, shininess: 90 })); blade.position.z = -.17; g.add(blade);
-  const hilt = new THREE.Mesh(new THREE.BoxGeometry(.035, .05, .12), new THREE.MeshPhongMaterial({ color: 0x222 })); g.add(hilt);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.02, .04, .26), pbr({ color: 0xcfd4d8, shininess: 90 })); blade.position.z = -.17; g.add(blade);
+  const hilt = new THREE.Mesh(new THREE.BoxGeometry(.035, .05, .12), pbr({ color: 0x222 })); g.add(hilt);
   g.position.set(-.25, -.25, -.4); g.visible = false; gunCam.add(g); return g;
 })();
 function refreshViewModel() {
@@ -1105,7 +1211,7 @@ let shootables = [];
 const zombies = [];
 const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffb030 });
 const socketMat = new THREE.MeshBasicMaterial({ color: 0x0a0505 });
-const bloodMat = new THREE.MeshPhongMaterial({ color: 0x4a0505, shininess: 60 });
+const bloodMat = pbr({ color: 0x4a0505, shininess: 60 });
 // Rotting skin: grey-green base, bruised blotches, dark veins, dried blood.
 const skinTex = ['#7d8672', '#8c8a7a', '#6f7a68', '#958b7c'].map(base => canvasTex(128, 128, (g, w, h) => {
   g.fillStyle = base; g.fillRect(0, 0, w, h); speckle(g, w, h, 2500, .12);
@@ -1119,16 +1225,18 @@ const clothTex = ['#3a4652', '#4a3b2c', '#2e3a2e', '#5a4a3a', '#2a3f5c', '#6a645
   g.fillStyle = base; g.fillRect(0, 0, w, h);
   for (let y = 0; y < h; y += 3) { g.fillStyle = `rgba(0,0,0,${rand(.02, .08)})`; g.fillRect(0, y, w, 1); }
   speckle(g, w, h, 2500, .1);
-  stains(g, w, h, 6, 'rgba(30,20,10,.35)'); stains(g, w, h, 4, 'rgba(85,8,8,.5)');
-  for (let i = 0; i < 4; i++) { g.fillStyle = '#7a7e6c'; g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 6; k++) g.lineTo(x + rand(-14, 14), y + rand(-10, 10)); g.fill(); }
+  stains(g, w, h, 7, 'rgba(30,20,10,.35)'); stains(g, w, h, 2, 'rgba(70,6,6,.35)');
+  for (let i = 0; i < 2; i++) { g.fillStyle = 'rgba(110,112,96,.8)'; g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 6; k++) g.lineTo(x + rand(-14, 14), y + rand(-10, 10)); g.fill(); }
 }));
-const zMat = (map, tint = 0xffffff) => new THREE.MeshPhongMaterial({ map, color: tint, shininess: 8, bumpMap: map, bumpScale: .02 });
+const zMat = (map, tint = 0xffffff) => pbr({ map, color: tint, roughness: .85, bumpMap: map, bumpScale: .02 });
 
 function buildZombieBody() {
   const g = new THREE.Group(), parts = [];
   const skin = zMat(pick(skinTex), 0xa8a89c), shirt = zMat(pick(clothTex)), pants = zMat(pick(clothTex), 0xbbbbbb), shoe = mat(0x1d1a17);
   const add = (geo, m, parent, x, y, z, kind) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); if (kind) { o.userData.part = kind; parts.push(o); } return o; };
-  const limb = (r0, r1, len) => new THREE.CylinderGeometry(r0, r1, len, 9);
+  const limb = (r0, r1, len) => new THREE.CylinderGeometry(r0, r1, len, 14);
+  const joint = (r, m, parent, x, y, z) => add(new THREE.SphereGeometry(r, 12, 8), m, parent, x, y, z, 'body');
+  const belt = mat(0x2a2018, { roughness: .6 }), boneM = mat(0xb9ad92, { roughness: .7 }), teethM = mat(0x9c8f6a, { roughness: .5 });
   // hips & legs
   const pelvis = add(limb(.19, .17, .24), pants, g, 0, .88, 0, 'body'); pelvis.scale.z = .72;
   const legs = [], knees = [];
@@ -1136,6 +1244,7 @@ function buildZombieBody() {
     const hip = new THREE.Group(); hip.position.set(s * .11, .84, 0); g.add(hip);
     add(limb(.085, .068, .42), pants, hip, 0, -.21, 0, 'body');
     const knee = new THREE.Group(); knee.position.y = -.42; hip.add(knee);
+    joint(.07, pants, knee, 0, 0, 0);
     add(limb(.068, .052, .4), pants, knee, 0, -.2, 0, 'body');
     add(new THREE.BoxGeometry(.11, .08, .24), shoe, knee, 0, -.41, .045, 'body');
     legs.push(hip); knees.push(knee);
@@ -1143,11 +1252,23 @@ function buildZombieBody() {
   // hunched torso
   const torso = new THREE.Group(); torso.position.y = .96; g.add(torso);
   const chest = add(limb(.25, .19, .62), shirt, torso, 0, .3, 0, 'body'); chest.scale.z = .62;
+  add(new THREE.TorusGeometry(.2, .025, 6, 18), belt, g, 0, .96, 0).scale.set(1, 1, .72);
+  add(new THREE.TorusGeometry(.085, .022, 6, 14), shirt, torso, 0, .6, 0).rotation.x = Math.PI / 2;
+  for (const s of [-1, 1]) joint(.085, shirt, torso, s * .27, .54, 0);
+  if (Math.random() < .35) {   // shirt ripped open: rotten flesh and exposed ribs
+    const gash = add(new THREE.BoxGeometry(.2, .24, .03), bloodMat, torso, rand(-.05, .05), .32, .145);
+    for (let i = 0; i < 4; i++) add(new THREE.BoxGeometry(.17 - i * .015, .014, .02), boneM, gash, 0, .08 - i * .05, .012);
+  }
   // head
   const neck = new THREE.Group(); neck.position.y = .62; torso.add(neck);
   add(limb(.055, .06, .12), skin, neck, 0, .03, 0, 'head');
   const head = add(new THREE.SphereGeometry(.13, 14, 10), skin, neck, 0, .17, .02, 'head'); head.scale.set(.95, 1.12, 1.05);
   const jaw = add(new THREE.BoxGeometry(.15, .055, .12), skin, neck, 0, .05, .07, 'head'); jaw.rotation.x = rand(.2, .5);
+  add(new THREE.BoxGeometry(.16, .03, .05), skin, head, 0, .05, .105);                       // brow ridge
+  const nose = add(new THREE.BoxGeometry(.03, .05, .04), skin, head, 0, -.005, .13); nose.rotation.x = -.2;
+  for (const s of [-1, 1]) add(new THREE.SphereGeometry(.028, 8, 6), skin, head, s * .125, 0, 0).scale.set(.5, 1, .8);   // ears
+  for (let i = 0; i < 5; i++) add(new THREE.BoxGeometry(.016, .02, .01), teethM, jaw, -.034 + i * .017, .03, .055);   // lower teeth
+  for (let i = 0; i < 5; i++) add(new THREE.BoxGeometry(.016, .02, .01), teethM, head, -.034 + i * .017, -.07, .118);  // upper teeth
   for (const s of [-1, 1]) {
     add(new THREE.SphereGeometry(.03, 8, 6), socketMat, head, s * .048, .02, .11);
     add(new THREE.SphereGeometry(.014, 6, 5), eyeMat, head, s * .048, .02, .128);
@@ -1161,6 +1282,7 @@ function buildZombieBody() {
     const sh = new THREE.Group(); sh.position.set(s * .29, .54, 0); torso.add(sh);
     add(limb(.065, .055, .32), shirt, sh, 0, -.16, 0, 'body');
     const el = new THREE.Group(); el.position.y = -.32; sh.add(el);
+    joint(.058, shirt, el, 0, 0, 0);
     if (missing === s) add(new THREE.CylinderGeometry(.056, .05, .03, 8), bloodMat, el, 0, -.01, 0);
     else {
       add(limb(.055, .042, .3), skin, el, 0, -.15, 0, 'body');
@@ -1461,7 +1583,7 @@ const interactables = [];
 function chalk(id, x, y, z, rotY) {
   const d = W[id];
   const tex = textTex([d.name, `${d.cost}`], { w: 512, h: 256, color: '#f2f0e8', size: 46, chalk: true });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, .85), new THREE.MeshPhongMaterial({ map: tex, transparent: true, depthWrite: false }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, .85), pbr({ map: tex, transparent: true, depthWrite: false }));
   m.position.set(x, y, z); m.rotation.y = rotY; scene.add(m);
   const gun = buildGun(d, false); gun.scale.setScalar(1.5);
   gun.position.set(x, y + .58, z); gun.rotation.y = rotY + Math.PI / 2;
@@ -2190,6 +2312,7 @@ function frame(now) {
   lotShafts.forEach(s => s.material.opacity = .15 + Math.sin(now * .0013) * .015);
   for (const f of fogBanks) { f.position.x += f.userData.drift * dt; if (Math.abs(f.position.x) > 34) f.userData.drift *= -1; }
   updateParticles(dt); updateTracers(dt); updateFlashes(dt); updateMotes(dt, now / 1000); updateDecals(dt);
+  sky.position.copy(camera.position); sky.material.uniforms.uTime.value = now / 1000;
 
   const hurt = G.state === 'menu' ? 0 : clamp(1 - P.hp / P.maxHp, 0, 1);
   Post.render(() => {
