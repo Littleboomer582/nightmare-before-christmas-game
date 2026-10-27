@@ -855,7 +855,7 @@ function tone(freq, dur, { type = 'sine', vol = 0.3, when = 0, slide = 0, attack
 const SFX = {
   shot(kind) {
     const p = { pistol: [1800, .12, .45], smg: [2200, .09, .35], rifle: [1500, .14, .45], shotgun: [900, .3, .7], lmg: [1300, .13, .45], sniper: [800, .45, .8], cannon: [700, .35, .7] }[kind];
-    if (kind === 'plasma') { tone(900, .25, { type: 'square', vol: .18, slide: .2 }); tone(300, .3, { type: 'sawtooth', vol: .15, slide: .3 }); return; }
+    if (kind === 'ray') { tone(1500, .22, { type: 'square', vol: .14, slide: .18 }); tone(760, .26, { type: 'sawtooth', vol: .12, slide: .25 }); tone(90, .2, { type: 'sine', vol: .3, slide: .5 }); return; }
     if (kind === 'arc') { noiseHit({ dur: .35, freq: 3000, type: 'highpass', vol: .4 }); tone(120, .3, { type: 'sawtooth', vol: .25, slide: 2 }); return; }
     const [f, d, v] = p || [1500, .12, .4];
     noiseHit({ dur: d, freq: f, vol: v }); tone(150, d * 0.9, { type: 'triangle', vol: v * .6, slide: .3 });
@@ -916,7 +916,7 @@ const W = {
   barrett:  { name: 'Barrett M82A1', up: 'Barrett Annihilator', kind: 'sniper', dmg: 1300, head: 3, rpm: 110, auto: false, mag: 10, reserve: 60, reload: 3.4, spread: .003, pierce: 5, len: .9, color: 0x262a24, box: 2, zoom: 28 },
   dsr:      { name: 'DSR 50', up: 'DSR 50 Longreach', kind: 'sniper', dmg: 1600, head: 3, rpm: 50, auto: false, mag: 4, reserve: 40, reload: 3.2, spread: .002, pierce: 5, len: .85, color: 0x1f2320, box: 2, zoom: 24 },
   // this game's own wonder weapons
-  plasma:   { name: 'Plasma Disruptor', up: 'Plasma Annihilator', kind: 'plasma', dmg: 1000, head: 1, rpm: 180, auto: false, mag: 20, reserve: 160, reload: 2.6, spread: .008, splash: 2.6, len: .32, color: 0x2a3a2a, box: 1 },
+  ray:      { name: 'Ray Pistol', up: 'Ray Pistol Supernova', kind: 'ray', dmg: 1000, head: 1, rpm: 180, auto: false, mag: 20, reserve: 160, reload: 2.6, spread: .006, splash: 2.4, len: .3, color: 0xb8733f, box: 2 },
   arc:      { name: 'Arc Thrower', up: 'Arc Storm', kind: 'arc', dmg: 1500, head: 1, rpm: 90, auto: false, mag: 6, reserve: 36, reload: 3, spread: .01, chain: 5, len: .45, color: 0x2b2f3a, box: 1 },
 };
 for (const k in W) W[k].id = k;
@@ -927,7 +927,7 @@ function makeWeapon(id, upgraded = false) {
   const magSize = upgraded ? Math.round(d.mag * 1.5) : d.mag;
   return { def: d, up: upgraded, magSize, mag: magSize, reserveMax: upgraded ? d.reserve * 2 : d.reserve, reserve: upgraded ? d.reserve * 2 : d.reserve };
 }
-const wDamage = w => w.def.dmg * (w.up ? (w.def.kind === 'plasma' || w.def.kind === 'arc' ? 1.6 : 2.6) : 1);
+const wDamage = w => w.def.dmg * (w.up ? (w.def.kind === 'ray' || w.def.kind === 'arc' ? 1.6 : 2.6) : 1);
 const wName = w => w.up ? w.def.up : w.def.name;
 
 // Extrude a side silhouette (x = forward, y = up) into a beveled solid; forward maps to -z.
@@ -942,11 +942,13 @@ function sideProfile(pts, thick, bevel = .004) {
 }
 function buildGun(def, up) {
   const g = new THREE.Group();
-  const body = pbr({ color: up ? 0x4a1f7a : def.color, emissive: up ? 0x220733 : 0x000000, roughness: .42, metalness: .65 });
+  const body = def.kind === 'ray'
+    ? pbr({ color: up ? 0x8a7ad8 : 0xb8733f, roughness: .28, metalness: .92 })
+    : pbr({ color: up ? 0x4a1f7a : def.color, emissive: up ? 0x220733 : 0x000000, roughness: .42, metalness: .65 });
   const poly = pbr({ color: up ? 0x2a1240 : 0x17181a, roughness: .7, metalness: .05 });
   const dark = M.gunMetal;
   const wood = pbr({ color: up ? 0x6a2a8a : 0x5c3a1e, roughness: .6, map: T.wood() });
-  const glowCol = up ? 0xd36bff : (def.kind === 'arc' ? 0x6bdcff : 0x7dff5a);
+  const glowCol = up ? (def.kind === 'ray' ? 0x9f7bff : 0xd36bff) : (def.kind === 'arc' ? 0x6bdcff : def.kind === 'ray' ? 0xff7a2a : 0x7dff5a);
   const glow = new THREE.MeshBasicMaterial({ color: glowCol });
   const add = (geo, m, x = 0, y = 0, z = 0, rx = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.x = rx; g.add(o); return o; };
   const cyl = (r0, r1, len, m, x, y, z, seg = 14) => add(new THREE.CylinderGeometry(r1, r0, len, seg), m, x, y, z, Math.PI / 2);
@@ -961,7 +963,7 @@ function buildGun(def, up) {
     lmg:     [[0, -.05], [0, .052], [.5, .058], [.56, .04], [1, .035], [1, -.03], [.4, -.052]],
     sniper:  [[0, -.035], [0, .036], [.5, .036], [.56, .022], [1, .02], [1, -.02], [.36, -.04]],
     shotgun: [[0, -.036], [0, .032], [.34, .036], [.4, .02], [.4, -.036]],
-    plasma:  [[-.05, -.04], [-.05, .025], [.25, .05], [.8, .05], [1, .02], [1, -.03], [.5, -.055]],
+    ray:     [[-.07, -.015], [-.07, .03], [-.02, .052], [.55, .05], [.9, .035], [1, .022], [1, -.018], [.55, -.038], [.1, -.035]],
     arc:     [[0, -.045], [0, .035], [.3, .055], [.85, .045], [1, .015], [1, -.035], [.45, -.06]],
   };
   // receiver / slide
@@ -995,7 +997,17 @@ function buildGun(def, up) {
     add(sideProfile([[0, .03], [0, -.04], [-.24, -.08], [-.27, -.075], [-.26, .02]], .046, .008), wood);          // stock
   }
   if (k === 'sniper') { cyl(.026, .026, .26, dark, 0, .085, -L * .42); cyl(.032, .026, .05, dark, 0, .085, -L * .42 - .15); cyl(.03, .026, .04, dark, 0, .085, -L * .42 + .14); add(new THREE.BoxGeometry(.02, .04, .03), dark, 0, .055, -L * .42); }
-  if (k === 'plasma') { cyl(.034, .034, .18, glow, 0, .062, -L * .5, 16); add(new THREE.TorusGeometry(.05, .012, 8, 18), glow, 0, .005, -L - .02); }
+  if (k === 'ray') {   // atomic-age ray pistol: copper fuselage, glass bulb, dish emitter, glowing side tubes
+    const glass = pbr({ color: 0xffffff, roughness: .05, transparent: true, opacity: .35, envMapIntensity: 1.5 });
+    const rear = add(new THREE.SphereGeometry(.036, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), body, 0, .01, .07); rear.rotation.x = Math.PI / 2;
+    add(new THREE.SphereGeometry(.017, 14, 10), glow, 0, .074, -L * .42);
+    add(new THREE.SphereGeometry(.027, 16, 12), glass, 0, .074, -L * .42);
+    cyl(.022, .022, .02, body, 0, .056, -L * .42, 12).rotation.x = 0;
+    for (const sx of [-1, 1]) cyl(.006, .006, L * .7, glow, sx * .034, .012, -L * .5, 8);
+    for (let i = 0; i < 3; i++) add(new THREE.TorusGeometry(.032 - i * .002, .006, 6, 18), body, 0, .004, -L * .82 - i * .028);
+    add(new THREE.CylinderGeometry(.062, .02, .06, 20, 1, true), body, 0, .004, -L - .03, -Math.PI / 2).material.side = THREE.DoubleSide;
+    add(new THREE.SphereGeometry(.012, 10, 8), glow, 0, .004, -L - .02);
+  }
   if (k === 'arc') for (let i = 0; i < 4; i++) add(new THREE.TorusGeometry(.058, .012, 8, 18), glow, 0, .0, -L * .3 - i * .08);
   if (up) add(new THREE.BoxGeometry(thick + .012, .012, L * .7), new THREE.MeshBasicMaterial({ color: 0xd36bff }), 0, .02, -L / 2);
   // sights, top rail, ejection port
@@ -1016,7 +1028,7 @@ function limbBetween(a, b, r0, r1, m) {
 }
 function buildArms(def) {
   const g = new THREE.Group(), L = def.len;
-  const oneHand = def.kind === 'pistol' || def.kind === 'cannon' || def.kind === 'plasma';
+  const oneHand = def.kind === 'pistol' || def.kind === 'cannon' || def.kind === 'ray';
   const rh = new V3(.012, -.105, -.035);
   g.add(limbBetween(new V3(.2, -.42, .42), rh.clone().add(new V3(.015, -.03, .07)), .062, .048, M.sleeve));
   g.add(limbBetween(rh.clone().add(new V3(.015, -.03, .07)), rh.clone().add(new V3(.008, -.01, .02)), .048, .042, M.glove));
@@ -1149,17 +1161,22 @@ function updateTracers(dt) {
   }
 }
 const flashes = [];
+const flashLights = [0, 1, 2, 3].map(() => { const l = new THREE.PointLight(0xffffff, 0, 6, 2); scene.add(l); return l; });
+let flashIdx = 0;
 function worldFlash(pos, color, intensity, radius, life) {
-  const l = new THREE.PointLight(color, intensity, radius, 2); l.position.copy(pos); scene.add(l);
-  const s = new THREE.Mesh(new THREE.SphereGeometry(radius * .25, 12, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .6, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const l = flashLights[flashIdx++ % flashLights.length];
+  l.color.setHex(color); l.distance = radius; l.position.copy(pos); l.intensity = intensity;
+  const s = new THREE.Mesh(new THREE.SphereGeometry(Math.min(.8, radius * .12), 12, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .45, depthWrite: false, blending: THREE.AdditiveBlending }));
   s.position.copy(pos); scene.add(s);
+  for (const f of flashes) if (f.l === l) f.l = null;
   flashes.push({ l, s, life, max: life, i: intensity });
 }
 function updateFlashes(dt) {
   for (let i = flashes.length - 1; i >= 0; i--) {
     const f = flashes[i]; f.life -= dt; const k = Math.max(0, f.life / f.max);
-    f.l.intensity = f.i * k; f.s.material.opacity = .6 * k; f.s.scale.setScalar(1 + (1 - k) * 1.5);
-    if (f.life <= 0) { scene.remove(f.l); scene.remove(f.s); f.s.geometry.dispose(); f.s.material.dispose(); flashes.splice(i, 1); }
+    if (f.l) f.l.intensity = f.i * k;
+    f.s.material.opacity = .45 * k; f.s.scale.setScalar(1 + (1 - k) * 1.5);
+    if (f.life <= 0) { if (f.l) f.l.intensity = 0; scene.remove(f.s); f.s.geometry.dispose(); f.s.material.dispose(); flashes.splice(i, 1); }
   }
 }
 let announceT = 0;
@@ -2118,10 +2135,10 @@ function fire() {
   SFX.shot(d.kind);
   vm.kick = Math.min(1, vm.kick + (d.kind === 'sniper' || d.kind === 'cannon' || d.kind === 'shotgun' ? 1 : .45));
   recoilPitch += d.kind === 'sniper' ? .03 : d.kind === 'shotgun' || d.kind === 'cannon' ? .025 : d.auto ? .006 : .012;
-  flashSprite.visible = d.kind !== 'plasma' && d.kind !== 'arc'; flashSprite.material.rotation = Math.random() * 6;
+  flashSprite.visible = d.kind !== 'ray' && d.kind !== 'arc'; flashSprite.material.rotation = Math.random() * 6;
   flashSprite.scale.setScalar(rand(.28, .4));
-  if (d.kind !== 'plasma' && d.kind !== 'arc' && d.kind !== 'shotgun') ejectCasing();
-  muzzleLight.color.setHex(d.kind === 'plasma' ? 0x7dff5a : d.kind === 'arc' ? 0x7fdcff : 0xffb050);
+  if (d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'shotgun') ejectCasing();
+  muzzleLight.color.setHex(d.kind === 'ray' ? (w.up ? 0x9f7bff : 0xff7a2a) : d.kind === 'arc' ? 0x7fdcff : 0xffb050);
   muzzleLight.intensity = 2.5; gunFlashLight.intensity = 2; vm.flashT = .05;
 
   const camPos = camera.getWorldPosition(new V3());
@@ -2137,6 +2154,7 @@ function fire() {
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
       dir.addScaledVector(right, Math.cos(a) * r).addScaledVector(up, Math.sin(a) * r).normalize();
     }
+    if (d.kind === 'ray') { spawnRayBolt(camPos, dir, mz, dmg, w.up); continue; }
     ray.set(camPos, dir); ray.far = 150;
     const hits = ray.intersectObjects(shootables, false);
     let pierce = d.pierce || 1, end = camPos.clone().addScaledVector(dir, 60);
@@ -2145,38 +2163,73 @@ function fire() {
       const z = h.object.userData.z;
       if (!z) {   // static geometry
         end = h.point;
-        if (d.kind !== 'plasma' && d.kind !== 'arc') burst(h.point, 'dust', 3, 1.5);
+        if (d.kind !== 'arc') burst(h.point, 'dust', 3, 1.5);
         break;
       }
       if (z.dead || hitZ.has(z)) continue;
       hitZ.add(z);
       const isHead = h.object.userData.part === 'head';
-      if (d.kind === 'plasma') { end = h.point; break; }
       if (d.kind === 'arc') { end = h.point; arcChain(z, h.point, dmg, w.up); break; }
       damageZombie(z, dmg * (isHead ? d.head : 1), isHead ? 'head' : 'body', h.point);
       if (isHead) SFX.head(); else SFX.hit();
       end = h.point;
       if (--pierce <= 0) break;
     }
-    if (d.kind === 'plasma') plasmaImpact(end, dmg, w.up);
-    else if (d.kind !== 'arc') tracer(mz, end, w.up ? 0xd36bff : 0xffe7a0);
+    if (d.kind !== 'arc') tracer(mz, end, w.up ? 0xd36bff : 0xffe7a0);
     else if (!hitZ.size) bolt(mz, end, w.up ? 0xd36bff : 0x8fe6ff);
   }
   if (w.mag === 0 && w.reserve > 0) setTimeout(() => { if (P.weapons[P.cur] === w && w.mag === 0) startReload(); }, 250);
   updateHud();
 }
-function plasmaImpact(pt, dmg, up) {
-  const col = up ? 0xd36bff : 0x7dff5a;
-  tracer(muzzleWorld(), pt, col, .15);
-  worldFlash(pt, col, 3, 6, .35);
-  burst(pt, up ? 'purple' : 'green', 14, 4);
-  const radius = W.plasma.splash * (up ? 1.4 : 1);
+// Ray Pistol: a visible energy bolt that flies, hits, and bursts with splash damage.
+const rayBolts = [];
+const boltHalo = canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(255,255,255,.7)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
+function spawnRayBolt(camPos, dir, mz, dmg, up) {
+  ray.set(camPos, dir); ray.far = 80;
+  const h = ray.intersectObjects(shootables, false)[0];
+  const aim = h ? h.point : camPos.clone().addScaledVector(dir, 80);
+  const start = aim.distanceTo(camPos) < 1.5 ? camPos.clone() : mz.clone();
+  const col = up ? 0x9f7bff : 0xff6a1a;
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltHalo, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  core.scale.setScalar(.22);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltHalo, color: col, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  halo.scale.setScalar(.7);
+  const g = new THREE.Group(); g.add(halo); g.add(core); g.position.copy(start); scene.add(g);
+  rayBolts.push({ g, pos: start, vel: aim.sub(start).normalize().multiplyScalar(up ? 55 : 42), dmg, up, life: 2.5, col, trailT: 0 });
+}
+function updateRayBolts(dt) {
+  for (let i = rayBolts.length - 1; i >= 0; i--) {
+    const b = rayBolts[i];
+    b.life -= dt;
+    const step = b.vel.length() * dt, dir = b.vel.clone().normalize();
+    ray.set(b.pos, dir); ray.far = step;
+    const h = ray.intersectObjects(shootables, false).find(x => !x.object.userData.z || !x.object.userData.z.dead);
+    const prev = b.pos.clone();
+    if (h) b.pos.copy(h.point); else b.pos.addScaledVector(b.vel, dt);
+    b.g.position.copy(b.pos);
+    b.g.children[0].material.rotation += dt * 8;
+    tracer(prev, b.pos.clone(), b.col, .12);
+    if (h || b.life <= 0) {
+      rayImpact(b.pos, b.dmg, b.up, h && h.object.userData.z);
+      scene.remove(b.g); b.g.children.forEach(c => c.material.dispose()); rayBolts.splice(i, 1);
+    }
+  }
+}
+function rayImpact(pt, dmg, up, direct) {
+  const col = up ? 0x9f7bff : 0xff6a1a;
+  worldFlash(pt, col, 3.5, 6, .35);
+  burst(pt, up ? 'purple' : 'fire', 16, 4.5);
+  noiseHit({ dur: .3, freq: 900, vol: .35 }); tone(180, .25, { type: 'sawtooth', vol: .12, slide: .4 });
+  if (direct && !direct.dead) damageZombie(direct, dmg, 'body', pt);
+  const radius = W.ray.splash * (up ? 1.4 : 1);
   for (const z of zombies) {
-    if (z.dead) continue;
-    const c = z.pos.clone().setY(1);
-    const d = c.distanceTo(pt);
+    if (z.dead || z === direct) continue;
+    const d = z.pos.clone().setY(1).distanceTo(pt);
     if (d < radius) damageZombie(z, dmg * (1 - d / radius * .5), 'splash', null);
   }
+  // fire it at your own feet and it bites back (the upgraded version doesn't)
+  const pd = new V3(P.pos.x, P.pos.y + 1, P.pos.z).distanceTo(pt);
+  if (!up && pd < 2 && P.invuln <= 0 && G.state === 'playing') { P.hp -= 15 + 25 * (1 - pd / 2); P.lastHurt = G.time; camShake = .3; if (P.hp <= 0) playerDown(); }
 }
 function arcChain(first, pt, dmg, up) {
   const col = up ? 0xd36bff : 0x8fe6ff;
@@ -2523,6 +2576,7 @@ function frame(now) {
     updatePlayer(dt);
     updateWeapon(dt);
     updateGrenades(dt);
+    updateRayBolts(dt);
     updateBuildables(dt);
     updateZombies(dt);
     updateRounds(dt);
