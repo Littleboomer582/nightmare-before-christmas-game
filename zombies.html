@@ -118,7 +118,7 @@
       <b>V</b><span>Knife</span>
       <b>G</b><span>Throw frag grenade</span>
       <b>T</b><span>Place a built turret or shock trap</span>
-      <b>Q / 1 / 2 / Wheel</b><span>Switch weapon</span>
+      <b>Q / 1 / 2 / 3 / Wheel</b><span>Switch weapon</span>
       <b>Esc</b><span>Pause</span>
     </div>
     <button id="playBtn">PLAY</button>
@@ -507,7 +507,7 @@ function makeWindow(x, z, nx, nz) {
 
 function buildMap() {
   // ground
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), M.dirt);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), M.dirt);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground); staticMeshes.push(ground);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), M.floor);
   floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, 0); scene.add(floor); staticMeshes.push(floor);
@@ -590,7 +590,18 @@ function buildMap() {
     for (let i = 0; i <= n; i++) { const t = i / n; box(0.1, 3.2, 0.1, x0 + (x1 - x0) * t, 1.6, z0 + (z1 - z0) * t, M.metal, { collide: false }); }
     addCollider(Math.min(x0, x1) - 0.12, Math.max(x0, x1) + 0.12, Math.min(z0, z1) - 0.12, Math.max(z0, z1) + 0.12);
   };
-  fence(-18, 8, -18, 26); fence(18, 8, 18, 26); fence(-18, 26, 18, 26);
+  fence(-18, 8, -18, 26); fence(18, 8, 18, 26); fence(-18, 26, -2, 26); fence(2, 26, 18, 26);
+  // lot gate onto the road (bought later)
+  const gateM = new THREE.MeshStandardMaterial({ map: T.chain(1.6, 2.5), transparent: true, alphaTest: .35, side: THREE.DoubleSide, color: 0x9aa0a6, roughness: .5, metalness: .6 });
+  for (const sx of [-1, 1]) {
+    const pivot = new THREE.Group(); pivot.position.set(sx * 2, 0, 26); scene.add(pivot);
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(2, 2.8), gateM); panel.position.set(-sx, 1.45, 0); pivot.add(panel);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2, .06, .06), M.metal); frame.position.set(-sx, 2.85, 0); pivot.add(frame);
+    const frame2 = frame.clone(); frame2.position.y = .08; pivot.add(frame2);
+    gate.panels.push({ pivot, sx });
+  }
+  const chainLock = new THREE.Mesh(new THREE.TorusGeometry(.12, .025, 6, 12), M.metal); chainLock.position.set(0, 1.4, 26); scene.add(chainLock); gate.lock = chainLock;
+  gate.collider = addCollider(-2, 2, 25.85, 26.15, 0, 3);
   fence(-18, 8, -12.15, 8); fence(12.15, 8, 18, 8);
 
   // ---- the bus ----
@@ -631,13 +642,14 @@ function buildMap() {
   }
 
   // ---- outside the fence/windows: dead trees, a wrecked car, road ----
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(220, 10), M.asphalt);
-  road.rotation.x = -Math.PI / 2; road.position.set(0, -0.015, 34); scene.add(road);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(360, 10), mat(0xffffff, { map: T.asphalt(36, 1), roughness: .75 }));
+  road.rotation.x = -Math.PI / 2; road.position.set(0, -0.015, 34); scene.add(road); staticMeshes.push(road);
+  for (let x = -170; x < 170; x += 6) box(3, .01, .15, x, .004, 34, stripe, { collide: false, shoot: false });   // centre line
   const bark = mat(0x2a2119);
-  for (let i = 0; i < 40; i++) {
-    const a = Math.random() * Math.PI * 2, r = rand(22, 60);
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (z > 28 && z < 40) continue;
+  const clear = [[-20, 20, -13, 28], [-180, 180, 28, 40], [-114, -56, 8, 30], [56, 104, 38, 66]];   // depot, road, gas station, mill
+  for (let i = 0; i < 130; i++) {
+    const x = rand(-150, 150), z = rand(-55, 95);
+    if (clear.some(([a, b, c, d]) => x > a && x < b && z > c && z < d)) continue;
     const t = new THREE.Group();
     const h = rand(4, 8);
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, h, 6), bark); trunk.position.y = h / 2; t.add(trunk);
@@ -650,7 +662,108 @@ function buildMap() {
   const car = new THREE.Group();
   const cb = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1.8), M.rust); cb.position.y = 0.6; car.add(cb);
   const ct = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 1.7), M.rust); ct.position.set(-0.3, 1.4, 0); car.add(ct);
-  car.position.set(-9, 0, 31); car.rotation.set(0, 0.5, 0.15); scene.add(car);
+  car.position.set(-24, 0, 44); car.rotation.set(0, 0.5, 0.15); scene.add(car);
+
+  buildGasStation(-80);
+  buildMill(80);
+}
+
+const gate = { panels: [], collider: null, lock: null, open: false, cost: 1000 };
+
+function signTex(lines, opts) { return textTex(lines, Object.assign({ w: 512, h: 128, font: 'Oswald', size: 70 }, opts)); }
+
+// ---- Pine Hollow Gas & Motel (north side of the road) ----
+const gasArea = { cx: -80 };
+function buildGasStation(cx) {
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(56, 18), mat(0x8a8780, { map: T.concrete(10, 4, '#55524c'), roughness: .9 }));
+  pad.rotation.x = -Math.PI / 2; pad.position.set(cx - 6, -.008, 20); scene.add(pad); staticMeshes.push(pad);
+  // canopy over the pumps
+  for (const [dx, dz] of [[-.5, 21.5], [9.5, 21.5], [-.5, 26.5], [9.5, 26.5]]) box(.3, 4.2, .3, cx + dx, 2.1, dz, mat(0xd8d4c8, { roughness: .6 }));
+  box(11, .5, 6.4, cx + 4.5, 4.45, 24, mat(0xc23a2a, { roughness: .6 }), { collide: false });
+  box(11.2, .12, 6.6, cx + 4.5, 4.15, 24, mat(0xdedad0), { collide: false });
+  for (const dx of [1.5, 7.5]) {
+    box(1.6, .05, .25, cx + dx, 4.08, 24, M.lamp, { collide: false, shoot: false });
+    anchor(cx + dx, 3.6, 24, 0xe6f0ff, 1.1, 12);
+    const pump = box(.8, 1.6, .55, cx + dx, .8, 24, mat(0xb8b2a6, { roughness: .5 }), { nav: true });
+    box(.6, .35, .02, cx + dx, 1.25, 24.29, mat(0x111111, { emissive: 0x1a3320 }), { collide: false, shoot: false });
+    box(.9, .16, .65, cx + dx, 1.68, 24, mat(0xc23a2a), { collide: false });
+  }
+  // store
+  box(10, 3.6, 7, cx - 9, 1.8, 17.5, mat(0xd2c9b4, { map: T.concrete(3, 1, '#9c937f'), roughness: .9 }), { nav: true });
+  box(10.4, .4, 7.4, cx - 9, 3.8, 17.5, mat(0x3a2d24), { collide: false });
+  box(4, 1.6, .05, cx - 11, 1.6, 21.03, M.glass, { collide: false });
+  box(1.1, 2.2, .05, cx - 6.5, 1.1, 21.03, M.glass, { collide: false });
+  const storeSign = new THREE.Mesh(new THREE.PlaneGeometry(6, 1), mat(0xffffff, { map: signTex(['PINE HOLLOW · GAS · FOOD'], { bg: '#1b2a20', color: '#e8e2c8', size: 54 }) }));
+  storeSign.position.set(cx - 9, 3.1, 21.04); scene.add(storeSign);
+  anchor(cx - 9, 3, 22.5, 0xffc890, .7, 9);
+  // pole sign with a price board
+  box(.25, 7, .25, cx + 14, 3.5, 27, M.darkMetal);
+  const pole = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2, .3), mat(0xffffff, { map: textTex(['GAS', 'REG  3.19', 'DSL  3.49'], { w: 256, h: 256, bg: '#14181c', color: '#ffcf6a', size: 46, font: 'Oswald', glow: '#ff9a00' }), emissive: 0x332200 }));
+  pole.position.set(cx + 14, 7.4, 27); scene.add(pole);
+  // motel row
+  box(14, 3.2, 5, cx - 25, 1.6, 16.5, mat(0xa58f74, { map: T.concrete(4, 1, '#7c6a55'), roughness: .9 }), { nav: true });
+  box(14.6, .3, 6.4, cx - 25, 3.3, 17.2, mat(0x2c2a26), { collide: false });
+  for (let i = 0; i < 4; i++) {
+    box(.95, 2.1, .05, cx - 30.5 + i * 3.6, 1.05, 19.03, mat(0x4a2f22 + i * 0x020100, { roughness: .7 }), { collide: false });
+    const num = new THREE.Mesh(new THREE.PlaneGeometry(.35, .25), mat(0xffffff, { map: textTex([`${i + 1}`], { w: 64, h: 48, bg: '#c9b46a', color: '#222', size: 36, font: 'Oswald' }) }));
+    num.position.set(cx - 30.5 + i * 3.6, 2.35, 19.06); scene.add(num);
+  }
+  const neon = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 1.1), new THREE.MeshBasicMaterial({ map: signTex(['MOTEL · VACANCY'], { color: '#ff5fa2', glow: '#ff2d7a', size: 66 }), transparent: true }));
+  neon.position.set(cx - 25, 4.1, 19.2); scene.add(neon);
+  gasArea.neon = neon; gasArea.neonLight = anchor(cx - 25, 3.6, 20.5, 0xff4d8f, 1, 9);
+  // a stalled car at the pumps
+  const car = new THREE.Group();
+  const paint = mat(0x3b4f5e, { roughness: .45, metalness: .5 });
+  const cb = new THREE.Mesh(new THREE.BoxGeometry(4.2, .9, 1.8), paint); cb.position.y = .65; car.add(cb);
+  const ct = new THREE.Mesh(new THREE.BoxGeometry(2.2, .7, 1.7), M.glass); ct.position.set(-.2, 1.45, 0); car.add(ct);
+  for (const [wx, wz] of [[-1.3, -.9], [1.3, -.9], [-1.3, .9], [1.3, .9]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .25, 12), M.tire); w.rotation.x = Math.PI / 2; w.position.set(wx, .36, wz); car.add(w); }
+  car.position.set(cx + 4.5, 0, 21.4); scene.add(car);
+  addCollider(cx + 2.4, cx + 6.6, 20.5, 22.3, 0, 1.8); navObstacles.push(colliders[colliders.length - 1]);
+}
+
+// ---- Kessler Lumber Mill (south side of the road) ----
+const millArea = { cx: 80, saws: [] };
+function buildMill(cx) {
+  const yard = new THREE.Mesh(new THREE.PlaneGeometry(44, 26), mat(0x5a5040, { map: T.dirt(12, 8), roughness: 1 }));
+  yard.rotation.x = -Math.PI / 2; yard.position.set(cx, -.01, 52); scene.add(yard); staticMeshes.push(yard);
+  const timber = mat(0x6b5034, { map: T.wood(), roughness: .85 });
+  const tin = mat(0x6e6a62, { roughness: .45, metalness: .7 });
+  // open-fronted saw shed: posts, back wall, one side wall, tin roof
+  for (const dx of [-8, -2.7, 2.7, 8]) box(.3, 4.4, .3, cx + dx, 2.2, 44.5, timber);
+  box(16.3, 4.4, .3, cx, 2.2, 54, timber, { nav: true });
+  box(.3, 4.4, 9.5, cx + 8.15, 2.2, 49.25, timber, { nav: true });
+  const roof = box(17.4, .15, 10.8, cx, 4.65, 49.3, tin, { collide: false }); roof.rotation.x = -.06;
+  // big saw
+  box(3.4, .9, 1.4, cx - 2, .45, 49.5, M.darkMetal, { nav: true });
+  const blade = new THREE.Mesh(new THREE.CylinderGeometry(.85, .85, .04, 40), pbr({ color: 0xc8ccd0, roughness: .25, metalness: 1 }));
+  blade.rotation.x = Math.PI / 2; blade.position.set(cx - 2, .95, 49.5); scene.add(blade); millArea.saws.push(blade);
+  box(1.2, .4, .5, cx - 4.4, .85, 49.5, mat(0x8a6a2a, { roughness: .5, metalness: .4 }), { collide: false });
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(.35, .38, 5, 14), mat(0x5a3f26, { roughness: .9 }));
+  log.rotation.z = Math.PI / 2; log.position.set(cx - 1, 1.25, 49.5); scene.add(log);
+  // hanging bulbs
+  for (const dx of [-4, 4]) { anchor(cx + dx, 3.8, 49, 0xffc27a, 1.4, 13); box(.18, .25, .18, cx + dx, 4.1, 49, M.lamp, { collide: false, shoot: false }); }
+  anchor(cx - 14, 3.5, 52, 0xffb066, .9, 12);
+  // log pile and lumber stacks
+  const logM = mat(0x553b22, { roughness: .9 });
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 4 - r; i++) {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(.4, .4, 6, 12), logM);
+    l.rotation.x = Math.PI / 2; l.position.set(cx + 13 + i * .82 + r * .41, .4 + r * .7, 50); scene.add(l); staticMeshes.push(l);
+  }
+  addCollider(cx + 12.5, cx + 16.4, 47, 53, 0, 2.2); navObstacles.push(colliders[colliders.length - 1]);
+  for (let i = 0; i < 3; i++) box(3.2, .5 + i * .25, 1.2, cx - 13, .25 + i * .12, 46 + i * 1.6, timber, { nav: true });
+  // flatbed truck
+  const cab = box(2.2, 2, 2.3, cx - 12, 1.3, 58.5, mat(0x7a2a1e, { roughness: .5, metalness: .4 }), { nav: true });
+  box(5, .6, 2.3, cx - 15.8, .9, 58.5, M.darkMetal, { nav: true });
+  for (let i = 0; i < 3; i++) { const l = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, 4.8, 12), logM); l.rotation.z = Math.PI / 2; l.position.set(cx - 15.8, 1.5, 57.8 + i * .65); scene.add(l); }
+  box(1.6, .7, .05, cx - 10.88, 2, 58.5, M.glass, { collide: false }).rotation.y = Math.PI / 2;
+  // roadside sign + lamp post
+  box(.2, 3, .2, cx - 18, 1.5, 40.5, timber);
+  box(.2, 3, .2, cx - 14, 1.5, 40.5, timber);
+  const ms = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.1), mat(0xffffff, { map: signTex(['KESSLER LUMBER CO.'], { bg: '#2a1d12', color: '#e9d7a8', size: 62 }) }));
+  ms.position.set(cx - 16, 2.5, 40.4); ms.rotation.y = Math.PI; scene.add(ms);
+  box(.18, 5.2, .18, cx + 18, 2.6, 41, M.darkMetal);
+  box(.6, .05, .3, cx + 18, 5.13, 41, M.lamp, { collide: false, shoot: false });
+  anchor(cx + 18, 4.9, 41, 0xffb066, 1.1, 16);
 }
 
 /* =====================================================================
@@ -659,12 +772,35 @@ function buildMap() {
 scene.add(new THREE.HemisphereLight(0x3a4a66, 0x0d0a08, 0.3));
 const moon = new THREE.DirectionalLight(0x7f96c8, 0.38); moon.position.set(-18, 30, 22); scene.add(moon); scene.add(moon.target);
 moon.target.position.set(0, 0, 10);
+const MOON_OFFSET = new V3(-18, 30, 12);
 moon.castShadow = true;
 Object.assign(moon.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 90 });
 moon.shadow.mapSize.set(2048, 2048); moon.shadow.bias = -0.0006; moon.shadow.normalBias = 0.03;
-const interiorLights = [-7, 0, 7].map(x => { const l = new THREE.PointLight(0xdfe8ff, 0.35, 16, 1.6); l.position.set(x, 3.6, 0); scene.add(l); return l; });
-const lotLights = [[-12, 21], [12, 21]].map(([x, z]) => { const l = new THREE.PointLight(0xffb066, 1.1, 18, 1.5); l.position.set(x, 4.9, z); scene.add(l); return l; });
-const fireLight = new THREE.PointLight(0xff7a2a, 1.2, 9, 2); fireLight.position.set(9.6, 1.6, 13.8); scene.add(fireLight);
+// Light anchors: every lamp in the world is an anchor; a fixed pool of real point lights is handed to the
+// nearest ones each frame. The scene's light count never changes, so shaders never recompile mid-game.
+const lightAnchors = [];
+function anchor(x, y, z, color, intensity, distance, decay = 2) {
+  const a = { pos: new V3(x, y, z), color: new THREE.Color(color), intensity, distance, decay };
+  lightAnchors.push(a); return a;
+}
+function dropAnchor(a) { const i = lightAnchors.indexOf(a); if (i >= 0) lightAnchors.splice(i, 1); }
+const lightPool = Array.from({ length: 10 }, () => { const l = new THREE.PointLight(0xffffff, 0, 10, 2); scene.add(l); return l; });
+function updateLightPool() {
+  const cam = camera.position;
+  const list = [];
+  for (const a of lightAnchors) if (a.intensity > .001) { const d = a.pos.distanceTo(cam); if (d < a.distance + 30) list.push([a, d]); }
+  list.sort((p, q) => p[1] - q[1]);
+  lightPool.forEach((l, i) => {
+    const e = list[i];
+    if (!e) { l.intensity = 0; return; }
+    const a = e[0];
+    l.position.copy(a.pos); l.color.copy(a.color); l.distance = a.distance; l.decay = a.decay;
+    l.intensity = a.intensity * (i >= lightPool.length - 2 ? .5 : 1);   // soften the two farthest so swaps don't pop
+  });
+}
+const interiorLights = [-7, 0, 7].map(x => anchor(x, 3.6, 0, 0xdfe8ff, .35, 16, 1.6));
+const lotLights = [[-12, 21], [12, 21]].map(([x, z]) => anchor(x, 4.9, z, 0xffb066, 1.1, 18, 1.5));
+const fireLight = anchor(9.6, 1.6, 13.8, 0xff7a2a, 1.2, 9);
 const flashlight = new THREE.SpotLight(0xfff2d6, 0.9, 24, 0.55, 0.6, 1.4);
 flashlight.position.set(0.25, -0.2, 0); camera.add(flashlight); camera.add(flashlight.target); flashlight.target.position.set(0, 0, -1);
 flashlight.castShadow = true; flashlight.shadow.mapSize.set(1024, 1024);
@@ -905,8 +1041,8 @@ const W = {
   m16:      { name: 'M16', up: 'M16 Tri-Shot Tyrant', kind: 'rifle', dmg: 95, head: 3, rpm: 900, burst: 3, auto: false, mag: 30, reserve: 180, reload: 2.4, spread: .016, cost: 1200, len: .62, color: 0x262729 },
   r870:     { name: 'Remington 870', up: 'Remington 870 Grave Digger', kind: 'shotgun', dmg: 65, pellets: 8, head: 1.5, rpm: 70, auto: false, mag: 8, reserve: 48, reload: 2.8, spread: .075, cost: 1500, len: .5, color: 0x262626 },
   // mystery box
-  galil:    { name: 'Galil', up: 'Galil Ironhowl', kind: 'rifle', dmg: 95, head: 3, rpm: 650, auto: true, mag: 35, reserve: 315, reload: 2.6, spread: .024, len: .6, color: 0x2b2c28, box: 3 },
-  fal:      { name: 'FAL', up: 'FAL Warden', kind: 'rifle', dmg: 150, head: 3, rpm: 400, auto: false, mag: 20, reserve: 180, reload: 2.5, spread: .012, pierce: 2, len: .66, color: 0x2f2c25, wood: true, box: 3 },
+  galil:    { name: 'Galil', up: 'Galil Ironhowl', cost: 1700, kind: 'rifle', dmg: 95, head: 3, rpm: 650, auto: true, mag: 35, reserve: 315, reload: 2.6, spread: .024, len: .6, color: 0x2b2c28, box: 3 },
+  fal:      { name: 'FAL', up: 'FAL Warden', cost: 1600, kind: 'rifle', dmg: 150, head: 3, rpm: 400, auto: false, mag: 20, reserve: 180, reload: 2.5, spread: .012, pierce: 2, len: .66, color: 0x2f2c25, wood: true, box: 3 },
   mtar:     { name: 'MTAR', up: 'MTAR Rampart', kind: 'rifle', dmg: 85, head: 3, rpm: 780, auto: true, mag: 30, reserve: 270, reload: 2.2, spread: .022, len: .48, color: 0x30332a, box: 3 },
   skorpion: { name: 'Skorpion EVO', up: 'Skorpion EVO Venomstrike', kind: 'smg', dmg: 50, head: 2.5, rpm: 1000, auto: true, mag: 32, reserve: 224, reload: 1.9, spread: .035, len: .32, color: 0x1e1f22, box: 3 },
   m1216:    { name: 'M1216', up: 'M1216 Thunderwheel', kind: 'shotgun', dmg: 55, pellets: 8, head: 1.5, rpm: 240, auto: true, mag: 16, reserve: 96, reload: 3.2, spread: .08, len: .5, color: 0x23252a, box: 2 },
@@ -917,6 +1053,7 @@ const W = {
   dsr:      { name: 'DSR 50', up: 'DSR 50 Longreach', kind: 'sniper', dmg: 1600, head: 3, rpm: 50, auto: false, mag: 4, reserve: 40, reload: 3.2, spread: .002, pierce: 5, len: .85, color: 0x1f2320, box: 2, zoom: 24 },
   // this game's own wonder weapons
   ray:      { name: 'Ray Pistol', up: 'Ray Pistol Supernova', kind: 'ray', dmg: 1000, head: 1, rpm: 180, auto: false, mag: 20, reserve: 160, reload: 2.6, spread: .006, splash: 2.4, len: .3, color: 0xb8733f, box: 2 },
+  gale:     { name: 'Gale Cannon', up: 'Gale Cannon', kind: 'gale', dmg: 0, head: 1, rpm: 60, auto: true, mag: 0, reserve: 0, reload: 1, spread: 0, len: .5, color: 0x7a4a2a },
   arc:      { name: 'Arc Thrower', up: 'Arc Storm', kind: 'arc', dmg: 1500, head: 1, rpm: 90, auto: false, mag: 6, reserve: 36, reload: 3, spread: .01, chain: 5, len: .45, color: 0x2b2f3a, box: 1 },
 };
 for (const k in W) W[k].id = k;
@@ -940,7 +1077,32 @@ function sideProfile(pts, thick, bevel = .004) {
   geo.translate(0, 0, -depth / 2); geo.rotateY(Math.PI / 2);
   return geo;
 }
+// Gale Cannon: a scrap-built turbine with an open fan housing, twin grips and a heat gauge.
+function buildGale() {
+  const g = new THREE.Group(), steel = M.gunMetal;
+  const rust = pbr({ color: 0x5a3622, roughness: .85, metalness: .45 });
+  const add = (geo, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
+  add(new THREE.CylinderGeometry(.12, .1, .3, 24, 1, true), pbr({ color: 0x5a3622, roughness: .8, metalness: .45, side: THREE.DoubleSide }), 0, .02, -.37).rotation.x = Math.PI / 2;
+  add(new THREE.TorusGeometry(.12, .013, 8, 26), steel, 0, .02, -.52);
+  add(new THREE.TorusGeometry(.1, .01, 8, 26), steel, 0, .02, -.23);
+  add(new THREE.CylinderGeometry(.07, .078, .2, 18), rust, 0, .02, -.12).rotation.x = Math.PI / 2;
+  for (let i = 0; i < 4; i++) add(new THREE.TorusGeometry(.079, .006, 6, 18), steel, 0, .02, -.05 - i * .045);
+  const fan = new THREE.Group(); fan.position.set(0, .02, -.33); g.add(fan);
+  for (let i = 0; i < 7; i++) { const piv = new THREE.Group(); piv.rotation.z = i * Math.PI * 2 / 7; const b = new THREE.Mesh(new THREE.BoxGeometry(.04, .095, .006), steel); b.position.y = .055; b.rotation.y = .55; piv.add(b); fan.add(piv); }
+  fan.add(new THREE.Mesh(new THREE.SphereGeometry(.022, 10, 8), rust));
+  for (let i = 0; i < 4; i++) { const bar = add(new THREE.BoxGeometry(.24, .006, .006), steel, 0, .02, -.525); bar.rotation.z = i * Math.PI / 4; }
+  add(sideProfile([[0, 0], [.048, 0], [.028, -.13], [-.022, -.13]], .046, .006), M.glove, 0, -.04, .02);
+  add(new THREE.TorusGeometry(.06, .012, 6, 14, Math.PI), steel, 0, .14, -.3).rotation.y = Math.PI / 2;
+  add(new THREE.CylinderGeometry(.018, .018, .22, 8), steel, -.09, .07, -.08).rotation.x = Math.PI / 2;   // exhaust pipe
+  const gaugeM = new THREE.MeshBasicMaterial({ color: 0x44ff66 });
+  add(new THREE.CylinderGeometry(.028, .028, .012, 18), gaugeM, .1, .06, -.15).rotation.z = Math.PI / 2;
+  add(new THREE.TorusGeometry(.03, .006, 6, 16), steel, .107, .06, -.15).rotation.y = Math.PI / 2;
+  g.scale.setScalar(.72); g.position.z = -.04;
+  g.userData = { muzzle: new V3(0, .02, -.53), fan, gaugeM };
+  return g;
+}
 function buildGun(def, up) {
+  if (def.kind === 'gale') return buildGale();
   const g = new THREE.Group();
   const body = def.kind === 'ray'
     ? pbr({ color: up ? 0x8a7ad8 : 0xb8733f, roughness: .28, metalness: .92 })
@@ -1161,7 +1323,7 @@ function updateTracers(dt) {
   }
 }
 const flashes = [];
-const flashLights = [0, 1, 2, 3].map(() => { const l = new THREE.PointLight(0xffffff, 0, 6, 2); scene.add(l); return l; });
+const flashLights = [0, 1, 2].map(() => { const l = new THREE.PointLight(0xffffff, 0, 6, 2); scene.add(l); return l; });
 let flashIdx = 0;
 function worldFlash(pos, color, intensity, radius, life) {
   const l = flashLights[flashIdx++ % flashLights.length];
@@ -1237,7 +1399,18 @@ function steerTarget(from, to) {
   }
   return to;
 }
-const zoneOf = p => p.z >= 8 ? 'lot' : (Math.abs(p.x) < 12 && p.z > -8 ? 'in' : 'out');
+// Zones: depot interior, fenced bus lot, and the open world. Portals link neighbouring zones (door, gate).
+const zoneOf = p => (Math.abs(p.x) < 12 && p.z > -8 && p.z < 8) ? 'in' : (Math.abs(p.x) < 18 && p.z >= 8 && p.z < 26) ? 'lot' : 'world';
+const ZONE_ORDER = { in: 0, lot: 1, world: 2 };
+const PORTALS = [{ lo: new V3(0, 0, 6.6), hi: new V3(0, 0, 9.4) }, { lo: new V3(0, 0, 24.4), hi: new V3(0, 0, 27.6) }];
+// Head for the near side of the opening; once lined up with it, commit and go through to the far side.
+function portalTarget(zp, zone, pz) {
+  const zi = ZONE_ORDER[zone], pi = ZONE_ORDER[pz];
+  const por = PORTALS[zi < pi ? zi : zi - 1];
+  const lined = Math.abs(zp.x - por.lo.x) < 1;
+  if (zi < pi) return lined && zp.z >= por.lo.z - .3 ? por.hi : por.lo;
+  return lined && zp.z <= por.hi.z + .3 ? por.lo : por.hi;
+}
 
 /* =====================================================================
    ZOMBIES
@@ -1331,19 +1504,28 @@ function buildZombieBody() {
 function zombieHealth(r) { return r < 10 ? 150 + 100 * (r - 1) : Math.round(950 * Math.pow(1.1, r - 9)); }
 function zombieCount(r) { return r <= 5 ? [6, 8, 13, 18, 24][r - 1] : 24 + (r - 5) * 6; }
 
+const WORLD_SPAWNS = [[-24, 0], [24, -4], [0, -20], [-30, 30], [30, 38], [-55, 41], [55, 29],
+  [-100, 26], [-62, 12], [-88, 9], [-70, 31], [-104, 15], [62, 46], [100, 56], [86, 64], [97, 41], [70, 62]];
 function spawnZombie() {
   // choose a spawner, weighted toward the player
   const cands = [];
   const pz = zoneOf(P.pos);
   for (const w of windows) {
     const d = w.inside.distanceTo(P.pos);
-    cands.push({ w, pos: w.spawn, weight: (pz === 'lot' ? .5 : 1.4) / (1 + d * .12) });
+    if (d > 45) continue;
+    cands.push({ w, pos: w.spawn, zone: 'out', weight: (pz === 'in' ? 1.4 : pz === 'lot' ? .5 : .3) / (1 + d * .12) });
   }
   if (G.lotOpen) for (const [x, z] of [[-16, 12.5], [-15, 24], [0, 24.5], [10, 24], [15.8, 19]]) {
-    const pos = new V3(x, 0, z);
-    if (pos.distanceTo(P.pos) < 4) continue;
-    cands.push({ w: null, pos, weight: (pz === 'lot' ? 1.6 : .5) / (1 + pos.distanceTo(P.pos) * .12) });
+    const pos = new V3(x, 0, z), d = pos.distanceTo(P.pos);
+    if (d < 4 || d > 45) continue;
+    cands.push({ w: null, pos, zone: 'lot', weight: (pz === 'lot' ? 1.6 : .5) / (1 + d * .12) });
   }
+  if (gate.open) for (const [x, z] of WORLD_SPAWNS) {
+    const pos = new V3(x, 0, z), d = pos.distanceTo(P.pos);
+    if (d < 9 || d > 42 || inBus(pos)) continue;
+    cands.push({ w: null, pos, zone: 'world', weight: (pz === 'world' ? 1.6 : .3) / (1 + d * .1) });
+  }
+  if (!cands.length) { const w = windows.reduce((a, b) => a.inside.distanceTo(P.pos) < b.inside.distanceTo(P.pos) ? a : b); cands.push({ w, pos: w.spawn, zone: 'out', weight: 1 }); }
   let tot = cands.reduce((s, c) => s + c.weight, 0), r = Math.random() * tot, c = cands[0];
   for (const cc of cands) { r -= cc.weight; if (r <= 0) { c = cc; break; } }
 
@@ -1361,7 +1543,7 @@ function spawnZombie() {
   const z = {
     g, parts, head, neck, arms, legs, torso, elbows, knees, limp: Math.random() < .3 ? rand(.3, .6) : 0,
     hp: zombieHealth(r0), gait, speed: { walk: rand(1, 1.3), run: rand(2.8, 3.3), sprint: rand(4.1, 4.6) }[gait],
-    state: c.w ? 'toWindow' : 'chase', win: c.w, zone: c.w ? 'out' : 'lot',
+    state: c.w ? 'toWindow' : 'chase', win: c.w, zone: c.zone,
     rise: 0, phase: Math.random() * 6, atkCd: 0, swing: 0, breakT: 0, climbT: 0,
     dead: false, deathT: 0, groanT: rand(1, 5), lastPos: spawnPos.clone(), stuckT: 0, jitterT: 0, jitter: new V3(),
     pos: spawnPos.clone(), yaw: 0,
@@ -1397,6 +1579,7 @@ function damageZombie(z, dmg, how, point) {
   else { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); z.flinch = .15; }
 }
 
+const dPlayer = z => Math.hypot(z.pos.x - P.pos.x, z.pos.z - P.pos.z);
 function updateZombies(dt) {
   const pz = zoneOf(P.pos);
   for (let i = zombies.length - 1; i >= 0; i--) {
@@ -1417,6 +1600,9 @@ function updateZombies(dt) {
       if (Math.random() < dt * 3) burst(z.pos.clone().setY(.05), 'dust', 2, 1.5);
       continue;
     }
+    if (dPlayer(z) > 60 && !inBus(z.pos)) {   // left far behind: recycle it near the player
+      scene.remove(g); removeZombieParts(z); zombies.splice(i, 1); G.alive--; G.toSpawn++; continue;
+    }
     z.atkCd -= dt; z.swing = Math.max(0, z.swing - dt); z.flinch = Math.max(0, (z.flinch || 0) - dt);
     z.groanT -= dt;
     const dP = z.pos.distanceTo(P.pos);
@@ -1425,6 +1611,7 @@ function updateZombies(dt) {
     let target = null, moving = true;
     const speed = z.speed * (z.flinch > 0 ? .3 : 1);
 
+    if (z.state === 'toWindow' && pz === 'world' && dP < 18) { z.state = 'chase'; z.zone = 'world'; }
     if (z.state === 'toWindow') {
       target = z.win.out;
       if (Math.hypot(z.pos.x - target.x, z.pos.z - target.z) < .35) { z.state = 'break'; z.breakT = 0; }
@@ -1450,13 +1637,10 @@ function updateZombies(dt) {
       continue;
     }
     if (z.state === 'chase') {
-      z.zone = zoneOf(z.pos) === 'lot' ? 'lot' : 'in';
+      z.zone = zoneOf(z.pos);
       target = P.pos;
-      if (z.zone !== pz && (pz === 'in' || pz === 'lot')) {
-        const doorIn = new V3(0, 0, 6.6), doorOut = new V3(0, 0, 9.4);
-        if (z.zone === 'in') target = Math.hypot(z.pos.x, z.pos.z - 6.6) < .9 ? doorOut : doorIn;
-        else target = Math.hypot(z.pos.x, z.pos.z - 9.4) < .9 ? doorIn : doorOut;
-      }
+      if (z.zone !== pz) target = portalTarget(z.pos, z.zone, pz);
+      else if (pz === 'world') target = busApproach(z.pos) || target;
       target = steerTarget(z.pos, target);
       if (dP < 1.15) { moving = false; if (z.atkCd <= 0) attackPlayer(z); }
     }
@@ -1650,8 +1834,13 @@ function spend(cost) {
 }
 function giveWeapon(id, upgraded = false) {
   const w = makeWeapon(id, upgraded);
-  if (P.weapons.length < 2) { P.weapons.push(w); P.cur = P.weapons.length - 1; }
-  else P.weapons[P.cur] = w;
+  const guns = P.weapons.filter(x => x.def.id !== 'gale');
+  if (guns.length < 2) { P.weapons.push(w); P.cur = P.weapons.length - 1; }
+  else {
+    let idx = P.cur;
+    if (P.weapons[idx].def.id === 'gale') idx = P.weapons.map(x => x.def.id).lastIndexOf(guns[guns.length - 1].def.id);
+    P.weapons[idx] = w; P.cur = idx;
+  }
   vm.swap = .5; vm.reload = 0;
   refreshViewModel();
 }
@@ -1794,19 +1983,20 @@ function buildPowerAndForge() {
   flbl.position.set(0, 2.15, .46); fg.add(flbl);
   addCollider(fx - 1, fx + 1, fz - 1, fz + 1, 0, 2.4);
   forge.core = core; forge.ring = ring;
-  forge.light = new THREE.PointLight(0xb05aff, 0, 6, 2); forge.light.position.set(fx + .7, 1.6, fz - .7); scene.add(forge.light);
+  forge.light = anchor(fx + .7, 1.6, fz - .7, 0xb05aff, 0, 6);
   interactables.push({
     pos: new V3(fx + 1.3, 0, fz - 1.3), r: 1.8,
     prompt() {
       if (!G.power) return 'You must turn on the power first!';
       const w = P.weapons[P.cur];
       if (forge.busy) return null;
+      if (w.def.kind === 'gale') return 'The Gale Cannon can\'t be forged';
       if (w.up) return 'This weapon is already forged';
       return `Press <b>F</b> to forge ${w.def.name} into ${w.def.up} [Cost: 5000]`;
     },
     use() {
       const w = P.weapons[P.cur];
-      if (!G.power || w.up || forge.busy) return;
+      if (!G.power || w.up || forge.busy || w.def.kind === 'gale') return;
       if (!spend(5000)) return;
       forge.busy = 1.2; SFX.upgrade();
       const up = makeWeapon(w.def.id, true);
@@ -1829,6 +2019,17 @@ function buildPowerAndForge() {
       shootables = shootables.filter(m => !set.has(m));
       burst(new V3(0, 1, 8), 'dust', 30, 4, 2); SFX.board();
       announce('THE BUS LOT IS OPEN', '#e8d9b0', 1.8);
+    },
+  });
+
+  // lot gate onto the road
+  interactables.push({
+    pos: new V3(0, 0, 24.7), pos2: new V3(0, 0, 27.3), r: 2.4,
+    prompt() { return gate.open || !G.lotOpen ? null : `Press <b>F</b> to open the gate to the road [Cost: ${gate.cost}]`; },
+    use() {
+      if (gate.open || !spend(gate.cost)) return;
+      gate.open = true; gate.collider.off = true; scene.remove(gate.lock); SFX.board();
+      announce('THE ROAD IS OPEN — CATCH THE BUS', '#ffcf6a', 2.2);
     },
   });
 
@@ -1868,13 +2069,16 @@ const BUILDS = {
   shield: { name: 'Riot Shield', parts: ['Car Door', 'Hand Truck', 'Grip Bracket'], color: 0x8fc3ff },
   turret: { name: 'Sentry Turret', parts: ['Gun Mount', 'Ammo Belt', 'Car Battery'], color: 0xffb85a },
   trap:   { name: 'Shock Trap', parts: ['Copper Coil', 'Jumper Cables', 'Transformer'], color: 0x7de8ff },
+  gale:   { name: 'Gale Cannon', parts: ['Engine', 'Fan Housing', 'Handle', 'Pressure Gauge'], color: 0xff9a5a },
 };
-const B = { have: { shield: new Set(), turret: new Set(), trap: new Set() }, built: {}, cool: { shield: 0, turret: 0, trap: 0 }, carry: null, placed: [], partMeshes: [] };
+const B = { have: { shield: new Set(), turret: new Set(), trap: new Set(), gale: new Set() }, built: {}, cool: { shield: 0, turret: 0, trap: 0, gale: 0 }, carry: null, placed: [], partMeshes: [] };
 const SHIELD_HITS = 8;
 
 function buildParts() {
   // five spots inside the depot, four in the bus lot; parts are shuffled each game
-  const spots = [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6]];
+  // five inside the depot, four in the bus lot, two at the gas station, two at the mill
+  const spots = [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6],
+    [-88, 25], [-104, 22], [74, 51.5], [91, 47]];
   for (let i = spots.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [spots[i], spots[j]] = [spots[j], spots[i]]; }
   let n = 0;
   for (const k in BUILDS) BUILDS[k].parts.forEach(part => {
@@ -1884,6 +2088,7 @@ function buildParts() {
     if (k === 'shield') g.add(new THREE.Mesh(new THREE.BoxGeometry(.5, .35, .05), m));
     if (k === 'turret') { const c = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .45, 10), m); c.rotation.z = Math.PI / 2; g.add(c); g.add(new THREE.Mesh(new THREE.BoxGeometry(.18, .14, .14), m)); }
     if (k === 'trap') g.add(new THREE.Mesh(new THREE.TorusGeometry(.13, .04, 8, 16), mat(0xb87333, { roughness: .35, metalness: .9 })));
+    if (k === 'gale') { const c = new THREE.Mesh(new THREE.CylinderGeometry(.16, .14, .25, 14, 1, true), pbr({ color: 0x7a4a2a, roughness: .8, metalness: .45, side: THREE.DoubleSide })); c.rotation.x = Math.PI / 2; g.add(c); g.add(new THREE.Mesh(new THREE.BoxGeometry(.12, .12, .12), m)); }
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: moteTex, color: BUILDS[k].color, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false }));
     halo.scale.set(1.1, 1.1, 1); g.add(halo);
     const item = { k, part, g, taken: false };
@@ -1894,7 +2099,7 @@ function buildParts() {
       use() {
         if (item.taken) return;
         item.taken = true; scene.remove(g); B.have[k].add(part); SFX.hammer();
-        const left = 3 - B.have[k].size;
+        const left = BUILDS[k].parts.length - B.have[k].size;
         announce(left ? `${part.toUpperCase()} · ${left} MORE FOR ${BUILDS[k].name.toUpperCase()}` : `${BUILDS[k].name.toUpperCase()} READY TO BUILD`, '#9cf', 1.8);
         updateEquipHud();
       },
@@ -1905,10 +2110,11 @@ function buildParts() {
 function canTake(k) {
   if (!B.built[k] || B.cool[k] > 0) return false;
   if (k === 'shield') return P.shieldHp <= 0;
+  if (k === 'gale') return !P.weapons.some(w => w.def.id === 'gale');
   return !B.carry && !B.placed.some(o => o.k === k);
 }
 function benchAction() {
-  for (const k in BUILDS) if (!B.built[k] && B.have[k].size === 3) return { type: 'build', k };
+  for (const k in BUILDS) if (!B.built[k] && B.have[k].size === BUILDS[k].parts.length) return { type: 'build', k };
   for (const k in BUILDS) if (canTake(k)) return { type: 'take', k };
   return null;
 }
@@ -1920,7 +2126,7 @@ function workbench(x, z, rotY) {
   box(1.7, .05, .7, 0, .3, 0, top, { collide: false, parent: g });
   box(.35, .18, .2, -.55, 1.05, -.1, mat(0xa02020, { roughness: .4, metalness: .5 }), { collide: false, parent: g });   // toolbox
   box(.12, .14, .16, .6, 1.03, .1, M.darkMetal, { collide: false, parent: g });                                         // vise
-  const lamp = new THREE.PointLight(0xffd6a0, .7, 4, 2); lamp.position.set(0, 1.9, 0); g.add(lamp);
+  anchor(x, 1.9, z, 0xffd6a0, .7, 4);
   box(.4, .04, .25, 0, 1.92, 0, M.lamp, { collide: false, shoot: false, parent: g });
   g.updateMatrixWorld();
   const c = Math.abs(Math.cos(rotY)) > .5;
@@ -1942,6 +2148,7 @@ function workbench(x, z, rotY) {
       const a = benchAction();
       if (!a || a.type !== 'take') return;
       if (a.k === 'shield') { P.shieldHp = SHIELD_HITS; shieldVm.visible = true; }
+      else if (a.k === 'gale') { P.weapons.push(makeWeapon('gale')); P.cur = P.weapons.length - 1; vm.swap = .5; W_STATE.reloading = 0; refreshViewModel(); }
       else B.carry = a.k;
       SFX.buy(); announce(BUILDS[a.k].name.toUpperCase(), '#9cf', 1.4); updateEquipHud();
     },
@@ -1988,11 +2195,11 @@ function placeEquipment() {
     o.head.add(new THREE.Mesh(new THREE.BoxGeometry(.22, .2, .4), M.darkMetal));
     const bar = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .5, 8), M.gunMetal); bar.rotation.x = Math.PI / 2; bar.position.set(0, .03, .4); o.head.add(bar);
     const can = new THREE.Mesh(new THREE.BoxGeometry(.12, .14, .18), mat(0x3d4a2c)); can.position.set(.17, -.04, 0); o.head.add(can);
-    o.light = new THREE.PointLight(0xffb050, 0, 5, 2); o.light.position.set(0, .03, .7); o.head.add(o.light);
+    o.light = anchor(pos.x, 1, pos.z, 0xffb050, 0, 5);
   } else {
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.55, .6, .08, 20), M.darkMetal); base.position.y = .04; g.add(base);
     for (let i = 0; i < 3; i++) { const coil = new THREE.Mesh(new THREE.TorusGeometry(.38 - i * .1, .025, 6, 20), mat(0xb87333, { roughness: .35, metalness: .9 })); coil.rotation.x = Math.PI / 2; coil.position.y = .1 + i * .02; g.add(coil); }
-    o.glow = new THREE.PointLight(0x7de8ff, .8, 4, 2); o.glow.position.y = .4; g.add(o.glow);
+    o.glow = anchor(pos.x, .4, pos.z, 0x7de8ff, .8, 4);
   }
   B.placed.push(o); B.carry = null; SFX.hammer(); updateEquipHud();
 }
@@ -2032,7 +2239,7 @@ function updateBuildables(dt) {
       if (o.kills >= 25) o.life = 0;
     }
     if (o.life <= 0) {
-      scene.remove(o.g); B.placed.splice(i, 1); B.cool[o.k] = 30;
+      scene.remove(o.g); dropAnchor(o.light || o.glow); B.placed.splice(i, 1); B.cool[o.k] = 30;
       announce(`${BUILDS[o.k].name.toUpperCase()} WORN OUT`, '#9cf', 1.4); updateEquipHud();
     }
   }
@@ -2058,9 +2265,174 @@ function updateEquipHud() {
   for (const k in BUILDS) {
     if (B.built[k]) continue;
     const n = B.have[k].size;
-    if (n) lines.push(`<span style="color:#9aa">${BUILDS[k].name} parts ${n}/3</span>`);
+    if (n) lines.push(`<span style="color:#9aa">${BUILDS[k].name} parts ${n}/${BUILDS[k].parts.length}</span>`);
   }
   $('equip').innerHTML = lines.join('<br>');
+}
+
+// Gale Cannon: hold fire to drag zombies in front of you into the fan. It heats up; overheat it and it breaks.
+function updateGale(w, dt, firing) {
+  const ud = vm.gun && vm.gun.userData;
+  w.heat = w.heat || 0;
+  if (firing) {
+    w.heat += dt / 6;
+    const fwd = new V3(-Math.sin(P.yaw), 0, -Math.cos(P.yaw));
+    for (const z of zombies) {
+      if (z.dead || z.rise < 1 || z.state !== 'chase') continue;
+      const to = new V3(z.pos.x - P.pos.x, 0, z.pos.z - P.pos.z), d = to.length();
+      if (d > 10 || d < .01 || to.clone().divideScalar(d).dot(fwd) < .8) continue;
+      if (d < 1.7) {
+        burst(z.pos.clone().setY(1.2), 'blood', 26, 5, 1.4); z.neck.visible = false;
+        damageZombie(z, 1e9, 'body', null);
+        continue;
+      }
+      z.pos.addScaledVector(to.divideScalar(d), -(9 * (1 - d / 12) + 2) * dt);
+      z.flinch = .25;
+      resolve(z.pos, .32, 0, 1.8);
+    }
+    G.galeSnd = (G.galeSnd || 0) - dt;
+    if (G.galeSnd <= 0) { G.galeSnd = .1; noiseHit({ dur: .18, freq: 450 + w.heat * 700, vol: .22 }); }
+    vm.kick = Math.min(.2, vm.kick + dt * 2); camShake = Math.max(camShake, .04);
+    if (Math.random() < dt * 25) burst(camera.localToWorld(new V3(rand(-1, 1), rand(-.5, .5), -3)), 'dust', 1, .5, .6);
+  } else w.heat = Math.max(0, w.heat - dt / 3);
+  if (ud && ud.fan) {
+    ud.fan.rotation.z += dt * (firing ? 45 : 1.5);
+    const h = w.heat;
+    ud.gaugeM.color.setRGB(.2 + h * .8, 1 - h * .85, .25 * (1 - h));
+    if (h > .8 && Math.sin(G.time * 30) > 0) ud.gaugeM.color.setRGB(1, .1, .05);
+  }
+  updateHud();
+  if (w.heat >= 1) {
+    P.weapons.splice(P.weapons.indexOf(w), 1); P.cur = 0;
+    B.cool.gale = 30; vm.swap = .6;
+    noiseHit({ dur: .6, freq: 300, vol: .7 }); tone(90, .5, { type: 'sawtooth', vol: .3, slide: .4 });
+    burst(camera.localToWorld(new V3(.2, -.2, -.8)), 'spark', 20, 4); burst(camera.localToWorld(new V3(.2, -.2, -.8)), 'dust', 14, 2);
+    announce('GALE CANNON OVERHEATED', '#ff8a6a', 1.8);
+    refreshViewModel(); updateEquipHud();
+  }
+}
+
+/* =====================================================================
+   THE BUS: shuttles along the road between the three stops.
+   Step aboard while it waits; it carries you (and anything inside) along.
+   ===================================================================== */
+const BUS_STOPS = [{ x: -80, name: 'Pine Hollow Gas & Motel' }, { x: 0, name: 'Transit Depot' }, { x: 80, name: 'Kessler Lumber Mill' }];
+const BUS_Z = 34, BUS_WAIT = 25;
+const bus = { g: null, x: 0, f: 1, stop: 1, dir: 1, next: 2, state: 'stop', t: BUS_WAIT, v: 0, open: true, warned: false,
+  cols: [], doors: [], wheels: [], doorPanels: [], center: new V3(0, 0, BUS_Z), nav: null, head: null, cabin: null };
+const inBus = p => Math.abs(p.x - bus.x) < 5.35 && Math.abs(p.z - BUS_Z) < 1.18;
+function buildBus() {
+  const g = new THREE.Group(); scene.add(g); bus.g = g;
+  const cream = mat(0xd8ceb0, { roughness: .45, metalness: .3 }), maroon = mat(0x6e1f2a, { roughness: .45, metalness: .3 });
+  const glass = pbr({ color: 0x0c1218, roughness: .05, transparent: true, opacity: .35, envMapIntensity: 1.2 });
+  const part = (w, h, d, x, y, z, m, shoot = true) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); if (shoot) staticMeshes.push(o); return o; };
+  part(11, .1, 2.6, 0, .05, 0, mat(0x2a2a2a, { roughness: .9 }));                      // floor
+  part(11.1, .15, 2.75, 0, 3.05, 0, cream);                                              // roof
+  for (const s of [-1, 1]) {
+    for (const [a, b] of [[-5.5, 3.0], [4.2, 5.5]]) {
+      part(b - a, 1, .12, (a + b) / 2, .5, s * 1.3, maroon);                              // lower panel
+      for (let x = a + .05; x < b; x += 1.45) part(.09, 1.2, .12, x, 1.6, s * 1.3, cream); // window pillars
+      part(b - a, .12, .02, (a + b) / 2, 1.6, s * 1.31, glass, false);
+    }
+    part(11, .8, .12, 0, 2.6, s * 1.3, cream);                                            // upper band
+    part(11.05, .14, .14, 0, 1.03, s * 1.31, mat(0xb8a24a, { roughness: .4, metalness: .6 }), false);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(.6, 2.1, .05), glass); door.position.set(3.3, 1.1, s * 1.27); g.add(door);
+    const door2 = door.clone(); door2.position.x = 3.9; g.add(door2);
+    bus.doorPanels.push(door, door2);
+    for (const wx of [-3.6, 3.6]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(.55, .55, .32, 16), M.tire); w.rotation.x = Math.PI / 2; w.position.set(wx, .55, s * 1.42); g.add(w); bus.wheels.push(w);
+    }
+  }
+  part(.12, 1, 2.6, 5.48, .5, 0, maroon); part(.06, 1.35, 2.3, 5.5, 1.75, 0, glass, false); part(.12, .6, 2.6, 5.48, 2.7, 0, cream);   // front
+  part(.12, 3, 2.6, -5.48, 1.5, 0, cream);                                                                                          // back
+  for (const s of [-1, 1]) part(.05, .22, .4, 5.56, .8, s * .9, M.lamp, false);
+  const dest = new THREE.Mesh(new THREE.PlaneGeometry(1.9, .3), new THREE.MeshBasicMaterial({ map: textTex(['ROUTE 9 · LOOP'], { w: 512, h: 96, bg: '#060606', color: '#ffb23a', size: 60, glow: '#ff7a00' }) }));
+  dest.position.set(5.56, 2.75, 0); dest.rotation.y = Math.PI / 2; g.add(dest);
+  for (let x = -4.6; x < 2.4; x += 1.15) for (const s of [-1, 1]) {
+    part(.5, .45, .9, x, .32, s * .78, mat(0x3c4a5a, { roughness: .8 }), false);
+    part(.1, .6, .9, x - .25, .8, s * .78, mat(0x3c4a5a, { roughness: .8 }), false);
+  }
+  part(.3, 1, .3, 4.9, .5, -.7, M.darkMetal, false);                                       // driver's console
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(.22, .03, 6, 16), M.darkMetal); wheel.position.set(4.75, 1.1, -.7); wheel.rotation.y = Math.PI / 2; wheel.rotation.x = .5; g.add(wheel);
+  // colliders in bus-local coordinates (x along the bus, z across)
+  const L = (x0, x1, z0, z1, door = false) => { const c = addCollider(0, 0, 0, 0, 0, 3.1); bus.cols.push({ c, x0, x1, z0, z1 }); if (door) bus.doors.push(c); };
+  for (const s of [-1, 1]) { L(-5.5, 3.0, s * 1.3 - .08, s * 1.3 + .08); L(4.2, 5.5, s * 1.3 - .08, s * 1.3 + .08); L(3.0, 4.2, s * 1.3 - .08, s * 1.3 + .08, true); }
+  L(5.4, 5.56, -1.36, 1.36); L(-5.56, -5.4, -1.36, 1.36);
+  bus.nav = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, minY: 0, maxY: 3, off: false }; navObstacles.push(bus.nav);
+  bus.head = anchor(0, 1, BUS_Z, 0xfff0c8, 1.4, 16);
+  bus.cabin = anchor(0, 2.7, BUS_Z, 0xffd9a0, .55, 7);
+  interactables.push({
+    pos: bus.center, r: 6.5,
+    prompt() {
+      const nx = BUS_STOPS[bus.next].name;
+      if (bus.state === 'stop') return `The bus to <b>${nx}</b> leaves in ${Math.ceil(bus.t)}s`;
+      return inBus(P.pos) ? `Next stop: <b>${nx}</b>` : null;
+    },
+  });
+  placeBus();
+}
+function placeBus() {
+  const f = bus.f;
+  bus.g.position.set(bus.x, 0, BUS_Z); bus.g.rotation.y = f > 0 ? 0 : Math.PI;
+  bus.center.set(bus.x, 0, BUS_Z);
+  for (const { c, x0, x1, z0, z1 } of bus.cols) {
+    const a = bus.x + f * x0, b = bus.x + f * x1, cz0 = BUS_Z + f * z0, cz1 = BUS_Z + f * z1;
+    c.minX = Math.min(a, b); c.maxX = Math.max(a, b); c.minZ = Math.min(cz0, cz1); c.maxZ = Math.max(cz0, cz1);
+  }
+  for (const d of bus.doors) d.off = bus.open;
+  Object.assign(bus.nav, { minX: bus.x - 5.6, maxX: bus.x + 5.6, minZ: BUS_Z - 1.4, maxZ: BUS_Z + 1.4 });
+  bus.nav.off = inBus(P.pos);
+  bus.head.pos.set(bus.x + f * 6.2, 1, BUS_Z); bus.cabin.pos.set(bus.x, 2.7, BUS_Z);
+  bus.doorPanels.forEach((d, i) => { const open = bus.open ? 1 : 0; d.position.x = (i % 2 ? 3.9 : 3.3) + (i % 2 ? .55 : -.55) * open; });
+}
+function busHorn() { tone(311, .55, { type: 'square', vol: .1 }); tone(392, .55, { type: 'square', vol: .08 }); }
+function updateBus(dt) {
+  const near = Math.abs(P.pos.x - bus.x) < 30 && Math.abs(P.pos.z - BUS_Z) < 30;
+  if (bus.state === 'stop') {
+    bus.t -= dt;
+    if (bus.t < 5 && !bus.warned) { bus.warned = true; if (near) { busHorn(); if (!inBus(P.pos)) announce('THE BUS IS LEAVING', '#ffcf6a', 1.6); } }
+    if (bus.t <= 0) {
+      bus.open = false; bus.state = 'drive'; bus.v = 0;
+      if (bus.dir !== bus.f) {   // turn around at the end of the line, taking passengers with it
+        const flip = p => { p.x = 2 * bus.x - p.x; p.z = 2 * BUS_Z - p.z; };
+        if (inBus(P.pos)) { flip(P.pos); P.yaw += Math.PI; }
+        for (const z of zombies) if (!z.dead && inBus(z.pos)) flip(z.pos);
+        bus.f = bus.dir;
+      }
+      if (near) busHorn();
+    }
+  } else {
+    const target = BUS_STOPS[bus.next].x, rem = Math.abs(target - bus.x), sgn = Math.sign(target - bus.x);
+    bus.v = Math.min(9, bus.v + 2.5 * dt, Math.sqrt(2 * 2.5 * rem) + .3);
+    const dx = sgn * Math.min(rem, bus.v * dt);
+    if (inBus(P.pos)) P.pos.x += dx;
+    for (const z of zombies) if (!z.dead && inBus(z.pos)) z.pos.x += dx;
+    bus.x += dx;
+    for (const w of bus.wheels) w.rotation.y += dx / .55 * bus.f;
+    if (bus.v > 3) for (const z of zombies) {   // anything standing in the road gets run down
+      if (z.dead || z.rise < 1) continue;
+      const ahead = sgn * (z.pos.x - bus.x);
+      if (ahead > 5.2 && ahead < 6.6 && Math.abs(z.pos.z - BUS_Z) < 1.7) { burst(z.pos.clone().setY(1), 'blood', 20, 5, 1.3); damageZombie(z, 1e9, 'splash', null); }
+    }
+    if (rem - Math.abs(dx) < .01) {
+      bus.x = target; bus.stop = bus.next; bus.state = 'stop'; bus.t = BUS_WAIT; bus.v = 0; bus.open = true; bus.warned = false;
+      let nx = bus.stop + bus.dir;
+      if (nx < 0 || nx >= BUS_STOPS.length) { bus.dir = -bus.dir; nx = bus.stop + bus.dir; }
+      bus.next = nx;
+      if (inBus(P.pos)) announce(BUS_STOPS[bus.stop].name.toUpperCase(), '#ffcf6a', 2);
+    }
+  }
+  placeBus();
+}
+// Where a zombie should head to reach a player who is inside the bus (or leave it to reach one outside).
+function busApproach(zp) {
+  const pIn = inBus(P.pos), zIn = inBus(zp);
+  if (pIn === zIn || !bus.open) return null;
+  const dxw = bus.x + bus.f * 3.6, side = Math.sign((pIn ? zp.z : P.pos.z) - BUS_Z) || 1;
+  const outside = new V3(dxw, 0, BUS_Z + side * 2.1), inside = new V3(dxw, 0, BUS_Z + side * .5);
+  const at = (a) => Math.hypot(zp.x - a.x, zp.z - a.z) < .8;
+  if (pIn) return at(outside) ? inside : outside;
+  return at(inside) ? outside : inside;
 }
 
 /* =====================================================================
@@ -2331,8 +2703,8 @@ function updateRounds(dt) {
 function updateHud() {
   const w = P.weapons[P.cur]; if (!w) return;
   $('wname').textContent = wName(w); $('wname').className = w.up ? 'up' : '';
-  $('mag').textContent = w.mag; $('res').textContent = '/ ' + w.reserve;
-  $('ammo').className = w.mag <= Math.ceil(w.magSize * .25) ? 'low' : '';
+  if (w.def.kind === 'gale') { $('mag').textContent = Math.round((w.heat || 0) * 100) + '%'; $('res').textContent = 'HEAT'; $('ammo').className = (w.heat || 0) > .75 ? 'low' : ''; }
+  else { $('mag').textContent = w.mag; $('res').textContent = '/ ' + w.reserve; $('ammo').className = w.mag <= Math.ceil(w.magSize * .25) ? 'low' : ''; }
   $('nades').textContent = '● '.repeat(P.grenades).trim() || '—';
   $('points').textContent = P.points;
 }
@@ -2391,7 +2763,8 @@ function updateWeapon(dt) {
   if (W_STATE.reloading > 0) { W_STATE.reloading -= dt; if (W_STATE.reloading <= 0) finishReload(); }
   const canFire = W_STATE.reloading <= 0 && vm.swap <= 0 && vm.knife <= 0 && !P.sprinting;
   const w = P.weapons[P.cur];
-  if (W_STATE.burstLeft > 0 && canFire && W_STATE.fireCd <= 0) {          // rest of a burst (M16)
+  if (w.def.kind === 'gale') updateGale(w, dt, input.lmb && canFire);
+  else if (W_STATE.burstLeft > 0 && canFire && W_STATE.fireCd <= 0) {          // rest of a burst (M16)
     W_STATE.burstLeft--; fire();
     if (w.mag <= 0) W_STATE.burstLeft = 0;
     if (W_STATE.burstLeft === 0) W_STATE.fireCd += .22;
@@ -2524,6 +2897,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyQ') switchWeapon();
   if (e.code === 'Digit1') switchWeapon(0);
   if (e.code === 'Digit2') switchWeapon(1);
+  if (e.code === 'Digit3') switchWeapon(2);
   if (e.code === 'Space') e.preventDefault();
 });
 document.addEventListener('keyup', e => {
@@ -2549,9 +2923,13 @@ perkMachine('wind', 17.2, 24.6, -Math.PI / 2 - .4);
 buildBox();
 buildPowerAndForge();
 buildAtmosphere();
+buildBus();
 buildParts();
 workbench(8.6, -7.35, 0);
 workbench(10, 25.35, Math.PI);
+workbench(84, 53.2, Math.PI);
+chalk('galil', -83.83, 1.7, 17.5, Math.PI / 2);
+chalk('fal', 75, 1.7, 53.83, Math.PI);
 // every opaque static mesh casts and receives shadows
 scene.traverse(o => {
   if (!o.isMesh || o.material.transparent || o.material.blending === THREE.AdditiveBlending || o.material.isMeshBasicMaterial) return;
@@ -2576,6 +2954,7 @@ function frame(now) {
     updatePlayer(dt);
     updateWeapon(dt);
     updateGrenades(dt);
+    updateBus(dt);
     updateRayBolts(dt);
     updateBuildables(dt);
     updateZombies(dt);
@@ -2603,7 +2982,13 @@ function frame(now) {
   lotShafts.forEach(s => s.material.opacity = .15 + Math.sin(now * .0013) * .015);
   for (const f of fogBanks) { f.position.x += f.userData.drift * dt; if (Math.abs(f.position.x) > 34) f.userData.drift *= -1; }
   updateParticles(dt); updateTracers(dt); updateFlashes(dt); updateMotes(dt, now / 1000); updateDecals(dt);
+  updateLightPool();
   sky.position.copy(camera.position); sky.material.uniforms.uTime.value = now / 1000;
+  moon.target.position.set(Math.round(camera.position.x), 0, Math.round(camera.position.z));
+  moon.position.copy(moon.target.position).add(MOON_OFFSET);
+  const neonOn = Math.random() > .03; gasArea.neon.visible = neonOn; gasArea.neonLight.intensity = neonOn ? 1 : 0;
+  for (const b of millArea.saws) b.rotation.y += dt * (G.power ? 18 : 2);
+  for (const pn of gate.panels) pn.pivot.rotation.y += ((gate.open ? pn.sx * 1.7 : 0) - pn.pivot.rotation.y) * Math.min(1, dt * 3);
 
   const hurt = G.state === 'menu' ? 0 : clamp(1 - P.hp / P.maxHp, 0, 1);
   Post.render(() => {
