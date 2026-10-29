@@ -16,7 +16,11 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 **Goal:** survive as many rounds as you can.
 
 **Menus:** a title screen over live shots of the map, then a main menu with Solo, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
-- **Solo** sets up the match: game mode (**Route 9**, the full map with the bus, or **Depot Survival**, depot and bus lot only with the gate chained shut), difficulty (Casual, Normal, Hardened) and starting round (1, 5, 10, 15 or 20, with extra starting points).
+- **Solo** sets up the match: map, difficulty (Casual, Normal, Hardened) and starting round (1, 5, 10, 15 or 20, with extra starting points). Maps:
+  - **Route 9**: the full map, with the depot, bus lot, foggy road and the bus.
+  - **Depot Survival**: the depot and bus lot only, with the gate chained shut.
+  - **Blackwater Pier**: a foggy fishing harbour. Zombies climb out of the water onto a boardwalk with a bait shop, warehouse, chowder shack and a long T-shaped fishing pier; the power switch is by the lighthouse.
+  - **Cold Hollow Mine**: a snowed-in mining camp ringed by cliffs, with log cabins, a bunkhouse, a mess tent, a bonfire and falling snow; the Forge waits at the end of a dead-end mine tunnel.
 - A loading screen shows the map, mode and a survival tip; press any key to begin, and the location is typed out as the match starts.
 - **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music, graphics quality and an FPS counter.
 - **Pause** (Esc) has Resume, Options, Field Manual, Restart Match and End Game.

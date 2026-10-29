@@ -211,7 +211,7 @@
     <div class="panel">
       <div class="hdr"><span class="eyebrow">Solo</span><h3>Match Setup</h3></div>
       <div class="list">
-        <button class="mi sel" data-opt="mode">Game Mode <em id="optMode"></em></button>
+        <button class="mi sel" data-opt="mode">Map <em id="optMode"></em></button>
         <button class="mi sel" data-opt="diff">Difficulty <em id="optDiff"></em></button>
         <button class="mi sel" data-opt="start">Starting Round <em id="optStart"></em></button>
         <button class="mi go" id="btnStart">Start Match</button>
@@ -278,6 +278,11 @@
           <h5>The route</h5>
           <p>Past the gate, a bus runs the foggy road between the depot, Pine Hollow Gas &amp; Motel and Kessler Lumber Mill. Walk in through its side door before it leaves.</p>
           <p>Thirteen parts lie around the route. Build the Riot Shield, Sentry Turret, Shock Trap and Gale Cannon at any workbench.</p>
+        </div>
+        <div>
+          <h5>Other maps</h5>
+          <p><b style="color:#fff">Blackwater Pier</b>: they climb out of the harbour onto the boardwalk. The power switch is by the lighthouse at the end of the pier.</p>
+          <p><b style="color:#fff">Cold Hollow Mine</b>: a snowed-in camp. The power switch is on the generator by the bunkhouse, and the Forge is at the end of the mine tunnel.</p>
         </div>
         <div>
           <h5>Wonder weapons</h5>
@@ -1578,25 +1583,33 @@ function resolve(pos, r, feet, head) {
     }
   }
 }
-function segHitsBox(ax, az, bx, bz, b, m) {
+// Where along the segment (0..1) it first enters the box, or -1 if it misses.
+function segEntry(ax, az, bx, bz, b, m) {
   let t0 = 0, t1 = 1;
   const axes = [[ax, bx - ax, b.minX - m, b.maxX + m], [az, bz - az, b.minZ - m, b.maxZ + m]];
   for (const [p, d, mn, mx] of axes) {
-    if (Math.abs(d) < 1e-9) { if (p < mn || p > mx) return false; }
-    else { let ta = (mn - p) / d, tb = (mx - p) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) return false; }
+    if (Math.abs(d) < 1e-9) { if (p < mn || p > mx) return -1; }
+    else { let ta = (mn - p) / d, tb = (mx - p) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) return -1; }
   }
-  return true;
+  return t0;
 }
-// steer around the first free-standing obstacle that blocks the straight line
+const segHitsBox = (ax, az, bx, bz, b, m) => segEntry(ax, az, bx, bz, b, m) >= 0;
+// steer around the nearest free-standing obstacle that blocks the straight line
 function steerTarget(from, to) {
-  for (const b of navObstacles) {
-    if (b.off || !segHitsBox(from.x, from.z, to.x, to.z, b, 0.35)) continue;
+  let b = null, bt = Infinity;
+  for (const o of navObstacles) {
+    if (o.off) continue;
+    const t = segEntry(from.x, from.z, to.x, to.z, o, 0.35);
+    if (t >= 0 && t < bt) { bt = t; b = o; }
+  }
+  if (b) {
     const m = 0.75;
     const corners = [[b.minX - m, b.minZ - m], [b.maxX + m, b.minZ - m], [b.minX - m, b.maxZ + m], [b.maxX + m, b.maxZ + m]];
     let best = null, bestD = Infinity;
     for (const [cx, cz] of corners) {
       if (Math.hypot(cx - from.x, cz - from.z) < 0.4) continue;
       if (segHitsBox(from.x, from.z, cx, cz, b, 0.3)) continue;
+      if (navObstacles.some(o => o.wall && o !== b && !o.off && segHitsBox(from.x, from.z, cx, cz, o, .2))) continue;   // never detour through a railing
       const d = Math.hypot(cx - from.x, cz - from.z) + Math.hypot(to.x - cx, to.z - cz);
       if (d < bestD) { bestD = d; best = [cx, cz]; }
     }
@@ -1715,17 +1728,24 @@ function spawnZombie() {
   // choose a spawner, weighted toward the player
   const cands = [];
   const pz = zoneOf(P.pos);
+  if (activeMap) {   // other maps: zombies rise at that map's spawn points near the player
+    for (const [x, z] of activeMap.spawns) {
+      const pos = new V3(x + activeMap.ox, 0, z), d = pos.distanceTo(P.pos);
+      if (d >= 7 && d <= 50) cands.push({ w: null, pos, zone: 'world', weight: 1 / (1 + d * .1) });
+    }
+    if (!cands.length) { const near = activeMap.spawns.map(([x, z]) => new V3(x + activeMap.ox, 0, z)).sort((a, b) => a.distanceTo(P.pos) - b.distanceTo(P.pos))[0]; cands.push({ w: null, pos: near, zone: 'world', weight: 1 }); }
+  } else
   for (const w of windows) {
     const d = w.inside.distanceTo(P.pos);
     if (d > 45) continue;
     cands.push({ w, pos: w.spawn, zone: 'out', weight: (pz === 'in' ? 1.4 : pz === 'lot' ? .5 : .3) / (1 + d * .12) });
   }
-  if (G.lotOpen) for (const [x, z] of [[-16, 12.5], [-15, 24], [0, 24.5], [10, 24], [15.8, 19]]) {
+  if (G.lotOpen && !activeMap) for (const [x, z] of [[-16, 12.5], [-15, 24], [0, 24.5], [10, 24], [15.8, 19]]) {
     const pos = new V3(x, 0, z), d = pos.distanceTo(P.pos);
     if (d < 4 || d > 45) continue;
     cands.push({ w: null, pos, zone: 'lot', weight: (pz === 'lot' ? 1.6 : .5) / (1 + d * .12) });
   }
-  if (gate.open) for (const [x, z] of WORLD_SPAWNS) {
+  if (gate.open && !activeMap) for (const [x, z] of WORLD_SPAWNS) {
     const pos = new V3(x, 0, z), d = pos.distanceTo(P.pos);
     if (d < 9 || d > 42 || inBus(pos)) continue;
     cands.push({ w: null, pos, zone: 'world', weight: (pz === 'world' ? 1.6 : .3) / (1 + d * .1) });
@@ -1788,6 +1808,7 @@ function damageZombie(z, dmg, how, point) {
 const dPlayer = z => Math.hypot(z.pos.x - P.pos.x, z.pos.z - P.pos.z);
 function updateZombies(dt) {
   const pz = zoneOf(P.pos);
+  updatePlayerVis();
   for (let i = zombies.length - 1; i >= 0; i--) {
     const z = zombies[i], g = z.g;
     if (z.dead) {
@@ -1846,7 +1867,11 @@ function updateZombies(dt) {
       z.zone = zoneOf(z.pos);
       target = P.pos;
       if (z.zone !== pz) target = portalTarget(z.pos, z.zone, pz);
-      else if (pz === 'world') target = busApproach(z.pos) || target;
+      else if (pz === 'world') {
+        z.gT = (z.gT || 0) - dt;
+        if (z.gT <= 0) { z.gT = .25; z.gTarget = graphTarget(z.pos); }
+        target = busApproach(z.pos) || z.gTarget || target;
+      }
       target = steerTarget(z.pos, target);
       if (dP < 1.15) { moving = false; if (z.atkCd <= 0) attackPlayer(z); }
     }
@@ -2101,7 +2126,7 @@ function renderPerks() {
 // ---- Mystery box ----
 const mbox = { state: 'idle', t: 0, weapon: null, display: null, cost: 950, lid: null, beam: null, pos: new V3(2.5, 0, -7.35) };
 function buildBox() {
-  const g = new THREE.Group(); g.position.copy(mbox.pos); scene.add(g);
+  const g = new THREE.Group(); g.position.copy(mbox.pos); scene.add(g); mbox.group = g;
   const boxM = mat(0x4a3018, { map: T.wood() });
   box(1.7, .7, .75, 0, .35, 0, boxM, { collide: false, parent: g });
   box(1.72, .06, .77, 0, .5, 0, M.darkMetal, { collide: false, parent: g });
@@ -2112,9 +2137,9 @@ function buildBox() {
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(.5, .7, 40, 16, 1, true),
     new THREE.MeshBasicMaterial({ color: 0x59d4ff, transparent: true, opacity: .14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   beam.position.y = 20; g.add(beam);
-  addCollider(mbox.pos.x - .85, mbox.pos.x + .85, mbox.pos.z - .4, mbox.pos.z + .4, 0, .82);
-  mbox.lid = lidPivot; mbox.beam = beam; mbox.group = g;
-  interactables.push({
+  mbox.col = addCollider(mbox.pos.x - .85, mbox.pos.x + .85, mbox.pos.z - .4, mbox.pos.z + .4, 0, .82);
+  mbox.lid = lidPivot; mbox.beam = beam;
+  interactables.push(mbox.it = {
     pos: mbox.pos.clone().add(new V3(0, 0, .5)), r: 1.8,
     prompt() {
       if (mbox.state === 'idle') return `Press <b>F</b> for a random weapon [Cost: ${mbox.cost}]`;
@@ -2130,6 +2155,13 @@ function buildBox() {
       }
     },
   });
+}
+// Each map puts the box somewhere different; rotY 0 faces +z.
+function moveBox(x, z, rotY = 0) {
+  mbox.pos.set(x, 0, z); mbox.group.position.copy(mbox.pos); mbox.group.rotation.y = rotY;
+  const side = Math.abs(Math.sin(rotY)) > .5, hx = side ? .4 : .85, hz = side ? .85 : .4;
+  Object.assign(mbox.col, { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz });
+  mbox.it.pos.set(x + Math.sin(rotY) * .5, 0, z + Math.cos(rotY) * .5);
 }
 function boxPool() {
   const pool = [];
@@ -2162,37 +2194,39 @@ function updateBox(dt) {
 }
 
 // ---- Power switch, forge (upgrade machine), door ----
-let powerLever;
-function buildPowerAndForge() {
-  // power switch on the generator
-  const panel = box(.12, .9, .7, 17.7, 1.5, 15, M.darkMetal, { collide: false });
-  powerLever = new THREE.Group(); powerLever.position.set(17.6, 1.5, 15); scene.add(powerLever);
-  const handle = new THREE.Mesh(new THREE.BoxGeometry(.4, .07, .07), mat(0xaa2222)); handle.position.x = -.2; powerLever.add(handle);
-  powerLever.rotation.z = -.7;
+const powerLevers = [];
+// A wall-mounted power switch. rotY 0 means the player stands on the -x side of it.
+function powerSwitch(x, z, rotY = 0) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  box(.12, .9, .7, .1, 1.5, 0, M.darkMetal, { collide: false, parent: g });
+  const lever = new THREE.Group(); lever.position.set(0, 1.5, 0); g.add(lever);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(.4, .07, .07), mat(0xaa2222)); handle.position.x = -.2; lever.add(handle);
+  lever.rotation.z = -.7; powerLevers.push(lever);
   const lbl = new THREE.Mesh(new THREE.PlaneGeometry(.8, .3), mat(0xffffff, { map: textTex(['POWER'], { w: 256, h: 96, bg: '#2a1a0a', color: '#ffcc66', size: 60, font: 'Oswald' }) }));
-  lbl.position.set(17.55, 2.15, 15); lbl.rotation.y = -Math.PI / 2; scene.add(lbl);
+  lbl.position.set(-.05, 2.15, 0); lbl.rotation.y = -Math.PI / 2; g.add(lbl);
   interactables.push({
-    pos: new V3(17, 0, 15), r: 1.7,
+    pos: new V3(x - Math.cos(rotY) * .7, 0, z + Math.sin(rotY) * .7), r: 1.7,
     prompt() { return G.power ? null : 'Press <b>F</b> to turn on the Power'; },
     use() { if (!G.power) turnOnPower(); },
   });
-
-  // forge
-  const fx = -16, fz = 23.5;
-  const fg = new THREE.Group(); fg.position.set(fx, 0, fz); fg.rotation.y = Math.PI / 4; scene.add(fg);
+}
+// The Forge upgrades the held weapon. rotY 0 faces +z.
+function buildForge(fx, fz, rotY = Math.PI / 4) {
+  const fg = new THREE.Group(); fg.position.set(fx, 0, fz); fg.rotation.y = rotY; scene.add(fg);
   box(1.6, 1, 1.2, 0, .5, 0, mat(0x2a2422), { collide: false, parent: fg });
   box(1.2, .9, .9, 0, 1.45, 0, mat(0x3a3330), { collide: false, parent: fg });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(.28, 16, 12), new THREE.MeshBasicMaterial({ color: 0x331144 }));
+  const core = new THREE.Mesh(new THREE.SphereGeometry(.28, 16, 12), new THREE.MeshBasicMaterial({ color: G.power ? 0xc070ff : 0x331144 }));
   core.position.set(0, 1.45, .4); fg.add(core);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(.42, .05, 8, 24), mat(0x6a5a50, { shininess: 60 })); ring.position.set(0, 1.45, .45); fg.add(ring);
   for (const sx of [-.7, .7]) box(.15, 2.4, .15, sx, 1.2, -.4, M.darkMetal, { collide: false, parent: fg });
   const flbl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .35), mat(0xffffff, { map: textTex(['THE FORGE'], { w: 512, h: 128, bg: '#120818', color: '#d9a2ff', size: 80, font: 'Creepster', glow: '#a040ff' }) }));
   flbl.position.set(0, 2.15, .46); fg.add(flbl);
   addCollider(fx - 1, fx + 1, fz - 1, fz + 1, 0, 2.4);
-  forge.core = core; forge.ring = ring;
-  forge.light = anchor(fx + .7, 1.6, fz - .7, 0xb05aff, 0, 6);
+  const fwd = new V3(Math.sin(rotY), 0, Math.cos(rotY));
+  const light = anchor(fx + fwd.x * .9, 1.6, fz + fwd.z * .9, 0xb05aff, G.power ? 1.6 : 0, 6);
+  forge.list.push({ core, ring, light });
   interactables.push({
-    pos: new V3(fx + 1.3, 0, fz - 1.3), r: 1.8,
+    pos: new V3(fx + fwd.x * 1.5, 0, fz + fwd.z * 1.5), r: 1.8,
     prompt() {
       if (!G.power) return 'You must turn on the power first!';
       const w = P.weapons[P.cur];
@@ -2213,6 +2247,10 @@ function buildPowerAndForge() {
       announce(up.def.up.toUpperCase(), '#d9a2ff');
     },
   });
+}
+function buildPowerAndForge() {
+  powerSwitch(17.6, 15, 0);   // on the generator in the bus lot
+  buildForge(-16, 23.5, Math.PI / 4);
 
   // debris door
   interactables.push({
@@ -2259,16 +2297,16 @@ function buildPowerAndForge() {
     });
   }
 }
-const forge = { busy: 0 };
+const forge = { busy: 0, list: [] };
 
 function turnOnPower() {
   G.power = true; SFX.power();
-  powerLever.rotation.z = .7;
+  for (const l of powerLevers) l.rotation.z = .7;
   announce('POWER ON', '#9fe6ff');
   for (const pm of perkMachines) { pm.bodyM.emissive.setHex(pm.hex).multiplyScalar(.25); pm.panelM.emissive.setHex(0xffffff); }
   M.fixture.emissive.setHex(0xd0e2ff);
-  forge.core.material.color.setHex(0xc070ff); forge.light.intensity = 1.6;
-  worldFlash(new V3(17, 2, 15), 0x9fe6ff, 3, 10, .6);
+  for (const f of forge.list) { f.core.material.color.setHex(0xc070ff); f.light.intensity = 1.6; }
+  worldFlash(P.pos.clone().setY(2), 0x9fe6ff, 3, 10, .6);
 }
 
 /* =====================================================================
@@ -2287,7 +2325,8 @@ const SHIELD_HITS = 8;
 function buildParts() {
   // five spots inside the depot, four in the bus lot; parts are shuffled each game
   // five inside the depot, four in the bus lot, two at the gas station, two at the mill
-  const spots = [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6],
+  const mapDef = MAPDEFS[MODES[G.mode].map];
+  const spots = mapDef ? mapDef.spots.map(([x, z]) => [x + mapDef.ox, z]) : [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6],
     [-88, 25], [-104, 22], [74, 51.5], [91, 47]];
   if (G.mode === 'depot') { delete BUILDS.gale; spots.length = 9; }
   for (let i = spots.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [spots[i], spots[j]] = [spots[j], spots[i]]; }
@@ -3039,17 +3078,413 @@ function updateInteract(dt) {
 }
 
 /* =====================================================================
+   MORE MAPS: each is built on demand in its own corner of the world,
+   far beyond the fog from Route 9, the first time it is played.
+   ===================================================================== */
+const MT = {
+  planks: (rx, ry) => canvasTex(256, 256, (g, w, h) => {
+    for (let y = 0; y < h; y += 32) {
+      const v = 70 + rand(-14, 14) | 0; g.fillStyle = `rgb(${v + 22},${v + 10},${v - 6})`; g.fillRect(0, y, w, 29);
+      for (let i = 0; i < 6; i++) { g.strokeStyle = `rgba(30,18,8,${rand(.15, .35)})`; g.beginPath(); const yy = y + rand(3, 26); g.moveTo(0, yy); g.bezierCurveTo(80, yy + rand(-4, 4), 170, yy + rand(-4, 4), w, yy + rand(-3, 3)); g.stroke(); }
+      g.fillStyle = 'rgba(0,0,0,.85)'; g.fillRect(0, y + 29, w, 3);
+      const cut = rand(40, 220); g.fillRect(cut, y, 2, 29);
+      g.fillStyle = 'rgba(120,120,110,.7)'; for (const nx of [cut - 8, cut + 8]) { g.fillRect(nx, y + 8, 2, 2); g.fillRect(nx, y + 20, 2, 2); }
+    }
+    speckle(g, w, h, 2500, .1); stains(g, w, h, 6, 'rgba(20,30,25,.25)');
+  }, rx, ry),
+  water: () => canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#808080'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) { const v = rand(90, 170) | 0; g.fillStyle = `rgba(${v},${v},${v},.35)`; g.beginPath(); g.ellipse(rand(0, w), rand(0, h), rand(4, 18), rand(1, 4), 0, 0, 7); g.fill(); }
+  }, 30, 30),
+  corrugated: (rx, ry, base) => canvasTex(128, 128, (g, w, h) => {
+    for (let x = 0; x < w; x += 8) { const gr = g.createLinearGradient(x, 0, x + 8, 0); gr.addColorStop(0, base); gr.addColorStop(.5, '#9aa0a2'); gr.addColorStop(1, base); g.fillStyle = gr; g.fillRect(x, 0, 8, h); }
+    stains(g, w, h, 8, 'rgba(110,50,20,.35)'); speckle(g, w, h, 1500, .1);
+  }, rx, ry),
+  logs: () => canvasTex(128, 128, (g, w, h) => {
+    for (let y = 0; y < h; y += 16) { const v = 60 + rand(-10, 10) | 0; g.fillStyle = `rgb(${v + 30},${v + 14},${v})`; g.fillRect(0, y, w, 14); g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, y + 14, w, 2); g.fillStyle = 'rgba(255,240,220,.08)'; g.fillRect(0, y + 2, w, 3); }
+    speckle(g, w, h, 1200, .12);
+  }),
+  snow: (rx, ry) => canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#c9d0d8'; g.fillRect(0, 0, w, h); speckle(g, w, h, 9000, .1);
+    stains(g, w, h, 14, 'rgba(150,160,175,.25)'); stains(g, w, h, 4, 'rgba(120,110,95,.25)');
+  }, rx, ry),
+  rock: (rx, ry) => canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#4a4c50'; g.fillRect(0, 0, w, h); speckle(g, w, h, 9000, .15);
+    g.strokeStyle = 'rgba(15,15,18,.6)'; g.lineWidth = 2;
+    for (let i = 0; i < 14; i++) { g.beginPath(); let x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-25, 25); y += rand(-10, 25); g.lineTo(x, y); } g.stroke(); }
+    stains(g, w, h, 10, 'rgba(90,85,75,.3)');
+  }, rx, ry),
+};
+
+// shared helpers for laying out a map around an x offset
+function mapKit(ox) {
+  const X = x => ox + x;
+  return {
+    X,
+    bx: (w, h, d, x, y, z, m, o) => box(w, h, d, X(x), y, z, m, o),
+    plane: (w, d, x, z, y, m) => { const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); pl.rotation.x = -Math.PI / 2; pl.position.set(X(x), y, z); scene.add(pl); staticMeshes.push(pl); return pl; },
+    lamp: (x, z, h = 4.6, color = 0xffb066, inten = 1.1, dist = 15) => {
+      box(.16, h, .16, X(x), h / 2, z, M.darkMetal);
+      box(.7, .1, .3, X(x), h, z, M.darkMetal, { collide: false });
+      box(.5, .05, .25, X(x), h - .07, z, M.lamp, { collide: false, shoot: false });
+      return anchor(X(x), h - .3, z, color, inten, dist);
+    },
+    sign: (lines, w, h, x, y, z, rotY, opts) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), opts.basic
+        ? new THREE.MeshBasicMaterial({ map: signTex(lines, opts), transparent: true })
+        : mat(0xffffff, { map: signTex(lines, opts) }));
+      m.position.set(X(x), y, z); m.rotation.y = rotY; scene.add(m); return m;
+    },
+    navCol: (x0, x1, z0, z1, h = 3) => { const c = addCollider(X(x0), X(x1), z0, z1, 0, h); navObstacles.push(c); return c; },
+    wall: (x0, x1, z0, z1, h = 3) => addCollider(X(x0), X(x1), z0, z1, 0, h),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// BLACKWATER PIER: a foggy fishing harbour. Land strip to the north, a wide boardwalk deck,
+// a long fishing pier running south to a T, and a lighthouse on the rocks beyond.
+// ---------------------------------------------------------------------------------------------
+function buildPier(def) {
+  const K = mapKit(def.ox), { X, bx, plane, lamp, sign, navCol } = K;
+  const deckM = (w, d) => mat(0xffffff, { map: MT.planks(w / 4, d / 4), roughness: .85, bumpMap: null });
+  const pile = mat(0x2c2219, { roughness: .9 });
+  // water
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), pbr({ color: 0x0a171c, roughness: .14, metalness: .35, envMapIntensity: 1.3, bumpMap: MT.water(), bumpScale: .08 }));
+  water.rotation.x = -Math.PI / 2; water.position.set(X(0), -1.1, 0); scene.add(water);
+  def.water = water;
+  // land strip (gravel) with a sea wall
+  plane(64, 20, 0, -36, -.01, mat(0x5d5a52, { map: T.asphalt(8, 3), roughness: .95 }));
+  bx(64, 1.2, 1, 0, -.6, -26.5, mat(0x6a665e, { map: T.concrete(10, 1, '#4f4c46') }), { collide: false });
+  // decks: main boardwalk, fishing pier, T end
+  const decks = [[-20, 20, -26, 10], [6, 12, 10, 40], [-4, 22, 40, 46]];
+  for (const [x0, x1, z0, z1] of decks) {
+    bx(x1 - x0, .3, z1 - z0, (x0 + x1) / 2, -.15, (z0 + z1) / 2, deckM(x1 - x0, z1 - z0), { collide: false });
+    for (let x = x0 + 1; x <= x1 - 1; x += 4) for (let z = z0 + 1; z <= z1 - 1; z += 4) {
+      if (x > x0 + 2 && x < x1 - 2 && z > z0 + 2 && z < z1 - 2) continue;   // pilings round the edges only
+      const pl = new THREE.Mesh(new THREE.CylinderGeometry(.22, .25, 3, 8), pile); pl.position.set(X(x), -1.6, z); scene.add(pl);
+    }
+  }
+  // railings (posts + two rails); each straight run is a collider and a nav obstacle zombies steer round
+  const railM = mat(0x4a3b2c, { roughness: .8 });
+  const rail = (x0, z0, x1, z1) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), along = Math.abs(x1 - x0) > Math.abs(z1 - z0);
+    for (const y of [.55, 1.05]) bx(along ? len : .08, .08, along ? .08 : len, (x0 + x1) / 2, y, (z0 + z1) / 2, railM, { collide: false });
+    const n = Math.max(1, Math.round(len / 2.5));
+    for (let i = 0; i <= n; i++) bx(.12, 1.15, .12, x0 + (x1 - x0) * i / n, .57, z0 + (z1 - z0) * i / n, railM, { collide: false });
+    navCol(Math.min(x0, x1) - .1, Math.max(x0, x1) + .1, Math.min(z0, z1) - .1, Math.max(z0, z1) + .1, 1.2).wall = true;
+  };
+  rail(-20, -26, -20, 10); rail(20, -26, 20, 10); rail(-20, 10, 6, 10); rail(12, 10, 20, 10);
+  rail(6, 10, 6, 40); rail(12, 10, 12, 40);
+  rail(-4, 40, 6, 40); rail(12, 40, 22, 40); rail(-4, 40, -4, 46); rail(22, 40, 22, 46); rail(-4, 46, 22, 46);
+  rail(-32, -26, -20, -26); rail(20, -26, 32, -26);
+  // land boundary: chain-link to the north, sea wall ends east and west
+  K.wall(-32.5, -31.5, -46, -26); K.wall(31.5, 32.5, -46, -26); K.wall(-32, 32, -46.5, -45.5);
+  const fenceM = new THREE.MeshStandardMaterial({ map: T.chain(40, 2.5), transparent: true, alphaTest: .35, side: THREE.DoubleSide, color: 0x9aa0a6, roughness: .5, metalness: .6 });
+  const fence = new THREE.Mesh(new THREE.PlaneGeometry(64, 3), fenceM); fence.position.set(X(0), 1.5, -46); scene.add(fence);
+  for (const sx of [-32, 32]) { const f2 = new THREE.Mesh(new THREE.PlaneGeometry(20, 3), fenceM); f2.position.set(X(sx), 1.5, -36); f2.rotation.y = Math.PI / 2; scene.add(f2); }
+  // warehouse
+  const tin = mat(0xffffff, { map: MT.corrugated(6, 2, '#5d6266'), roughness: .5, metalness: .5 });
+  bx(20, 7, 12, -16, 3.5, -36, tin, { nav: true });
+  bx(20.6, .5, 12.6, -16, 7.2, -36, mat(0x2b2d30), { collide: false });
+  bx(8, 5, .1, -18, 2.5, -29.95, mat(0x3a3f44, { roughness: .6, metalness: .6 }), { collide: false });
+  sign(['BLACKWATER FISH CO.'], 9, 1.2, -16, 6, -29.92, 0, { bg: '#1c2a2f', color: '#d8e2dc', size: 62 });
+  K.lamp(-26, -28.5, 4.4, 0xc8dcff, 1, 14);
+  // bait & tackle shop
+  bx(14, 4, 9, 13, 2, -35.5, mat(0x6e8a84, { map: T.concrete(4, 1, '#55706a'), roughness: .85 }), { nav: true });
+  bx(15, .3, 10.4, 13, 4.15, -35, mat(0x7a2a24), { collide: false });
+  bx(5, 1.8, .05, 15.5, 1.7, -30.98, M.glass, { collide: false });
+  def.neon = sign(['BAIT & TACKLE · LIVE WORMS'], 7, 1, 13, 3.4, -30.85, 0, { basic: true, color: '#7dff9a', glow: '#2bff6a', size: 52 });
+  def.neonLight = anchor(X(13), 3.2, -29.5, 0x6dff9a, .9, 10);
+  // chowder shack on the deck
+  bx(6, 3.2, 5, -10, 1.6, -4, mat(0xc9b48a, { map: T.concrete(2, 1, '#a08a62'), roughness: .9 }), { nav: true });
+  bx(6.8, .25, 5.8, -10, 3.3, -4, mat(0x2a4a5a), { collide: false });
+  bx(3, 1, .05, -10, 1.6, -1.47, M.glass, { collide: false });
+  sign(["GULL'S CHOWDER"], 4.5, .8, -10, 2.75, -1.45, 0, { bg: '#f1e4c2', color: '#7a2a24', size: 64 });
+  // crates, barrels and nets
+  const crate = mat(0x6b5034, { map: T.wood(), roughness: .8 });
+  for (const [x, z] of [[14, -20], [15.4, -20], [14.7, -18.6], [-15, 6], [-2, -24], [3, -42]]) bx(1.3, 1.3, 1.3, x, .65, z, crate, { nav: true });
+  for (const [x, z] of [[17.5, 2], [18.4, 3], [8.5, 30], [-24, -30]]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, 1.1, 12), mat(0x264d6a, { roughness: .5, metalness: .4 })); b.position.set(X(x), .55, z); scene.add(b); staticMeshes.push(b); navCol(x - .45, x + .45, z - .45, z + .45, 1.1); }
+  const netM = mat(0x3c4a3a, { roughness: 1 });
+  for (const [x, z] of [[-17, -14], [4, -28.5]]) { const n = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), netM); n.scale.set(1.3, .5, 1); n.position.set(X(x), 0, z); scene.add(n); }
+  // fishing benches on the pier
+  for (const z of [18, 26, 34]) bx(.5, .45, 1.8, 10.9, .3, z, railM, { collide: false });
+  // moored boats bob beside the deck
+  def.boats = [];
+  const hullM = [mat(0x8a2a22, { roughness: .6 }), mat(0x2a4f6a, { roughness: .6 }), mat(0xd8d2c0, { roughness: .6 })];
+  for (const [x, z, ry, i] of [[-25, -12, Math.PI / 2, 0], [-25.5, 2, Math.PI / 2, 2], [25, -8, -Math.PI / 2, 1], [17, 26, 0, 2]]) {
+    const g = new THREE.Group(); g.position.set(X(x), -.9, z); g.rotation.y = ry; scene.add(g);
+    const hull = new THREE.Mesh(sideProfile([[0, 0], [6, 0], [7.6, 1.5], [-.3, 1.5]], 2.6, .2), hullM[i]); hull.position.x = -3.5; g.add(hull);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 2), mat(0xe8e2d2, { roughness: .6 })); cab.position.set(0, 2.1, 0); g.add(cab);
+    const win = new THREE.Mesh(new THREE.BoxGeometry(1.82, .4, 1.6), M.glass); win.position.set(0, 2.4, 0); g.add(win);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 4, 6), M.darkMetal); mast.position.set(1.5, 3.4, 0); g.add(mast);
+    def.boats.push({ g, base: -.9, ph: Math.random() * 6 });
+  }
+  // buoys
+  def.buoys = [];
+  for (const [x, z] of [[-30, 20], [28, 18], [0, 56], [30, 50], [-14, 34]]) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.5, 12, 8), mat(0xc0281e, { roughness: .4 })); b.position.set(X(x), -.9, z); scene.add(b);
+    def.buoys.push({ m: b, ph: Math.random() * 6 });
+  }
+  // lighthouse on the rocks east of the T
+  const rockM = mat(0xffffff, { map: MT.rock(3, 3), roughness: .95 });
+  for (const [x, z, r] of [[26.5, 43, 4.5], [24, 47, 2.4], [29, 39, 2.8]]) { const rk = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), rockM); rk.position.set(X(x), -1.5, z); rk.scale.y = .55; scene.add(rk); }
+  const towerTex = canvasTex(64, 256, (g, w, h) => { g.fillStyle = '#e8e4da'; g.fillRect(0, 0, w, h); g.fillStyle = '#a3241c'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 32); speckle(g, w, h, 800, .1); });
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2.3, 15, 20), mat(0xffffff, { map: towerTex, roughness: .6 }));
+  tower.position.set(X(26.5), 7, 43); scene.add(tower); staticMeshes.push(tower);
+  const gallery = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, .25, 20), M.darkMetal); gallery.position.set(X(26.5), 14.6, 43); scene.add(gallery);
+  const lantern = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 1.6, 16), new THREE.MeshBasicMaterial({ color: 0xfff1c0 })); lantern.position.set(X(26.5), 15.5, 43); scene.add(lantern);
+  const capM = mat(0x1d2124); const cap = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.4, 16), capM); cap.position.set(X(26.5), 17, 43); scene.add(cap);
+  def.beam = new THREE.Group(); def.beam.position.set(X(26.5), 15.5, 43); scene.add(def.beam);
+  for (const s of [-1, 1]) {
+    const cone = new THREE.Mesh(new THREE.CylinderGeometry(.5, 6, 60, 20, 1, true), new THREE.MeshBasicMaterial({ map: shaftTex, color: 0xfff0c8, transparent: true, opacity: .12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    cone.rotation.z = s * Math.PI / 2; cone.position.x = s * 30; def.beam.add(cone);
+  }
+  anchor(X(26.5), 15, 43, 0xfff0c8, 1.6, 30);
+  // lamps along the boardwalk
+  for (const [x, z] of [[-19, -25], [19, -25], [-19, 9], [19, 9], [5.5, 25], [-3.5, 45.5], [21.5, 40.5], [0, -44.5]]) K.lamp(x, z, 4.4);
+  // the playable stuff
+  chalk('m14', X(-20), 1.7, -29.83, 0);
+  chalk('ak74u', X(-5.83), 1.7, -36, Math.PI / 2);
+  chalk('mp5', X(9), 1.7, -30.83, 0);
+  chalk('r870', X(-6.83), 1.7, -4, Math.PI / 2);
+  chalk('m16', X(-11), 1.7, -1.33, 0);
+  bx(.15, 2.4, 2.2, 6.2, 1.2, 24, crate, { collide: false });
+  chalk('dbl', X(6.33), 1.7, 24, Math.PI / 2);
+  perkMachine('iron', X(-3), -42.4, 0);
+  perkMachine('dbl', X(-18.6), -18, Math.PI / 2);
+  perkMachine('quick', X(-2.6), 43, Math.PI / 2);
+  perkMachine('wind', X(24), -34, -Math.PI / 2);
+  powerSwitch(X(21.4), 43.8, 0);
+  buildForge(X(-16), 5.5, Math.PI * .75);
+  workbench(X(0), -42.6, 0);
+  workbench(X(9), 45.4, Math.PI);
+}
+
+// ---------------------------------------------------------------------------------------------
+// COLD HOLLOW MINE: a snowed-in mining camp in a ring of cliffs, with a dead-end mine tunnel.
+// ---------------------------------------------------------------------------------------------
+function buildMine(def) {
+  const K = mapKit(def.ox), { X, bx, plane, sign, navCol } = K;
+  const snowM = mat(0xffffff, { map: MT.snow(14, 14), roughness: .9 });
+  const rockM = mat(0xffffff, { map: MT.rock(6, 2), roughness: .95 });
+  const capM = mat(0xdfe5ec, { map: MT.snow(4, 2), roughness: .85 });
+  plane(140, 140, 0, 0, -.01, snowM);
+  // cliffs, split at the tunnel mouth; north pieces are nav obstacles so zombies find the opening
+  const cliff = (x0, x1, z0, z1, h, nav) => {
+    bx(x1 - x0, h, z1 - z0, (x0 + x1) / 2, h / 2, (z0 + z1) / 2, rockM, { nav });
+    bx(x1 - x0 + .4, .5, z1 - z0 + .4, (x0 + x1) / 2, h + .2, (z0 + z1) / 2, capM, { collide: false });
+  };
+  cliff(-46, -4, -48, -35, 13, true); cliff(4, 46, -48, -35, 13, true);
+  cliff(-46, 46, 35, 48, 11); cliff(-48, -35, -48, 48, 12); cliff(35, 48, -48, 48, 12);
+  for (let i = 0; i < 26; i++) {   // boulders soften the cliff line
+    const a = i / 26 * Math.PI * 2, r = 34 + rand(-1, 1);
+    const x = Math.cos(a) * r * (Math.abs(Math.cos(a)) > .7 ? 1 : 1.02), z = Math.sin(a) * r;
+    if (z < -30 && Math.abs(x) < 8) continue;
+    const b = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(2, 4), 0), rockM); b.position.set(X(x), rand(0, 2), z); b.rotation.set(rand(0, 3), rand(0, 3), 0); scene.add(b);
+    const sc = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), capM); sc.scale.set(rand(2, 3), .5, rand(2, 3)); sc.position.set(X(x), b.position.y + rand(2, 3), z); scene.add(sc);
+  }
+  // mine tunnel: timber frames, rails, lanterns, rock at the dead end
+  plane(8, 18, 0, -44, 0, mat(0x3a332a, { map: T.dirt(2, 4), roughness: 1 }));
+  bx(8, .6, 18, 0, 4.3, -44, rockM, { collide: false });
+  bx(2, 5, 6, -5, 2.5, -49, rockM); bx(2, 5, 6, 5, 2.5, -49, rockM); bx(10, 5, 1.5, 0, 2.5, -52.75, rockM);
+  const timber = mat(0x4a3622, { map: MT.logs(), roughness: .9 });
+  for (let z = -36; z >= -50; z -= 3.5) { for (const sx of [-3.7, 3.7]) bx(.35, 4, .35, sx, 2, z, timber); bx(8, .4, .4, 0, 3.9, z, timber, { collide: false }); }
+  sign(['COLD HOLLOW MINE No. 3', 'KEEP OUT'], 5, 1.4, 0, 5.2, -34.7, 0, { bg: '#2a1e14', color: '#e8d4a8', size: 50, h: 192 });
+  for (const z of [-40, -47]) { box(.2, .3, .2, X(0), 3.5, z, M.lamp, { collide: false, shoot: false }); anchor(X(0), 3.3, z, 0xffb060, 1, 9); }
+  const railM = mat(0x55524c, { roughness: .4, metalness: .8 });
+  for (const sx of [-.55, .55]) bx(.08, .08, 40, sx, .05, -31, railM, { collide: false });
+  for (let z = -50; z < -11; z += 1) bx(1.6, .06, .2, 0, .02, z, timber, { collide: false });
+  const cartM = mat(0x5a3a22, { roughness: .6, metalness: .5 });
+  for (const [x, z] of [[0, -45], [3.2, -27]]) { bx(1.4, .9, 2, x, .7, z, cartM, { nav: true }); for (const s of [-.5, .5]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .1, 10), M.darkMetal); w.rotation.z = Math.PI / 2; w.position.set(X(x + s * 1.5), .22, z); scene.add(w); } bx(1.2, .3, 1.8, x, 1.2, z, mat(0x2a2a2e, { roughness: 1 }), { collide: false }); }
+  // log cabins with pitched snowy roofs
+  const logM = mat(0xffffff, { map: MT.logs(), roughness: .9 });
+  const cabin = (x, z, w, d, h, label) => {
+    bx(w, h, d, x, h / 2, z, logM, { nav: true });
+    for (const s of [-1, 1]) {
+      const roof = bx(w + .8, .25, d / 2 + .9, x, h + 1, z + s * d / 4, mat(0x3a2e24), { collide: false }); roof.rotation.x = s * .55;
+      const snow = bx(w + .9, .15, d / 2 + .8, x, h + 1.15, z + s * d / 4, capM, { collide: false }); snow.rotation.x = s * .55;
+    }
+    bx(1.1, 2, .05, x - w / 4, 1, z + d / 2 + .03, mat(0x2a1d12), { collide: false });
+    bx(1.1, .8, .05, x + w / 4, 1.7, z + d / 2 + .03, mat(0x24180c, { emissive: 0x3a2008 }), { collide: false });
+    anchor(X(x + w / 4), 1.8, z + d / 2 + 1, 0xffa050, .45, 6);
+    if (label) sign([label], 3.4, .6, x, h - .4, z + d / 2 + .05, 0, { bg: '#3a2a1a', color: '#f0dcb0', size: 54 });
+  };
+  cabin(-18, -12, 7, 5, 3.2, 'ASSAY OFFICE');
+  cabin(-20, 10, 7, 5, 3.2, 'CABIN 2');
+  cabin(16, -14, 12, 6, 3.4, 'BUNKHOUSE');
+  cabin(0, 24, 5, 4, 3, 'FOREMAN');
+  // mess tent
+  const canvasM = mat(0x8a7d62, { roughness: .95 });
+  bx(8, 2.6, 6, 18, 1.3, 12, canvasM, { nav: true });
+  for (const s of [-1, 1]) { const r = bx(8.4, .1, 3.6, 18, 3.4, 12 + s * 1.55, canvasM, { collide: false }); r.rotation.x = s * .65; }
+  sign(['MESS'], 2.2, .6, 18, 2.2, 8.97, Math.PI, { bg: '#4a3e2a', color: '#f2e6c8', size: 60 });
+  // water tower
+  for (const [dx, dz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) bx(.25, 7, .25, -26 + dx, 3.5, 26 + dz, timber);
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 3, 16), timber); tank.position.set(X(-26), 8.5, 26); scene.add(tank);
+  const tcap = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.2, 16), capM); tcap.position.set(X(-26), 10.6, 26); scene.add(tcap);
+  // bonfire in the middle of camp
+  const stone = mat(0x55575a, { roughness: .9 });
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(.3, 0), stone); st.position.set(X(Math.cos(a) * 1.1), .15, Math.sin(a) * 1.1); scene.add(st); }
+  for (let i = 0; i < 5; i++) { const lg = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, 1.6, 8), timber); lg.position.set(X(0), .35, 0); lg.rotation.set(Math.PI / 2 - .5, i / 5 * Math.PI * 2, 0); scene.add(lg); }
+  navCol(-1.3, 1.3, -1.3, 1.3, 1);
+  def.fire = anchor(X(0), 1.2, 0, 0xff7a2a, 1.8, 14);
+  // pines dusted with snow
+  const pineM = mat(0x1d2e24, { roughness: .9 });
+  for (const [x, z] of [[-30, -20], [-29, -4], [-31, 14], [-12, 30], [8, 31], [29, 20], [30, -2], [28, -24], [-24, -30], [22, 30], [-6, -30], [12, -31]]) {
+    box(.4, 2, .4, X(x), 1, z, mat(0x3a2a1a));
+    for (let k = 0; k < 3; k++) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(2.2 - k * .55, 2.6, 10), pineM); c.position.set(X(x), 2.4 + k * 1.5, z); scene.add(c);
+      const sn = new THREE.Mesh(new THREE.ConeGeometry(1.4 - k * .4, .9, 10), capM); sn.position.set(X(x), 3.3 + k * 1.5, z); scene.add(sn);
+    }
+  }
+  // crates, firewood, a half-buried truck
+  const crate = mat(0x6b5034, { map: T.wood(), roughness: .8 });
+  for (const [x, z] of [[-10, -22], [-8.7, -22], [9, 18], [24, -6], [-24, 2]]) bx(1.2, 1.2, 1.2, x, .6, z, crate, { nav: true });
+  bx(3, 1, 1.2, -13, .5, 18, logM, { nav: true });
+  bx(2.4, 1.8, 2.2, 26, .9, 14, mat(0x6a2a20, { roughness: .6, metalness: .4 }), { nav: true });
+  bx(4.5, .9, 2.2, 26, .6, 17.3, M.darkMetal, { nav: true });
+  bx(5, .4, 2.6, 26, 1.7, 16.2, capM, { collide: false });
+  // power: generator shed by the bunkhouse
+  bx(2.2, 1.6, 1.6, 25.4, .8, -6, M.rust, { nav: true });
+  powerSwitch(X(24.2), -3.8, 0);
+  // the playable stuff
+  chalk('m14', X(-14.33), 1.7, -12, Math.PI / 2);
+  chalk('dbl', X(-18), 1.7, -9.33, 0);
+  chalk('mp5', X(-16.33), 1.7, 10, Math.PI / 2);
+  chalk('r870', X(9.83), 1.7, -14, -Math.PI / 2);
+  chalk('ak74u', X(18.5), 1.7, -10.83, 0);
+  chalk('m16', X(0), 1.7, 21.83, Math.PI);
+  perkMachine('iron', X(-18), -15.3, Math.PI);
+  perkMachine('dbl', X(6.5), -5, -Math.PI / 2);
+  perkMachine('quick', X(12), 8.6, Math.PI);
+  perkMachine('wind', X(-6.5), -33.2, 0);
+  buildForge(X(0), -50.5, 0);
+  workbench(X(-10.4), -2, Math.PI / 2);
+  workbench(X(10), 20.6, Math.PI);
+  // falling snow that follows the camera
+  const n = 1400, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { pos[i * 3] = rand(-25, 25); pos[i * 3 + 1] = rand(0, 18); pos[i * 3 + 2] = rand(-25, 25); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  def.snow = new THREE.Points(geo, new THREE.PointsMaterial({ map: moteTex, size: .09, color: 0xeef3ff, transparent: true, opacity: .85, depthWrite: false }));
+  def.snow.frustumCulled = false; scene.add(def.snow);
+}
+
+const MAPDEFS = {
+  pier: {
+    ox: 600, build: buildPier, start: [0, -12], yaw: Math.PI,
+    nav: [[0, -12], [-15, -20], [15, -20], [-15, 4], [0, 4], [9, 7], [9, 12], [9, 25], [9, 37.5], [9, 43], [-1, 43], [19, 43], [0, -34], [-26, -30], [26, -30]],
+    fog: 0x111a1f, density: .048, zenith: 0x03060a,
+    spots: [[-25, -28], [2, -38], [26, -28], [5, -27.5], [-17, -24], [17, -24], [-2, 4], [16, 8], [-14, -10], [7.2, 18], [10.8, 33], [-2.5, 44.5], [20.5, 41.6]],
+    spawns: [[-19.2, -20], [-19.2, -8], [-19.2, 4], [19.2, -18], [19.2, -4], [19.2, 6], [-12, 9.2], [16, 9.2], [6.8, 20], [11.2, 30], [-3.2, 43], [21.2, 45], [10, 45.2], [-20, -44], [0, -44.6], [20, -44]],
+    box: [12, -12, 0], box_rot: 0,
+    shots: [
+      { from: [-6, 2, -10], to: [-2, 2.4, -6], look: [10, 2.5, 40] },
+      { from: [24, 1.8, -24], to: [20, 2.2, -26], look: [13, 2.4, -33] },
+      { from: [-14, 1.5, 6], to: [-16, 1.8, 2], look: [-25, 0, -8] },
+    ],
+    update(dt, t) {
+      this.water.material.bumpMap.offset.set(t * .006, t * .004);
+      for (const b of this.boats) { b.g.position.y = b.base + Math.sin(t * .9 + b.ph) * .12; b.g.rotation.z = Math.sin(t * .7 + b.ph) * .04; }
+      for (const b of this.buoys) b.m.position.y = -.9 + Math.sin(t * 1.3 + b.ph) * .15;
+      this.beam.rotation.y = t * .5;
+      const on = Math.random() > .025; this.neon.visible = on; this.neonLight.intensity = on ? .9 : 0;
+    },
+  },
+  mine: {
+    ox: -600, build: buildMine, start: [0, 8], yaw: 0,
+    fog: 0x262d36, density: .042, zenith: 0x080b10,
+    spots: [[-24, -4], [-12, -20], [0, -42], [-2.5, -49], [-28, 20], [-8, 30], [12, 28], [28, -26], [26, 4], [-26, -26], [8, -6], [-10, 14], [30, 24]],
+    spawns: [[0, -49], [2, -45], [-32, -30], [-32, 0], [-32, 28], [32, -30], [32, 2], [32, 28], [-15, 32], [15, 32], [-8, -32], [8, -32]],
+    box: [-6, 17, 0],
+    shots: [
+      { from: [-8, 2, 14], to: [-4, 2.4, 12], look: [0, 1, 0] },
+      { from: [6, 2, -24], to: [2, 2.2, -26], look: [0, 2, -40] },
+      { from: [4, 1.8, -2], to: [8, 2.2, -4], look: [16, 2, -12] },
+    ],
+    update(dt, t) {
+      this.fire.intensity = 1.6 + Math.sin(t * 13) * .25 + Math.random() * .3;
+      if (Math.random() < dt * 12) burst(new V3(this.ox + rand(-.4, .4), .5, rand(-.4, .4)), 'fire', 1, 1.5, .6);
+      const p = this.snow.geometry.attributes.position, a = p.array, cx = camera.position.x, cz = camera.position.z;
+      for (let i = 0; i < a.length; i += 3) {
+        a[i + 1] -= dt * (1.2 + (i % 7) * .08); a[i] += Math.sin(t + i) * dt * .3;
+        if (a[i + 1] < 0) a[i + 1] = 18;
+        if (a[i] - (cx - this.ox) > 25) a[i] -= 50; else if (a[i] - (cx - this.ox) < -25) a[i] += 50;
+        if (a[i + 2] - cz > 25) a[i + 2] -= 50; else if (a[i + 2] - cz < -25) a[i + 2] += 50;
+      }
+      this.snow.position.x = this.ox;
+      p.needsUpdate = true;
+    },
+  },
+};
+for (const d of Object.values(MAPDEFS)) d.shots = d.shots.map(sh => ({ from: new V3(sh.from[0] + d.ox, sh.from[1], sh.from[2]), to: new V3(sh.to[0] + d.ox, sh.to[1], sh.to[2]), look: new V3(sh.look[0] + d.ox, sh.look[1], sh.look[2]) }));
+let activeMap = null;
+// Path network for maps whose railings make the walkable area non-convex (the pier).
+const wallBlocked = (a, b) => navObstacles.some(o => o.wall && !o.off && segHitsBox(a.x, a.z, b.x, b.z, o, .25));
+function buildNavGraph(def) {
+  const nodes = def.nav.map(([x, z]) => new V3(x + def.ox, 0, z)), n = nodes.length;
+  const D = nodes.map((a, i) => nodes.map((b, j) => i === j ? 0 : wallBlocked(a, b) ? Infinity : a.distanceTo(b)));
+  for (let k = 0; k < n; k++) for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (D[i][k] + D[k][j] < D[i][j]) D[i][j] = D[i][k] + D[k][j];
+  def.navNodes = nodes; def.navD = D;
+}
+let playerVis = [];
+function updatePlayerVis() {
+  playerVis = [];
+  if (!activeMap || !activeMap.navNodes) return;
+  activeMap.navNodes.forEach((nd, j) => { if (!wallBlocked(P.pos, nd)) playerVis.push([j, nd.distanceTo(P.pos)]); });
+}
+// When a railing blocks the straight line to the player, head for the route point on the shortest path.
+function graphTarget(zp) {
+  const def = activeMap;
+  if (!def || !def.navNodes || !wallBlocked(zp, P.pos)) return null;
+  const nodes = def.navNodes, D = def.navD;
+  let best = null, bc = Infinity;
+  nodes.forEach((nd, i) => {
+    const dz = nd.distanceTo(zp);
+    if (dz < .8 || wallBlocked(zp, nd)) return;
+    for (const [j, dp] of playerVis) { const c = dz + D[i][j] + dp; if (c < bc) { bc = c; best = nd; } }
+  });
+  return best;
+}
+function setAtmosphere(fog, density, zenith) {
+  scene.fog.color.setHex(fog); scene.fog.density = density; scene.background.setHex(fog); renderer.setClearColor(fog);
+  sky.material.uniforms.uHorizon.value.setHex(fog); sky.material.uniforms.uZenith.value.setHex(zenith);
+}
+// Build (once) and enter the chosen map: move the player, the mystery box and the atmosphere there.
+function enterMap(key) {
+  const def = MAPDEFS[key];
+  if (!def) { activeMap = null; return; }
+  if (!def.built) {
+    def.build(def); def.built = true;
+    scene.traverse(o => { if (o.isMesh && !o.material.transparent && !o.material.isMeshBasicMaterial && o.material.blending !== THREE.AdditiveBlending) o.castShadow = o.receiveShadow = true; });
+    shootables = staticMeshes.slice();
+    if (def.nav) buildNavGraph(def);
+  }
+  activeMap = def;
+  P.pos.set(def.ox + def.start[0], 0, def.start[1]); P.yaw = def.yaw; P.pitch = 0;
+  moveBox(def.ox + def.box[0], def.box[1], def.box[2]);
+  setAtmosphere(def.fog, def.density, def.zenith);
+}
+
+/* =====================================================================
    GAME FLOW
    ===================================================================== */
 const MODES = {
-  route: { name: 'Route 9', tag: 'Full map · Survival', title: 'Route 9',
+  route: { map: 'route9', name: 'Route 9', tag: 'Full map · Survival', title: 'Route 9',
     desc: 'The whole route. Hold the depot, open the lot gate and ride the bus out to Pine Hollow Gas & Motel and Kessler Lumber Mill.',
     bullets: ['Depot, bus lot and the foggy road', 'Working bus between three stops', 'All four buildables, including the Gale Cannon'],
     intro: ['ROUTE 9 TRANSIT DEPOT', 'Somewhere off Highway 9', 'October 31 · 11:57 PM'] },
-  depot: { name: 'Depot Survival', tag: 'Survival', title: 'The Depot',
+  depot: { map: 'route9', name: 'Depot Survival', tag: 'Survival', title: 'The Depot',
     desc: 'No way out. The lot gate stays chained shut: hold the depot and the bus lot for as long as you can.',
     bullets: ['Depot and bus lot only', 'Riot Shield, Sentry Turret and Shock Trap', 'Tighter fights, fewer escape routes'],
     intro: ['ROUTE 9 TRANSIT DEPOT', 'Waiting room · last call', 'October 31 · 11:57 PM'] },
+  pier: { map: 'pier', name: 'Blackwater Pier', tag: 'New map · Survival', title: 'Blackwater Pier',
+    desc: 'A fishing harbour lost in sea fog. They climb out of the black water onto the boardwalk. Fight from the bait shop out to the end of the pier while the lighthouse sweeps the dark.',
+    bullets: ['Boardwalk, fishing pier and harbour front', 'Lighthouse power switch, perks and the Forge', 'All four buildables'],
+    intro: ['BLACKWATER PIER', 'Harbour front, dead calm', 'November 1 · 1:12 AM'] },
+  mine: { map: 'mine', name: 'Cold Hollow Mine', tag: 'New map · Survival', title: 'Cold Hollow Mine',
+    desc: 'A snowed-in mining camp ringed by cliffs. They stagger out of the dark tunnel and down off the rocks. Keep the bonfire at your back and the Forge waits at the end of the mine.',
+    bullets: ['Log cabins, bunkhouse and mess tent', 'Dead-end mine tunnel with the Forge', 'All four buildables, falling snow'],
+    intro: ['COLD HOLLOW MINE No. 3', 'Snowed in since Tuesday', 'November 2 · 3:40 AM'] },
 };
 const DIFFS = {
   easy:   { name: 'Casual', hp: .7, dmg: 40, run: -.1, desc: 'Weaker, slower zombies that hit softer.' },
@@ -3193,6 +3628,7 @@ const escapeHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<':
 // ---- match flow ----
 function launchMatch(cfg) {
   G.mode = cfg.mode; G.diff = cfg.diff;
+  enterMap(MODES[cfg.mode].map);
   buildParts();
   G.round = cfg.start - 1;
   P.points = startPoints(cfg.start); $('points').textContent = P.points;
@@ -3432,7 +3868,7 @@ function frame(now) {
   } else if (G.state === 'menu') {
     // cinematic camera behind the menus: slow dolly shots around the route, cut with a fade
     const t = now / 1000, SHOT = 11, n = Math.floor(t / SHOT), k = (t % SHOT) / SHOT;
-    const shots = G.mode === 'depot' ? MENU_SHOTS.slice(0, 2) : MENU_SHOTS;
+    const shots = activeMap ? activeMap.shots : G.mode === 'depot' ? MENU_SHOTS.slice(0, 2) : MENU_SHOTS;
     const sh = shots[n % shots.length];
     camera.position.lerpVectors(sh.from, sh.to, k);
     camera.lookAt(sh.look);
@@ -3442,7 +3878,8 @@ function frame(now) {
   const flick = G.power ? 1.15 : (Math.random() < .04 ? .05 : .32 + Math.sin(now * .013) * .04);
   interiorLights.forEach((l, i) => l.intensity = i === 1 && !G.power && Math.random() < .08 ? 0 : flick);
   fireLight.intensity = 1 + Math.sin(now * .02) * .25 + Math.random() * .2;
-  if (forge.ring) forge.ring.rotation.z += .02 * (G.power ? 3 : .2);
+  for (const f of forge.list) f.ring.rotation.z += .02 * (G.power ? 3 : .2);
+  if (activeMap) activeMap.update(dt, now / 1000);
   roomShafts.forEach(s => s.material.opacity = G.power ? .05 : .035 * flick / .32);
   lotShafts.forEach(s => s.material.opacity = .15 + Math.sin(now * .0013) * .015);
   for (const f of fogBanks) { f.position.x += f.userData.drift * dt; if (Math.abs(f.position.x) > 34) f.userData.drift *= -1; }
