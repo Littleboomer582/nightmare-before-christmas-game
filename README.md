@@ -15,6 +15,13 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Goal:** survive as many rounds as you can.
 
+**Menus:** a title screen over live shots of the map, then a main menu with Solo, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
+- **Solo** sets up the match: game mode (**Route 9**, the full map with the bus, or **Depot Survival**, depot and bus lot only with the gate chained shut), difficulty (Casual, Normal, Hardened) and starting round (1, 5, 10, 15 or 20, with extra starting points).
+- A loading screen shows the map, mode and a survival tip; press any key to begin, and the location is typed out as the match starts.
+- **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music, graphics quality and an FPS counter.
+- **Pause** (Esc) has Resume, Options, Field Manual, Restart Match and End Game.
+- **Game over** shows a scoreboard (score, kills, headshots, downs, accuracy) and saves the run to the local **Leaderboards** (top 10).
+
 - **Barricades:** zombies tear boards off the four depot windows. Hold **F** at a window to rebuild it (+10 points per board).
 - **Points:** earn them for hits, kills (more for headshots and knife kills) and repairs. Spend them on:
   - **Wall weapons:** chalk outlines on the walls. Inside: M14 (500), Double-Barrel (500), MP5 (1000), AK-74u (1200). On the depot's lot-side wall: Remington 870 (1500) and M16 (1200, three-round burst). Buy again for ammo.
