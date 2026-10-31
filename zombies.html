@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Dead End Depot — Zombies Survival</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&family=Oswald:wght@400;600&family=Teko:wght@400;500;600&display=swap" rel="stylesheet">
@@ -22,6 +22,61 @@
   #hitm:before,#hitm:after{content:'';position:absolute;left:10px;top:-2px;width:2px;height:26px;background:#fff;box-shadow:0 0 3px #000}
   #hitm:before{transform:rotate(45deg)} #hitm:after{transform:rotate(-45deg)}
   #hitm.kill:before,#hitm.kill:after{background:#ff3b30}
+  /* ---------- Touch controls ---------- */
+  html,body{-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+  #touchUI{display:none;position:absolute;inset:0;pointer-events:none;touch-action:none}
+  .touch #touchUI{display:block}
+  #tLook{position:absolute;top:0;bottom:0;right:0;left:42%;pointer-events:auto;touch-action:none}
+  #tStick{position:absolute;left:0;top:22%;bottom:0;width:42%;pointer-events:auto;touch-action:none}
+  #tBase{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.28);
+    background:radial-gradient(circle,rgba(255,255,255,.08),rgba(255,255,255,.02));opacity:0;transition:opacity .15s}
+  #tKnob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.35);border:2px solid rgba(255,255,255,.6)}
+  #tBase.on{opacity:1} #tBase.sprint #tKnob{background:rgba(242,163,58,.6);border-color:#f2a33a}
+  .tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-family:'Teko','Oswald',sans-serif;font-weight:500;letter-spacing:.06em;color:#fff;user-select:none;
+    background:rgba(10,12,16,.38);border:2px solid rgba(255,255,255,.42);box-shadow:0 0 8px rgba(0,0,0,.5);text-shadow:0 0 3px #000}
+  .tb.down{background:rgba(242,163,58,.45);border-color:#f2a33a}
+  .tb.on{border-color:#f2a33a;color:#f2a33a}
+  .tb.dim{opacity:.35}
+  .tb[hidden]{display:none}
+  #tFire{width:96px;height:96px;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));font-size:26px;border-width:3px}
+  #tAds{width:60px;height:60px;right:calc(130px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));font-size:19px}
+  #tUse{width:60px;height:60px;right:calc(200px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));font-size:19px}
+  #tJump{width:56px;height:56px;right:calc(42px + env(safe-area-inset-right,0px));bottom:calc(130px + env(safe-area-inset-bottom,0px));font-size:16px}
+  #tReload{width:56px;height:56px;right:calc(132px + env(safe-area-inset-right,0px));bottom:calc(94px + env(safe-area-inset-bottom,0px));font-size:13px;letter-spacing:0}
+  #tKnife{width:52px;height:52px;right:calc(204px + env(safe-area-inset-right,0px));bottom:calc(94px + env(safe-area-inset-bottom,0px));font-size:14px;letter-spacing:0}
+  #tNade{width:50px;height:50px;right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(164px + env(safe-area-inset-bottom,0px));font-size:15px}
+  #tPlace{width:54px;height:54px;right:calc(268px + env(safe-area-inset-right,0px));bottom:calc(60px + env(safe-area-inset-bottom,0px));font-size:14px;letter-spacing:0}
+  #tSwap{width:62px;height:40px;border-radius:20px;right:calc(16px + env(safe-area-inset-right,0px));top:calc(104px + env(safe-area-inset-top,0px));font-size:16px}
+  #tPause{width:44px;height:44px;left:calc(14px + env(safe-area-inset-left,0px));top:calc(12px + env(safe-area-inset-top,0px));font-size:16px;border-radius:10px}
+  /* phone-sized HUD */
+  .touch #right{bottom:auto;top:calc(8px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px))}
+  .touch #points{font-size:22px} .touch #ammo{font-size:24px} .touch #ammo #res{font-size:16px} .touch #wname{font-size:14px}
+  .touch #pointsWrap{margin-bottom:2px;min-width:110px} .touch .pop{right:120px;font-size:16px}
+  .touch #roundBox{bottom:auto;top:calc(62px + env(safe-area-inset-top,0px));left:calc(16px + env(safe-area-inset-left,0px))}
+  .touch #round{font-size:54px} .touch #round .tally{height:42px;width:8px;margin-right:6px}
+  .touch #round .tally.cross{width:70px;top:16px;height:8px}
+  .touch .perk{width:24px;height:24px;font-size:12px}
+  .touch #prompt{top:calc(14px + env(safe-area-inset-top,0px));font-size:15px;white-space:normal;width:min(60vw,560px);text-align:center}
+  .touch #announce{font-size:34px;top:20%}
+  .touch #powerups{bottom:auto;top:calc(60px + env(safe-area-inset-top,0px))}
+  .touch #intro{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));font-size:14px}
+  .touch #equip{font-size:12px}
+  .touch #lowHp{top:30%;font-size:15px}
+  #rotate{display:none;position:fixed;inset:0;z-index:20;background:#05060a;color:#e8e2d4;font-family:'Teko','Oswald',sans-serif;
+    font-size:30px;letter-spacing:.1em;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:24px}
+  #rotate i{display:block;width:44px;height:74px;border:3px solid #f2a33a;border-radius:8px;animation:rot 1.8s ease-in-out infinite}
+  @keyframes rot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+  @media (orientation:portrait){.touch.playing #rotate{display:flex}}
+  .touch .hints{display:none}
+  @media (max-height:560px){
+    .scr{overflow-y:auto;gap:18px;padding-block:max(14px,env(safe-area-inset-top,0px))}
+    .panel{gap:10px}
+    .mi{font-size:24px;padding:6px 12px 4px}
+    .hdr h2{font-size:36px} .hdr h3{font-size:30px} .eyebrow{font-size:13px}
+    .card{padding:14px 16px} .card h4{font-size:26px} .card p{font-size:13px}
+    #loadTitle{font-size:56px} #overHead{font-size:52px} .pressKey{margin-top:24px}
+  }
   #prompt{position:absolute;left:50%;top:60%;transform:translateX(-50%);font-family:'Special Elite',monospace;
     font-size:20px;text-shadow:0 0 4px #000,0 0 8px #000;white-space:nowrap}
   #prompt b{color:#ffd24a}
@@ -171,6 +226,20 @@
   <div id="roundBox"><div id="perks"></div><div id="round"></div></div>
   <div id="intro"></div>
   <div id="fps" hidden></div>
+  <div id="touchUI">
+    <div id="tLook"></div>
+    <div id="tStick"><div id="tBase"><div id="tKnob"></div></div></div>
+    <div class="tb" id="tFire">FIRE</div>
+    <div class="tb" id="tAds">AIM</div>
+    <div class="tb" id="tJump">JUMP</div>
+    <div class="tb" id="tReload">RELOAD</div>
+    <div class="tb dim" id="tUse">USE</div>
+    <div class="tb" id="tKnife">KNIFE</div>
+    <div class="tb" id="tNade">NADE</div>
+    <div class="tb" id="tPlace" hidden>PLACE</div>
+    <div class="tb" id="tSwap">SWAP</div>
+    <div class="tb" id="tPause" aria-label="Pause">II</div>
+  </div>
   <div id="powerups"></div>
   <div id="right">
     <div id="pointsWrap"><div id="points">500</div></div>
@@ -181,6 +250,8 @@
   </div>
 </div>
 
+<div id="rotate"><i></i>Turn your phone sideways to play</div>
+
 <div id="overlay">
   <div id="menuFade"></div>
 
@@ -188,7 +259,7 @@
     <div class="logoTop">ZOMBIES</div>
     <h1>Dead End Depot</h1>
     <div class="logoSub">ROUTE 9 · LAST BUS OUT</div>
-    <div class="pressKey">PRESS ANY KEY</div>
+    <div class="pressKey" id="pressKey">PRESS ANY KEY</div>
     <div class="legal">A fan-made, round-based zombies survival tribute. All art, audio, names and music are original.</div>
   </section>
 
@@ -233,6 +304,7 @@
         <button class="mi sel" data-opt="volume">Master Volume <span class="bar"><i></i></span> <em></em></button>
         <button class="mi sel" data-opt="music">Menu Music <em></em></button>
         <button class="mi sel" data-opt="quality">Graphics <em></em></button>
+        <button class="mi sel" data-opt="touch">Touch Controls <em></em></button>
         <button class="mi sel" data-opt="showFps">Show FPS <em></em></button>
         <button class="mi back">Back</button>
       </div>
@@ -365,8 +437,14 @@ const pick = arr => arr[Math.random() * arr.length | 0];
 /* =====================================================================
    RENDERER / SCENES
    ===================================================================== */
-let QUALITY = 'high';
-try { QUALITY = localStorage.getItem('ded_quality') === 'low' ? 'low' : 'high'; } catch (e) {}
+// Touch: 'auto' follows the device's main pointer (phones and tablets); Options can force it on or off.
+const TOUCH_DEVICE = matchMedia('(pointer: coarse)').matches;
+let TOUCH_PREF = 'auto';
+try { TOUCH_PREF = (JSON.parse(localStorage.getItem('ded_settings')) || {}).touch || 'auto'; } catch (e) {}
+let TOUCH = TOUCH_PREF === 'on' || (TOUCH_PREF === 'auto' && TOUCH_DEVICE);
+document.documentElement.classList.toggle('touch', TOUCH);
+let QUALITY = TOUCH_DEVICE ? 'low' : 'high';   // phones default to the lighter setting
+try { const q = localStorage.getItem('ded_quality'); if (q) QUALITY = q === 'low' ? 'low' : 'high'; } catch (e) {}
 const HIGH = QUALITY === 'high';
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(HIGH ? Math.min(devicePixelRatio, 1.5) : 1);
@@ -2511,7 +2589,8 @@ function shieldBlocks(z) {
 function updateEquipHud() {
   const lines = [];
   if (P.shieldHp > 0) lines.push(`Riot Shield <span style="color:#8fc3ff">${'▮'.repeat(P.shieldHp)}${'▯'.repeat(SHIELD_HITS - P.shieldHp)}</span>`);
-  if (B.carry) lines.push(`${BUILDS[B.carry].name} — press <b style="color:#ffd24a">T</b> to place`);
+  if (B.carry) lines.push(`${BUILDS[B.carry].name} — ${TOUCH ? 'tap' : 'press'} <b style="color:#ffd24a">${TOUCH ? 'PLACE' : 'T'}</b> to place`);
+  if (TOUCH) $('tPlace').hidden = !B.carry;
   for (const k in BUILDS) {
     if (B.built[k]) continue;
     const n = B.have[k].size;
@@ -2970,15 +3049,17 @@ function updatePowerHud() {
    ===================================================================== */
 function updatePlayer(dt) {
   const k = input.keys;
-  const f = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), s = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
-  const sprinting = k.ShiftLeft && f > 0 && !input.rmb && P.stamina > 0 && W_STATE.reloading <= 0;
+  let f = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), s = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
+  if (stick.id !== null) { f = -stick.y; s = stick.x; }      // touch joystick is analog
+  const wantSprint = k.ShiftLeft || (stick.id !== null && stick.mag > .92 && f > .7);
+  const sprinting = wantSprint && f > 0 && !input.rmb && P.stamina > 0 && W_STATE.reloading <= 0;
   P.sprinting = sprinting;
   P.stamina = clamp(P.stamina + (sprinting ? -dt / 5 : dt / 3), 0, 1);
   let speed = sprinting ? 6.8 : 4.5;
   if (input.rmb) speed *= .6;
   const fwd = new V3(-Math.sin(P.yaw), 0, -Math.cos(P.yaw)), right = new V3(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const mv = fwd.multiplyScalar(f).add(right.multiplyScalar(s));
-  if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(speed * dt);
+  if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(speed * dt * Math.min(1, Math.hypot(f, s)));
   P.pos.add(mv);
   // gravity / jump
   if (k.Space && P.onGround) { P.vy = 6; P.onGround = false; }
@@ -3068,13 +3149,105 @@ function updateInteract(dt) {
   }
   currentInteract = best;
   const el = $('prompt');
-  const html = best ? best.prompt() : '';
+  let html = best ? best.prompt() : '';
+  if (TOUCH) html = html.replace('Press <b>F</b>', 'Tap <b>USE</b>').replace('Hold <b>F</b>', 'Hold <b>USE</b>');
   if (el.innerHTML !== html) el.innerHTML = html;
+  if (TOUCH) $('tUse').classList.toggle('dim', !(best && (best.use || best.hold)));
   if (best) {
     if (input.fPressed && best.use) best.use();
     if (input.fHeld && best.hold) best.hold(dt);
   }
   input.fPressed = false;
+}
+
+/* =====================================================================
+   TOUCH CONTROLS: floating joystick, drag-to-look, on-screen buttons
+   ===================================================================== */
+const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, mag: 0 };
+const look = { ids: new Map() };   // pointerId -> last x/y, for every finger that is turning the view
+const STICK_R = 55;
+function lookDrag(e) {
+  const prev = look.ids.get(e.pointerId); if (!prev) return;
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  prev.x = e.clientX; prev.y = e.clientY;
+  if (G.state !== 'playing') return;
+  const k = .0055 * SETTINGS.sens * (1 - vm.ads * .45) * (P.weapons[P.cur].def.zoom ? (1 - vm.ads * .5) : 1);
+  P.yaw -= dx * k; P.pitch = clamp(P.pitch - dy * k * (SETTINGS.invertY ? -1 : 1), -1.5, 1.5);
+}
+function releaseTouches() {
+  stick.id = null; stick.x = stick.y = stick.mag = 0; look.ids.clear();
+  $('tBase').classList.remove('on', 'sprint');
+  input.lmb = false; input.fHeld = false; input.keys.Space = false;
+  document.querySelectorAll('.tb.down').forEach(b => b.classList.remove('down'));
+}
+function setupTouch() {
+  const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (er) {} };
+  // joystick: appears wherever the left thumb lands
+  const zone = $('tStick'), base = $('tBase'), knob = $('tKnob');
+  zone.addEventListener('pointerdown', e => {
+    if (stick.id !== null) return;
+    e.preventDefault(); capture(zone, e);
+    const r = zone.getBoundingClientRect();
+    stick.id = e.pointerId; stick.ox = e.clientX; stick.oy = e.clientY;
+    base.style.left = (e.clientX - r.left) + 'px'; base.style.top = (e.clientY - r.top) + 'px';
+    base.classList.add('on'); knob.style.transform = '';
+  });
+  zone.addEventListener('pointermove', e => {
+    if (e.pointerId !== stick.id) return;
+    let dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
+    const d = Math.hypot(dx, dy); if (d > STICK_R) { dx *= STICK_R / d; dy *= STICK_R / d; }
+    stick.x = dx / STICK_R; stick.y = dy / STICK_R; stick.mag = Math.min(1, d / STICK_R);
+    if (stick.mag < .12) stick.x = stick.y = 0;   // dead zone
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    base.classList.toggle('sprint', stick.mag > .92 && -stick.y > .7);
+  });
+  const endStick = e => { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = stick.y = stick.mag = 0; base.classList.remove('on', 'sprint'); };
+  zone.addEventListener('pointerup', endStick); zone.addEventListener('pointercancel', endStick);
+  // look: drag anywhere on the right side
+  const lz = $('tLook');
+  lz.addEventListener('pointerdown', e => { e.preventDefault(); capture(lz, e); look.ids.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+  lz.addEventListener('pointermove', lookDrag);
+  const endLook = e => look.ids.delete(e.pointerId);
+  lz.addEventListener('pointerup', endLook); lz.addEventListener('pointercancel', endLook);
+  // buttons
+  const btn = (id, down, up, drag) => {
+    const el = $(id);
+    el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); capture(el, e); el.classList.add('down'); if (drag) look.ids.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (G.state === 'playing') down && down(); });
+    if (drag) el.addEventListener('pointermove', lookDrag);
+    const end = e => { el.classList.remove('down'); look.ids.delete(e.pointerId); up && up(); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  };
+  btn('tFire', () => { input.lmb = true; }, () => { input.lmb = false; }, true);   // drag the fire button to aim while shooting
+  btn('tAds', () => { input.rmb = !input.rmb; $('tAds').classList.toggle('on', input.rmb); });
+  btn('tJump', () => { input.keys.Space = true; }, () => { input.keys.Space = false; });
+  btn('tReload', () => startReload());
+  btn('tUse', () => { input.fPressed = true; input.fHeld = true; }, () => { input.fHeld = false; });
+  btn('tKnife', () => knife());
+  btn('tNade', () => throwGrenade());
+  btn('tPlace', () => placeEquipment());
+  btn('tSwap', () => switchWeapon());
+  btn('tPause', () => pauseGame());
+  // nothing on the game screen should scroll, zoom or open a long-press menu
+  document.addEventListener('touchmove', e => { if (G.state === 'playing') e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+}
+// Gentle aim assist for touch: while firing or aiming, ease the view onto a zombie close to the crosshair.
+function touchAimAssist(dt) {
+  if (!TOUCH || !(input.lmb || vm.ads > .5)) return;
+  const cam = camera.position, fwd = new V3(0, 0, -1).applyQuaternion(camera.quaternion);
+  let best = null, bestA = .14;   // about 8 degrees
+  for (const z of zombies) {
+    if (z.dead || z.rise < 1) continue;
+    const to = new V3(z.pos.x - cam.x, 1.35 - cam.y + P.pos.y, z.pos.z - cam.z), d = to.length();
+    if (d > 28) continue;
+    const a = to.normalize().angleTo(fwd);
+    if (a < bestA) { bestA = a; best = to; }
+  }
+  if (!best) return;
+  const wantYaw = Math.atan2(-best.x, -best.z), wantPitch = Math.asin(clamp(best.y, -1, 1));
+  let dy = wantYaw - P.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+  const k = Math.min(1, dt * 4);
+  P.yaw += dy * k; P.pitch += (wantPitch - P.pitch) * k;
 }
 
 /* =====================================================================
@@ -3573,6 +3746,7 @@ const OPTS = {
   fov:     { get: () => SETTINGS.fov, set: v => SETTINGS.fov = v, min: 60, max: 100, step: 5, fmt: v => `${v}°` },
   volume:  { get: () => SETTINGS.volume, set: v => { SETTINGS.volume = v; if (master) master.gain.value = .55 * v; }, min: 0, max: 1, step: .1, fmt: v => `${Math.round(v * 100)}%` },
   invertY: { toggle: true, get: () => SETTINGS.invertY, set: v => SETTINGS.invertY = v },
+  touch:   { list: ['auto', 'on', 'off'], labels: { auto: 'Auto', on: 'On', off: 'Off' }, get: () => SETTINGS.touch || 'auto', set: v => { SETTINGS.touch = v; TOUCH = v === 'on' || (v === 'auto' && TOUCH_DEVICE); document.documentElement.classList.toggle('touch', TOUCH); $('pressKey').textContent = TOUCH ? 'TAP TO START' : 'PRESS ANY KEY'; } },
   showFps: { toggle: true, get: () => SETTINGS.showFps, set: v => { SETTINGS.showFps = v; $('fps').hidden = !v; } },
   music:   { toggle: true, get: () => SETTINGS.music, set: v => { SETTINGS.music = v; if (v && G.state === 'menu') MenuMusic.start(); else MenuMusic.stop(); } },
   quality: { list: ['high', 'low'], labels: { high: 'High', low: 'Low' }, get: () => pendingQuality, set: v => {
@@ -3590,7 +3764,7 @@ function renderOptions() {
     else { em.textContent = o.fmt(v); el.querySelector('.bar i').style.width = `${(v - o.min) / (o.max - o.min) * 100}%`; }
   });
 }
-function adjust(el, dir) {
+function adjust(el, dir, wrap = false) {
   const key = el.dataset.opt;
   if (el.closest('#scrSolo')) {
     if (key === 'mode') CFG.mode = cycle(Object.keys(MODES), CFG.mode, dir);
@@ -3601,7 +3775,11 @@ function adjust(el, dir) {
   const o = OPTS[key];
   if (o.toggle) o.set(!o.get());
   else if (o.list) o.set(cycle(o.list, o.get(), dir));
-  else o.set(Math.round(clamp(o.get() + dir * o.step, o.min, o.max) * 100) / 100);
+  else {
+    let v = o.get() + dir * o.step;
+    if (wrap && v > o.max + 1e-6) v = o.min;   // tapping the label cycles round
+    o.set(Math.round(clamp(v, o.min, o.max) * 100) / 100);
+  }
   saveSettings(); renderOptions(); uiTick();
 }
 $('optName').addEventListener('input', e => { SETTINGS.name = e.target.value.trim().slice(0, 16) || 'Survivor'; saveSettings(); });
@@ -3648,7 +3826,7 @@ function launchMatch(cfg) {
     t = (performance.now() - t0) / 1000;
     $('loadBar').style.width = `${Math.min(100, t / dur * 100)}%`;
     if (Math.floor(t / 2.4) !== Math.floor((t - .1) / 2.4)) showTip();
-    if (t >= dur) { clearInterval(iv); G.loadReady = true; $('loadGo').textContent = 'PRESS ANY KEY TO BEGIN'; $('loadGo').classList.add('ready'); }
+    if (t >= dur) { clearInterval(iv); G.loadReady = true; $('loadGo').textContent = TOUCH ? 'TAP TO BEGIN' : 'PRESS ANY KEY TO BEGIN'; $('loadGo').classList.add('ready'); }
   }, 100);
   G.loadReady = false;
 }
@@ -3659,7 +3837,8 @@ function beginPlay() {
   $('overlay').hidden = true; $('hud').classList.remove('hidden');
   G.state = 'playing';
   camera.fov = SETTINGS.fov; camera.updateProjectionMatrix();
-  renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock();
+  grabInput();
+  document.documentElement.classList.add('playing');
   typeIntro(MODES[G.mode].intro);
 }
 function typeIntro(lines) {
@@ -3673,20 +3852,31 @@ function typeIntro(lines) {
 }
 function pauseGame() {
   if (G.state !== 'playing') return;
-  G.state = 'paused'; input.lmb = input.rmb = false;
+  G.state = 'paused'; input.lmb = input.rmb = false; releaseTouches();
+  document.documentElement.classList.remove('playing');
   if (document.pointerLockElement) document.exitPointerLock();
   $('overlay').hidden = false;
   Menu.reset('scrPause');
 }
 function resumeGame() {
   $('overlay').hidden = true; G.state = 'playing';
-  renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock();
+  document.documentElement.classList.add('playing');
+  grabInput();
+}
+// Desktop: capture the mouse. Touch: go fullscreen and hold landscape where the browser allows it.
+function grabInput() {
+  if (!TOUCH) { renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock(); return; }
+  const de = document.documentElement;
+  if (!document.fullscreenElement && de.requestFullscreen) {
+    de.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
+  }
 }
 function confirmThen(text, fn) { $('confirmText').textContent = text; $('btnYes').onclick = () => { uiPick(); fn(); }; Menu.show('scrConfirm'); }
 function restartMatch() { try { sessionStorage.setItem('ded_autostart', JSON.stringify(CFG)); } catch (e) {} location.reload(); }
 function toMainMenu() { try { sessionStorage.setItem('ded_return', 'scrMain'); } catch (e) {} location.reload(); }
 function gameOver() {
-  G.state = 'over';
+  G.state = 'over'; releaseTouches();
+  document.documentElement.classList.remove('playing');
   document.exitPointerLock && document.exitPointerLock();
   $('hud').classList.add('hidden');
   const run = { id: Date.now(), name: SETTINGS.name || 'Survivor', round: G.round, score: P.earned, kills: P.kills, hs: P.headshots, downs: P.downs, time: G.time, mode: G.mode, diff: G.diff };
@@ -3707,7 +3897,13 @@ function bootMenus() {
   $('fps').hidden = !SETTINGS.showFps;
   document.querySelectorAll('#overlay [data-go]').forEach(b => b.addEventListener('click', () => { uiPick(); Menu.show(b.dataset.go); }));
   document.querySelectorAll('#overlay .back').forEach(b => b.addEventListener('click', () => Menu.back()));
-  document.querySelectorAll('#overlay .mi.sel').forEach(b => b.addEventListener('click', () => adjust(b, 1)));
+  // tap the left half of a value to step back, the right half (or the label) to step forward
+  document.querySelectorAll('#overlay .mi.sel').forEach(b => b.addEventListener('click', e => {
+    const em = b.querySelector('em'), r = em.getBoundingClientRect();
+    const onEm = e.clientX >= r.left - 12 && e.clientX <= r.right + 12;
+    adjust(b, onEm && e.clientX < r.left + r.width / 2 ? -1 : 1, !onEm);
+  }));
+  $('pressKey').textContent = TOUCH ? 'TAP TO START' : 'PRESS ANY KEY';
   document.querySelectorAll('#overlay .mi').forEach(b => b.addEventListener('mouseenter', () => { if (document.activeElement !== b) { b.focus({ preventScroll: true }); uiTick(); } }));
   $('btnStart').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); launchMatch(CFG); };
   $('btnResume').onclick = () => { uiPick(); resumeGame(); };
@@ -3760,10 +3956,10 @@ document.querySelectorAll('#scrOptions .back').forEach(b => b.addEventListener('
 }, true));
 
 document.addEventListener('pointerlockchange', () => {
-  if (!document.pointerLockElement && G.state === 'playing') pauseGame();
+  if (!document.pointerLockElement && G.state === 'playing' && !TOUCH) pauseGame();
 });
 renderer.domElement.addEventListener('click', () => {
-  if (G.state === 'playing' && !document.pointerLockElement) renderer.domElement.requestPointerLock();
+  if (G.state === 'playing' && !TOUCH && !document.pointerLockElement) renderer.domElement.requestPointerLock();
 });
 document.addEventListener('mousemove', e => {
   if (G.state !== 'playing' || !document.pointerLockElement) return;
@@ -3831,6 +4027,7 @@ refreshViewModel();
 renderRound(false);
 renderPerks();
 G.betweenT = 3;
+setupTouch();
 bootMenus();
 
 /* =====================================================================
@@ -3849,6 +4046,7 @@ function frame(now) {
   if (fpsT > .5) { if (SETTINGS.showFps) $('fps').textContent = `${Math.round(fpsN / fpsT)} FPS`; fpsT = 0; fpsN = 0; }
   if (G.state === 'playing') {
     G.time += dt;
+    touchAimAssist(dt);
     updatePlayer(dt);
     updateWeapon(dt);
     updateGrenades(dt);

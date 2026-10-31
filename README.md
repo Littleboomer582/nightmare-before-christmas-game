@@ -47,5 +47,12 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
   - Worn-out or broken items can be taken again from a bench after 30 seconds.
 - **Power-ups** drop from zombies: Max Ammo, Insta-Kill, Double Points, Kaboom (kills everything on screen) and Carpenter (repairs every window).
 
+**On phones and tablets:** touch controls switch on automatically (or force them on or off under Options → Touch Controls). Play in landscape; the game goes fullscreen when it can.
+- Left thumb: a floating joystick appears wherever you touch. Push it all the way forward to sprint.
+- Right thumb: drag anywhere on the right half to look. Drag from the FIRE button to aim while shooting.
+- Buttons: FIRE, AIM (toggle), JUMP, RELOAD, USE (tap, or hold to rebuild and build), KNIFE, NADE, SWAP, PLACE (when carrying a turret or trap) and pause.
+- A gentle aim assist eases your view onto a nearby zombie while you fire or aim.
+- Phones start on the Low graphics setting.
+
 **Controls:** WASD move · Shift sprint · Space jump · Mouse aim · LMB fire · RMB aim down sights · R reload ·
 F/E interact · V knife · G grenade · T place turret/trap · Q/1/2/3/wheel switch weapon · Esc pause.
