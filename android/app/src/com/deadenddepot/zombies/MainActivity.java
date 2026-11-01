@@ -3,6 +3,7 @@ package com.deadenddepot.zombies;
 import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -12,6 +13,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.util.HashMap;
+import java.util.Locale;
+
 /**
  * Runs the game full-screen in landscape. The whole game ships inside the APK's assets
  * (index.html, three.min.js and the fonts), so it plays offline.
@@ -20,6 +24,8 @@ public class MainActivity extends Activity {
     // SYSTEM_UI_FLAG_IMMERSIVE_STICKY | FULLSCREEN | HIDE_NAVIGATION | LAYOUT_STABLE | LAYOUT_HIDE_NAVIGATION | LAYOUT_FULLSCREEN
     private static final int IMMERSIVE = 0x1000 | 0x0004 | 0x0002 | 0x0100 | 0x0200 | 0x0400;
     private WebView web;
+    private TextToSpeech tts;           // the phone's speech engine, for the survivor's quotes
+    private volatile boolean ttsReady;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -49,6 +55,14 @@ public class MainActivity extends Activity {
         setContentView(web);
         hideSystemUi();
         web.loadUrl("file:///android_asset/index.html");
+        tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status != TextToSpeech.SUCCESS) return;
+                int lang = tts.setLanguage(Locale.US);
+                ttsReady = lang != TextToSpeech.LANG_MISSING_DATA && lang != TextToSpeech.LANG_NOT_SUPPORTED;
+            }
+        });
     }
 
     private void hideSystemUi() {
@@ -70,6 +84,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         web.loadUrl("javascript:window.onAppPause && onAppPause()");
+        if (tts != null) tts.stop();
         web.onPause();
         super.onPause();
     }
@@ -84,6 +99,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (tts != null) tts.shutdown();
         web.destroy();
         super.onDestroy();
     }
@@ -96,6 +112,22 @@ public class MainActivity extends Activity {
                 @Override
                 public void run() { finish(); }
             });
+        }
+
+        @JavascriptInterface
+        @SuppressWarnings("deprecation")   // the HashMap form works on every Android version we support
+        public void speak(String text, float pitch, float rate, float volume) {
+            if (!ttsReady || text == null) return;
+            tts.setPitch(pitch);
+            tts.setSpeechRate(rate);
+            HashMap<String, String> params = new HashMap<String, String>();
+            params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, String.valueOf(volume));
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
+        }
+
+        @JavascriptInterface
+        public void stopSpeaking() {
+            if (tts != null) tts.stop();
         }
     }
 }

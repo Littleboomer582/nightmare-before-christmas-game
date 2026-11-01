@@ -59,6 +59,7 @@
   .touch .perk{width:24px;height:24px;font-size:12px}
   .touch #prompt{top:calc(14px + env(safe-area-inset-top,0px));font-size:15px;white-space:normal;width:min(60vw,560px);text-align:center}
   .touch #announce{font-size:34px;top:20%}
+  .touch #quote{bottom:auto;top:calc(64px + env(safe-area-inset-top,0px));font-size:14px;max-width:min(56vw,480px);padding:4px 10px}
   .touch #powerups{bottom:auto;top:calc(60px + env(safe-area-inset-top,0px))}
   .touch #intro{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));font-size:14px}
   .touch #equip{font-size:12px}
@@ -80,6 +81,8 @@
   #prompt{position:absolute;left:50%;top:60%;transform:translateX(-50%);font-family:'Special Elite',monospace;
     font-size:20px;text-shadow:0 0 4px #000,0 0 8px #000;white-space:nowrap}
   #prompt b{color:#ffd24a}
+  #quote{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);max-width:min(70vw,760px);width:max-content;text-align:center;font-family:'Special Elite',monospace;font-size:18px;line-height:1.35;color:#ece6d6;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:3px;opacity:0;transition:opacity .25s;pointer-events:none;text-shadow:0 1px 2px #000}
+  #quote b{color:#ffcf6a;font-weight:normal;margin-right:4px}
   #announce{position:absolute;left:50%;top:26%;transform:translateX(-50%);font-family:'Creepster',cursive;
     font-size:54px;letter-spacing:2px;color:#ffe06a;text-shadow:0 0 12px #000,0 0 30px rgba(255,180,0,.6);opacity:0;
     transition:opacity .4s;white-space:nowrap}
@@ -225,6 +228,7 @@
   <div id="hitm"></div>
   <div id="prompt"></div>
   <div id="announce"></div>
+  <div id="quote"></div>
   <div id="lowHp">You are badly hurt — break away!</div>
   <div id="roundBox"><div id="perks"></div><div id="round"></div></div>
   <div id="intro"></div>
@@ -306,6 +310,7 @@
         <button class="mi sel" data-opt="fov">Field of View <span class="bar"><i></i></span> <em></em></button>
         <button class="mi sel" data-opt="volume">Master Volume <span class="bar"><i></i></span> <em></em></button>
         <button class="mi sel" data-opt="music">Menu Music <em></em></button>
+        <button class="mi sel" data-opt="quotes">Character Quotes <em></em></button>
         <button class="mi sel" data-opt="quality">Graphics <em></em></button>
         <button class="mi sel" data-opt="touch">Touch Controls <em></em></button>
         <button class="mi sel" data-opt="dynRes">Dynamic Resolution <em></em></button>
@@ -1773,7 +1778,7 @@ const input = { keys: {}, lmb: false, rmb: false, fPressed: false, fHeld: false 
 // Player settings, kept in this browser.
 const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (e) { return d; } };
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
-const SETTINGS = Object.assign({ name: 'Survivor', sens: 1.2, invertY: false, fov: 75, volume: .8, music: true, showFps: false, dynRes: true }, loadJSON('ded_settings', {}));
+const SETTINGS = Object.assign({ name: 'Survivor', quotes: 'voice', sens: 1.2, invertY: false, fov: 75, volume: .8, music: true, showFps: false, dynRes: true }, loadJSON('ded_settings', {}));
 const saveSettings = () => saveJSON('ded_settings', SETTINGS);
 
 const G = {
@@ -1977,6 +1982,167 @@ function updateFlashes(dt) {
 let announceT = 0;
 function announce(text, color = '#ffe06a', dur = 2.2) {
   const a = $('announce'); a.textContent = text; a.style.color = color; a.style.opacity = 1; announceT = dur;
+}
+/* =====================================================================
+   CHARACTER QUOTES: your survivor talks back. Shown as subtitles and, where the device has a
+   speech engine, spoken aloud. Every line was written for this game.
+   ===================================================================== */
+const QUOTE_LINES = {
+  start: ["Alright. Just me and whatever's out there.", "Okay. Deep breath. Count the windows.", "Quiet. Too quiet. I hate it when it's quiet.", "Nobody's coming to save me. Fine. I'll save me."],
+  start_route9: ["Last bus was due at midnight. Guess I'm walking.", "Route 9 depot. Lovely place to die. Not tonight, though.", "Bus schedule says delayed. Yeah, no kidding."],
+  start_depot: ["Gate's chained. So it's me and the waiting room.", "No way out. Fine. Nobody gets in, either.", "Waiting room. Waiting for what, exactly?"],
+  start_pier: ["Smells like low tide and bad decisions.", "Fog this thick, they could be standing right next to me.", "Anything comes out of that water, it gets shot."],
+  start_mine: ["Cold enough to freeze the dead. Apparently not cold enough.", "Snowed in with the walking dead. Great week.", "Keep moving. Keep warm. Keep shooting."],
+  start_farm: ["Nobody's farmed here in fifty years. Something's still growing, though.", "Board up the windows. Hold the kitchen. Easy.", "Nice place. Needs a roof. And fewer corpses."],
+  round: ["Here they come again.", "Another round. Sure. Why not.", "I can hear them shuffling.", "Reload. Breathe. Aim for the head.", "They just keep coming.", "Okay, okay. I'm ready. Mostly.", "Smell that? Yeah. They're close."],
+  roundBig: ["Round {round}. Still standing. Still angry.", "{round} rounds. Somebody write that down.", "Round {round}, and I'm just getting warmed up."],
+  roundEnd: ["That's the last of them. For now.", "Quiet again. Won't last.", "Catch your breath. Check your ammo.", "Okay. Fix the windows. Move.", "Nobody's getting up from that."],
+  multi: ["Line 'em up, knock 'em down!", "Four for the price of one!", "Who's next? Anybody?", "That's a pile. That's a whole pile.", "Ha! Bowling with bullets.", "Lined up like they wanted it."],
+  head: ["Right between the eyes.", "Headshot. Don't get up.", "Clean. Real clean.", "Should've ducked.", "Pop goes the zombie."],
+  kill: ["Stay down this time.", "Sorry, pal. Nothing personal.", "You were ugly anyway.", "Back to the dirt with you.", "One less.", "Rest in pieces."],
+  melee: ["Up close and personal.", "Didn't even need a bullet.", "Knife to meet you."],
+  crawler: ["Crawling? Really? Have some dignity.", "Lost your legs, huh? Still coming. I respect that.", "Watch your ankles. Crawler."],
+  hurt: ["Ow! Get off me!", "That's gonna leave a mark.", "Hands off!", "Back off, freak!", "Ugh. You got gross on me."],
+  lowHp: ["I'm hurt bad. Need to break away.", "Can't take many more of those.", "Seeing double. Gotta move. Gotta move!", "Okay, okay. Not good. Not good!"],
+  crowd: ["Too many! Way too many!", "They're everywhere!", "I'm surrounded. That's fine. That's fine!", "Find a gap. Find a gap!"],
+  breakIn: ["They're coming through the window!", "Window's open! Window's open!", "Boards are down!"],
+  revive: ["Not yet! Not today!", "Still breathing. Still mad.", "Thought you had me, huh?"],
+  death: ["No. Not like this.", "Should've bought more ammo.", "Guess I'm one of you now.", "Okay. You win. This time."],
+  noAmmo: ["Empty! I'm empty!", "Out of ammo! I need a gun!", "Click. Click. Worst sound in the world.", "No bullets! Anything! Anything!"],
+  lastMag: ["Last mag. Make it count.", "Running dry here.", "That's all the ammo I've got."],
+  ammo: ["Restocked.", "Fresh ammo. Smells like hope.", "Topped off."],
+  buy_rifle: ["{w}. Old reliable.", "One shot, one kill. Usually.", "{w}. Now we're talking."],
+  buy_smg: ["{w}. Spray and pray.", "Lots of bullets. I like lots of bullets.", "{w}. Point it at the scary things."],
+  buy_shotgun: ["{w}. Close range, big problems. For them.", "A shotgun. My favorite kind of conversation.", "Let 'em get close. Real close."],
+  boxSpin: ["Come on, come on. Something good.", "Spin, you magic box. Spin.", "Give me something with a big magazine."],
+  box_ray: ["A ray pistol. Sure. Nothing makes sense anymore.", "Oh, that's beautiful. Pew pew.", "Somebody built this to end the world. Good."],
+  box_arc: ["Lightning in a box. I'll take it.", "This thing hums. I like things that hum.", "Now that's a weapon."],
+  boxBig: ["{w}! Oh, this changes things.", "Heavy. Good. Heavy is good.", "Now we're cooking."],
+  boxMeh: ["{w}. It'll do.", "The box gave me a {w}. Could be worse.", "Huh. {w}. Fine."],
+  perk_iron: ["Tastes like rust and courage.", "I feel tougher already. Also a little sick."],
+  perk_quick: ["Whoa. My hands are buzzing.", "Fast hands. Fast reloads. Fast everything."],
+  perk_dbl: ["Double the fire. Double the fun.", "Tastes like gunpowder. Is that normal?"],
+  perk_wind: ["Second chances, bottled. Nice.", "Insurance in a can."],
+  power: ["Lights! We've got lights!", "Power's on. Let's see what works.", "Hear that hum? That's the sound of perks."],
+  forge: ["Forged. Shiny. Deadly.", "{w}. Oh, they're in trouble now.", "That machine just made my gun angry."],
+  door_lot: ["Bus lot's open. More room to run.", "More room to run. More room for them, too."],
+  door_road: ["Road's open. Let's catch that bus.", "Out on the road. Stay off the yellow line."],
+  door_parlor: ["Parlor's clear. Somebody liked fireplaces.", "More rooms, more windows. Great."],
+  door_barn: ["The barn. Smells like hay and bad news.", "Barn's open. Watch the corners."],
+  build_shield: ["A car door on a hand truck. Engineering!", "Shield's up. Come on, try me."],
+  build_turret: ["Turret's up. Let the robot do the work.", "Somebody else is shooting for a change."],
+  build_trap: ["Shock trap's ready. Come on in, folks.", "Step right up. Get a little buzz."],
+  build_gale: ["Built a cannon out of a fan. My shop teacher would be proud.", "Gale Cannon. Time to clear the room."],
+  pu_ammo: ["Max ammo! Yes!", "Full reload. Christmas came early."],
+  pu_insta: ["One hit, one kill. Let's go!", "Everything dies in one hit? Perfect."],
+  pu_dbl: ["Double points! Cash in!", "Every kill pays double. I like this math."],
+  pu_nuke: ["Kaboom! Clean sweep!", "Well. That cleared the room."],
+  pu_carp: ["Windows fixed. Free labor!", "Boards are back up. Thanks, mystery hammer."],
+  repair: ["Another board up. Hold. Please hold.", "Nail it, nail it, nail it.", "That'll keep 'em out. For a minute."],
+  overheat: ["Too hot! Too hot!", "Cannon's cooking. Give it a second."],
+  bus: ["Wait! Hold the bus!", "Don't you dare leave without me!"],
+};
+// The device's own speech engine: the Android app's, or the browser's.
+const Voice = {
+  v: null, unlocked: false,
+  init() {
+    if (!('speechSynthesis' in window)) return;
+    const pick = () => {
+      const vs = speechSynthesis.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang));
+      const pref = ['Google US English', 'Microsoft Guy', 'Microsoft Andrew', 'Microsoft Davis', 'Alex', 'Daniel', 'Samantha', 'Google UK English Male'];
+      this.v = pref.map(n => vs.find(v => v.name.startsWith(n))).find(Boolean) || vs.find(v => /en.US/i.test(v.lang)) || vs[0] || null;
+    };
+    pick();
+    try { speechSynthesis.addEventListener('voiceschanged', pick); } catch (e) { speechSynthesis.onvoiceschanged = pick; }
+  },
+  native() { return window.AndroidApp && typeof window.AndroidApp.speak === 'function'; },
+  unlock() {   // iPhones only let a page speak after it has spoken once during a tap
+    if (this.unlocked || this.native() || !('speechSynthesis' in window)) return;
+    this.unlocked = true;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+  },
+  speak(text) {
+    const vol = Math.min(1, SETTINGS.volume * 1.15);
+    if (vol <= 0) return;
+    try {
+      if (this.native()) { window.AndroidApp.speak(text, .92, 1.05, vol); return; }
+      if (!('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (this.v) { u.voice = this.v; u.lang = this.v.lang; } else u.lang = 'en-US';
+      u.pitch = .85; u.rate = 1.06; u.volume = vol;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  },
+  stop() {
+    try {
+      if (this.native()) window.AndroidApp.stopSpeaking();
+      else if ('speechSynthesis' in window) speechSynthesis.cancel();
+    } catch (e) {}
+  },
+};
+Voice.init();
+addEventListener('pagehide', () => Voice.stop());
+const Quotes = {
+  bags: {}, last: {}, cd: {}, later: [], streak: [], showT: 0, quietT: 0, prio: 0, scanT: 0,
+  mode() { return SETTINGS.quotes || 'voice'; },
+  line(ev) {   // shuffle bag: every line plays once before any repeats
+    const list = QUOTE_LINES[ev]; if (!list) return null;
+    let bag = this.bags[ev];
+    if (!bag || !bag.length) {
+      bag = this.bags[ev] = list.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; }
+      if (bag.length > 1 && bag[bag.length - 1] === this.last[ev]) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];   // not twice in a row across refills
+    }
+    return list[this.last[ev] = bag.pop()];
+  },
+  // prio 1 is chatter, 2 is a reaction worth hearing, 3 always cuts in
+  say(ev, o = {}) {
+    if (this.mode() === 'off' || (G.state !== 'playing' && !o.always)) return false;
+    if (o.chance !== undefined && Math.random() > o.chance) return false;
+    if ((this.cd[ev] || 0) > G.time) return false;
+    const prio = o.prio || 1;
+    if (this.showT > 0 && prio <= this.prio && prio < 3) return false;   // never talk over yourself
+    if (this.quietT > 0 && prio < 2) return false;                       // and leave a breath between chatter
+    let text = this.line(ev); if (!text) return false;
+    text = text.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
+    this.cd[ev] = G.time + (o.cd ?? 20);
+    this.showT = Math.max(2.2, .9 + text.split(/\s+/).length * .36); this.quietT = this.showT + 4; this.prio = prio;
+    const el = $('quote'); el.innerHTML = `<b>${escapeHtml(SETTINGS.name || 'Survivor')}:</b> ${escapeHtml(text)}`; el.style.opacity = 1;
+    if (this.mode() === 'voice') Voice.speak(text);
+    return true;
+  },
+  sayLater(ev, delay, o) { this.later.push({ at: G.time + delay, ev, o }); },
+  onKill(how) {
+    const t = G.time;
+    this.streak = this.streak.filter(k => t - k < 2.5); this.streak.push(t);
+    if (how === 'nuke') return;
+    if (this.streak.length >= 4 && this.say('multi', { prio: 2, cd: 25 })) { this.streak = []; return; }
+    if (how === 'head') this.say('head', { chance: .07, cd: 25 });
+    else if (how === 'melee') this.say('melee', { chance: .3, cd: 25 });
+    else this.say('kill', { chance: .03, cd: 30 });
+  },
+  update(dt) {
+    if (this.showT > 0) { this.showT -= dt; if (this.showT <= 0) { $('quote').style.opacity = 0; this.prio = 0; } }
+    if (this.quietT > 0) this.quietT -= dt;
+    for (let i = this.later.length - 1; i >= 0; i--) if (G.time >= this.later[i].at) { const l = this.later.splice(i, 1)[0]; this.say(l.ev, l.o); }
+    if ((this.scanT -= dt) <= 0) {
+      this.scanT = .5;
+      let near = 0;
+      for (const z of zombies) if (!z.dead && z.state === 'chase' && dPlayer(z) < 6) near++;
+      if (near >= 6) this.say('crowd', { prio: 2, cd: 45 });
+    }
+  },
+  start(mapKey) {
+    this.later = []; this.cd = {}; this.streak = []; this.stop();
+    this.sayLater(QUOTE_LINES['start_' + mapKey] && Math.random() < .75 ? 'start_' + mapKey : 'start', 5.5, { prio: 2 });
+  },
+  stop() { this.showT = this.quietT = 0; this.prio = 0; $('quote').style.opacity = 0; Voice.stop(); },
+};
+function boxQuote(id) {
+  const d = W[id];
+  if (id === 'ray' || id === 'arc') return 'box_' + id;
+  return d.kind === 'lmg' || d.kind === 'sniper' || d.kind === 'cannon' || ['galil', 'fal', 'm1216'].includes(id) ? 'boxBig' : 'boxMeh';
 }
 let hitmT = 0;
 function hitmarker(kill) { const h = $('hitm'); h.className = kill ? 'kill' : ''; h.style.opacity = 1; hitmT = .18; }
@@ -2330,6 +2496,7 @@ function loseArm(z, limb) {
 }
 function makeCrawler(z, limb) {
   z.crawler = true; z.speed = Math.min(z.speed, rand(.7, 1.1)); z.gait = 'walk';
+  Quotes.say('crawler', { chance: .3, cd: 40 });
   z.knees.forEach((k, i) => { if (i === (limb === 'legL' ? 0 : 1) || Math.random() < .5) k.visible = false; });
   const drop = new Set(); z.knees.forEach(k => { if (!k.visible) k.traverse(o => drop.add(o)); });
   z.parts = z.parts.filter(m => !drop.has(m)); shootables = shootables.filter(m => !drop.has(m));
@@ -2365,6 +2532,7 @@ function killZombie(z, how, hitPoint) {
   if (pts) addPoints(pts);
   hitmarker(true);
   if (how !== 'nuke' && z.zone !== 'out' && z.state !== 'climb') maybeDrop(z.pos);
+  Quotes.onKill(how);
 }
 
 function damageZombie(z, dmg, how, point, limb, dir) {
@@ -2560,6 +2728,7 @@ function tearBoard(w) {
   b.visible = false;
   SFX.board();
   burst(b.position, 'wood', 6, 2.5, 1.5);
+  if (w.boards === 0 && w.inside.distanceTo(P.pos) < 9) Quotes.say('breakIn', { chance: .5, cd: 30 });
 }
 function repairBoard(w) {
   if (w.boards >= 6) return false;
@@ -2598,6 +2767,8 @@ function attackPlayer(z) {
   SFX.hurt();
   camShake = .25;
   if (P.hp <= 0) playerDown();
+  else if (P.hp / P.maxHp < .35) Quotes.say('lowHp', { prio: 2, cd: 25 });
+  else Quotes.say('hurt', { chance: .25, cd: 12 });
 }
 
 function playerDown() {
@@ -2605,7 +2776,7 @@ function playerDown() {
     P.downs++;
     P.perks.delete('wind'); renderPerks();
     P.hp = P.maxHp; P.invuln = 3;
-    announce('SECOND WIND!', '#7dff9a');
+    announce('SECOND WIND!', '#7dff9a'); Quotes.say('revive', { prio: 3, cd: 0 });
     worldFlash(P.pos.clone().setY(1), 0x7dff9a, 4, 8, .8);
     for (const z of zombies) if (!z.dead && z.pos.distanceTo(P.pos) < 4.5 && z.state === 'chase') damageZombie(z, 1e9, 'splash');
     return;
@@ -2661,6 +2832,7 @@ function updatePowerups(dt) {
 }
 function applyPowerup(type) {
   SFX.powerup(); announce(PU[type].label + '!', PU[type].color);
+  Quotes.say('pu_' + type, { chance: .8, prio: 2, cd: 10 });
   if (type === 'ammo') { for (const w of P.weapons) w.reserve = w.reserveMax; P.grenades = 4; }
   if (type === 'insta') G.insta = 30;
   if (type === 'dbl') G.dbl = 30;
@@ -2698,10 +2870,11 @@ function chalk(id, x, y, z, rotY) {
         const cost = has.up ? 4500 : Math.round(d.cost / 2);
         if (has.reserve >= has.reserveMax && has.mag >= has.magSize) return SFX.deny();
         if (!spend(cost)) return;
-        has.reserve = has.reserveMax; SFX.reload(); updateHud(); return;
+        has.reserve = has.reserveMax; SFX.reload(); updateHud(); Quotes.say('ammo', { chance: .5, cd: 30 }); return;
       }
       if (!spend(d.cost)) return;
       giveWeapon(id);
+      Quotes.say('buy_' + d.kind, { prio: 2, w: d.name, cd: 6 });
     },
   });
 }
@@ -2759,7 +2932,7 @@ function perkMachine(id, x, z, rotY) {
       P.perks.add(id); SFX.powerup();
       if (id === 'iron') { P.maxHp = 250; P.hp = 250; }
       announce(p.name.toUpperCase(), p.color, 1.6);
-      renderPerks();
+      renderPerks(); Quotes.say('perk_' + id, { prio: 2, cd: 5 });
     },
   });
 }
@@ -2794,9 +2967,10 @@ function buildBox() {
     use() {
       if (mbox.state === 'idle') {
         if (!spend(mbox.cost)) return;
-        mbox.state = 'rolling'; mbox.t = 0; SFX.boxSpin();
+        mbox.state = 'rolling'; mbox.t = 0; SFX.boxSpin(); Quotes.say('boxSpin', { chance: .35, cd: 40 });
       } else if (mbox.state === 'ready') {
-        giveWeapon(mbox.weapon); closeBox();
+        const got = mbox.weapon; giveWeapon(got); closeBox();
+        Quotes.say(boxQuote(got), { prio: 2, w: W[got].name, cd: 5 });
       }
     },
   });
@@ -2889,7 +3063,7 @@ function buildForge(fx, fz, rotY = Math.PI / 4) {
       P.weapons[P.cur] = up; vm.swap = 1.2;
       refreshViewModel();
       worldFlash(new V3(fx, 1.5, fz), 0xc070ff, 4, 6, 1);
-      announce(up.def.up.toUpperCase(), '#d9a2ff');
+      announce(up.def.up.toUpperCase(), '#d9a2ff'); Quotes.say('forge', { prio: 2, w: up.def.up, cd: 5 });
     },
   });
 }
@@ -2908,7 +3082,7 @@ function buildPowerAndForge() {
       const set = new Set(door.meshes);
       shootables = shootables.filter(m => !set.has(m));
       burst(new V3(0, 1, 8), 'dust', 30, 4, 2); SFX.board();
-      announce('THE BUS LOT IS OPEN', '#e8d9b0', 1.8);
+      announce('THE BUS LOT IS OPEN', '#e8d9b0', 1.8); Quotes.say('door_lot', { prio: 2 });
     },
   });
 
@@ -2922,7 +3096,7 @@ function buildPowerAndForge() {
     use() {
       if (gate.open || G.mode === 'depot' || !spend(gate.cost)) return;
       gate.open = true; gate.collider.off = true; scene.remove(gate.lock); SFX.board();
-      announce('THE ROAD IS OPEN — CATCH THE BUS', '#ffcf6a', 2.2);
+      announce('THE ROAD IS OPEN — CATCH THE BUS', '#ffcf6a', 2.2); Quotes.say('door_road', { prio: 2 });
     },
   });
 
@@ -2939,7 +3113,7 @@ function addWindowRepair(w) {
         if (this.t >= .55) {
           this.t = 0;
           if (zombies.some(z => z.win === w && !z.dead && z.state === 'climb')) return;
-          if (repairBoard(w)) addPoints(10);
+          if (repairBoard(w)) { addPoints(10); Quotes.say('repair', { chance: .08, cd: 45 }); }
         }
       },
     });
@@ -2950,7 +3124,7 @@ const forge = { busy: 0, list: [] };
 function turnOnPower() {
   G.power = true; SFX.power();
   for (const l of powerLevers) l.rotation.z = .7;
-  announce('POWER ON', '#9fe6ff');
+  announce('POWER ON', '#9fe6ff'); Quotes.say('power', { prio: 2 });
   for (const pm of perkMachines) { pm.bodyM.emissive.setHex(pm.hex).multiplyScalar(.25); pm.panelM.emissive.setHex(0xffffff); }
   M.fixture.emissive.setHex(0xd0e2ff);
   for (const f of forge.list) { f.core.material.color.setHex(0xc070ff); f.light.intensity = 1.6; }
@@ -3057,7 +3231,7 @@ function workbench(x, z, rotY) {
       if (G.time - this.lastHold > .25) this.t = 0;
       this.lastHold = G.time; this.t += dt;
       if (Math.random() < dt * 6) SFX.hammer();
-      if (this.t >= 2.5) { this.t = 0; B.built[a.k] = true; SFX.upgrade(); announce(`${BUILDS[a.k].name.toUpperCase()} BUILT`, '#9cf', 1.6); updateEquipHud(); }
+      if (this.t >= 2.5) { this.t = 0; B.built[a.k] = true; SFX.upgrade(); announce(`${BUILDS[a.k].name.toUpperCase()} BUILT`, '#9cf', 1.6); updateEquipHud(); Quotes.say('build_' + a.k, { prio: 2, cd: 5 }); }
     },
   });
 }
@@ -3207,7 +3381,7 @@ function updateGale(w, dt, firing) {
     B.cool.gale = 30; vm.swap = .6;
     noiseHit({ dur: .6, freq: 300, vol: .7 }); tone(90, .5, { type: 'sawtooth', vol: .3, slide: .4 });
     burst(camera.localToWorld(new V3(.2, -.2, -.8)), 'spark', 20, 4); burst(camera.localToWorld(new V3(.2, -.2, -.8)), 'dust', 14, 2);
-    announce('GALE CANNON OVERHEATED', '#ff8a6a', 1.8);
+    announce('GALE CANNON OVERHEATED', '#ff8a6a', 1.8); Quotes.say('overheat', { prio: 2, cd: 30 });
     refreshViewModel(); updateEquipHud();
   }
 }
@@ -3290,7 +3464,7 @@ function updateBus(dt) {
   const near = Math.abs(P.pos.x - bus.x) < 30 && Math.abs(P.pos.z - BUS_Z) < 30;
   if (bus.state === 'stop') {
     bus.t -= dt;
-    if (bus.t < 5 && !bus.warned) { bus.warned = true; if (near) { busHorn(); if (!inBus(P.pos)) announce('THE BUS IS LEAVING', '#ffcf6a', 1.6); } }
+    if (bus.t < 5 && !bus.warned) { bus.warned = true; if (near) { busHorn(); if (!inBus(P.pos)) { announce('THE BUS IS LEAVING', '#ffcf6a', 1.6); Quotes.say('bus', { prio: 2, cd: 60 }); } } }
     if (bus.t <= 0) {
       bus.open = false; bus.state = 'drive'; bus.v = 0;
       if (bus.dir !== bus.f) {   // turn around at the end of the line, taking passengers with it
@@ -3401,7 +3575,7 @@ function muzzleWorld() {
 }
 function fire() {
   const w = P.weapons[P.cur], d = w.def;
-  if (w.mag <= 0) { SFX.click(); if (w.reserve > 0) startReload(); W_STATE.fireCd = .25; return; }
+  if (w.mag <= 0) { SFX.click(); if (w.reserve > 0) startReload(); else Quotes.say('noAmmo', { prio: 2, cd: 15 }); W_STATE.fireCd = .25; return; }
   w.mag--; P.shots++;
   let rate = 60 / d.rpm; if (P.perks.has('dbl')) rate *= .75;
   W_STATE.fireCd = rate;
@@ -3537,6 +3711,7 @@ function finishReload() {
   const take = Math.min(w.magSize - w.mag, w.reserve);
   w.mag += take; w.reserve -= take;
   updateHud();
+  if (w.reserve === 0 && take > 0) Quotes.say('lastMag', { cd: 40 });
 }
 function knife() {
   if (W_STATE.knifeCd > 0) return;
@@ -3573,9 +3748,11 @@ function switchWeapon(idx) {
 function startRound() {
   G.round++; G.toSpawn = zombieCount(G.round); G.spawnT = 1; G.dropsThisRound = 0;
   SFX.roundStart(); renderRound(true);
+  if (G.time > 8) G.round % 5 === 0 ? Quotes.say('roundBig', { prio: 2, round: G.round, cd: 0 }) : Quotes.say('round', { chance: .45, cd: 0 });
 }
 function endRound() {
   SFX.roundEnd(); G.betweenT = 10;
+  Quotes.say('roundEnd', { chance: .5, cd: 0 });
   P.grenades = Math.min(4, P.grenades + 2); updateHud();
   const r = $('round'); r.classList.add('flash');
 }
@@ -4288,7 +4465,7 @@ function buildFarm(def) {
         const set = new Set(meshes); shootables = shootables.filter(m => !set.has(m));
         burst(new V3(X((x0 + x1) / 2), 1, (z0 + z1) / 2), 'dust', 30, 4, 2);
         buildNavGraph(def);   // zombies can route through the new opening
-        announce(room === 'parlor' ? 'THE PARLOR IS OPEN' : 'THE BARN IS OPEN', '#e8d9b0', 1.8);
+        announce(room === 'parlor' ? 'THE PARLOR IS OPEN' : 'THE BARN IS OPEN', '#e8d9b0', 1.8); Quotes.say('door_' + room, { prio: 2 });
       },
     });
   };
@@ -4545,6 +4722,11 @@ const OPTS = {
   touch:   { list: ['auto', 'on', 'off'], labels: { auto: 'Auto', on: 'On', off: 'Off' }, get: () => SETTINGS.touch || 'auto', set: v => { SETTINGS.touch = v; TOUCH = v === 'on' || (v === 'auto' && TOUCH_DEVICE); document.documentElement.classList.toggle('touch', TOUCH); $('pressKey').textContent = TOUCH ? 'TAP TO START' : 'PRESS ANY KEY'; } },
   showFps: { toggle: true, get: () => SETTINGS.showFps, set: v => { SETTINGS.showFps = v; $('fps').hidden = !v; } },
   music:   { toggle: true, get: () => SETTINGS.music, set: v => { SETTINGS.music = v; if (v && G.state === 'menu') MenuMusic.start(); else MenuMusic.stop(); } },
+  quotes:  { list: ['voice', 'text', 'off'], labels: { voice: 'Voice + Text', text: 'Text Only', off: 'Off' }, get: () => SETTINGS.quotes || 'voice', set: v => {
+    SETTINGS.quotes = v; Voice.stop();
+    if (v === 'off') Quotes.stop();
+    if (v === 'voice') { Voice.unlock(); Voice.speak('Still alive. Still talking.'); }   // a sample, so you hear the voice
+  } },
   dynRes:  { toggle: true, get: () => SETTINGS.dynRes, set: v => { SETTINGS.dynRes = v; if (!v) setRenderScale(1); } },
   quality: { list: ['high', 'medium', 'low'], labels: { high: 'High', medium: 'Medium', low: 'Low' }, get: () => pendingQuality, set: v => {
     pendingQuality = v; try { localStorage.setItem('ded_quality', v); } catch (e) {}
@@ -4637,6 +4819,7 @@ function beginPlay() {
   grabInput();
   document.documentElement.classList.add('playing');
   typeIntro(MODES[G.mode].intro);
+  Voice.unlock(); Quotes.start(G.mode === 'depot' ? 'depot' : MODES[G.mode].map);
 }
 function typeIntro(lines) {
   const el = $('intro'), text = lines.join('\n'); let i = 0;
@@ -4649,7 +4832,7 @@ function typeIntro(lines) {
 }
 function pauseGame() {
   if (G.state !== 'playing') return;
-  G.state = 'paused'; input.lmb = input.rmb = false; releaseTouches();
+  G.state = 'paused'; input.lmb = input.rmb = false; releaseTouches(); Quotes.stop();
   document.documentElement.classList.remove('playing');
   if (document.pointerLockElement) document.exitPointerLock();
   $('overlay').hidden = false;
@@ -4688,6 +4871,7 @@ function gameOver() {
   Menu.reset('scrOver');
   SFX.pdeath();
   SFX.roundEnd();
+  Quotes.stop(); Quotes.say('death', { prio: 3, always: true, cd: 0 });
 }
 
 // ---- wiring ----
@@ -4889,6 +5073,7 @@ function frame(now) {
     updateZombies(dt);
     updateRounds(dt);
     updatePowerups(dt);
+    Quotes.update(dt);
     updateBox(dt);
     updateInteract(dt);
     updatePowerHud();

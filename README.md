@@ -19,6 +19,8 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Sounds:** gunshots, reloads, zombie groans and attacks, footsteps, impacts, boards, hammering and explosions are real CC0 recordings from OpenGameArt.org (credits in `sounds/CREDITS.md`), with random takes and slight pitch variation. `tools/prepare_sounds.py` rebuilds `sounds/` from the original packs. Any file listed in `sounds/sounds.json` replaces the synthesized sound of the same name (names are listed above `loadSamples()` in `zombies.html`); interface sounds, music and the sci-fi weapons are still synthesized. The Android build bundles the folder automatically.
 
+**Character quotes:** your survivor talks: about 160 original lines for the start of each map, new rounds, multi-kills, headshots, crawlers, getting hurt, being surrounded, running dry, every wall gun, mystery box pulls, perks, power, the Forge, doors, buildables and power-ups. They show as subtitles with your survivor name and are spoken by the device's own speech engine (the browser's, or Android's text-to-speech in the app). Lines never repeat back-to-back, important ones wait their turn instead of talking over each other, and chatter leaves a few seconds of quiet. Add or change lines in `QUOTE_LINES` in `zombies.html`.
+
 **Realism:** screen-space ambient occlusion, rain-slick wet patches that reflect the lamps, large-scale surface variation, sculpted zombies (gaunt faces, ribcage torsos, fingers, ragged clothes) that stagger when hit, fall away from the shot, lose arms and become crawlers when their legs go. Guns climb and kick under recoil, sway as you turn, leave bullet holes and smoke; you'll see a red arc pointing at whatever hit you. Zombie groans and footsteps are positioned in 3D, gunfire echoes indoors, and your footsteps change with the surface.
 
 **Menus:** a title screen over live shots of the map, then a main menu with Solo, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
@@ -29,7 +31,7 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
   - **Cold Hollow Mine**: a snowed-in mining camp ringed by cliffs, with log cabins, a bunkhouse, a mess tent, a bonfire and falling snow; the Forge waits at the end of a dead-end mine tunnel.
   - **Ashgrove Farmhouse**: classic survival in a ruined stone farmhouse in the marsh. Start in the kitchen, clear the rubble into the parlor (fireplace and the mystery box) and open the barn door. Zombies only get in through the boarded windows of rooms you've opened. No power, perks or buildables: just the wall guns and the box.
 - A loading screen shows the map, mode and a survival tip; press any key to begin, and the location is typed out as the match starts.
-- **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music, graphics quality and an FPS counter.
+- **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music, character quotes (voice and subtitles, subtitles only, or off), graphics quality and an FPS counter.
 - **Pause** (Esc) has Resume, Options, Field Manual, Restart Match and End Game.
 - **Game over** shows a scoreboard (score, kills, headshots, downs, accuracy) and saves the run to the local **Leaderboards** (top 10).
 
