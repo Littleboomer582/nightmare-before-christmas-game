@@ -81,6 +81,22 @@
   #prompt{position:absolute;left:50%;top:60%;transform:translateX(-50%);font-family:'Special Elite',monospace;
     font-size:20px;text-shadow:0 0 4px #000,0 0 8px #000;white-space:nowrap}
   #prompt b{color:#ffd24a}
+  [hidden]{display:none !important}
+  #downUI{position:absolute;left:50%;top:34%;transform:translateX(-50%);text-align:center;font-family:'Oswald',sans-serif;color:#ff6a6a;text-shadow:0 2px 6px #000;pointer-events:none}
+  #downUI b{display:block;font-size:40px;letter-spacing:4px;font-weight:600}
+  #downUI small{display:block;font-family:'Special Elite',monospace;font-size:16px;color:#f1e4d0}
+  #downUI #bleedT{color:#ff6a6a;font-family:'Oswald',sans-serif;font-size:20px;margin-left:6px}
+  #team{font-family:'Oswald',sans-serif;font-size:15px;line-height:1.5;margin-bottom:4px}
+  #team div{display:flex;gap:8px;justify-content:flex-end;align-items:center;color:#e8e2d2;text-shadow:0 1px 3px #000}
+  #team b{color:#ffe06a;font-weight:500;min-width:44px;text-align:right}
+  #team i{width:9px;height:9px;border-radius:50%;display:inline-block}
+  #team .dn b{color:#ff6a6a}
+  #lobbyPlayers ul{list-style:none;margin:6px 0 14px;padding:0}
+  #lobbyPlayers li{font-family:'Oswald',sans-serif;font-size:20px;color:#efe8d8;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px}
+  #lobbyPlayers li i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+  #lobbyPlayers li small{color:#9a9384;font-size:13px;letter-spacing:1px;text-transform:uppercase}
+  .code{color:var(--amber);letter-spacing:4px}
+  #joinCode{text-transform:uppercase;letter-spacing:3px;width:7em}
   #quote{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);max-width:min(70vw,760px);width:max-content;text-align:center;font-family:'Special Elite',monospace;font-size:18px;line-height:1.35;color:#ece6d6;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:3px;opacity:0;transition:opacity .25s;pointer-events:none;text-shadow:0 1px 2px #000}
   #quote b{color:#ffcf6a;font-weight:normal;margin-right:4px}
   #announce{position:absolute;left:50%;top:26%;transform:translateX(-50%);font-family:'Creepster',cursive;
@@ -228,6 +244,7 @@
   <div id="hitm"></div>
   <div id="prompt"></div>
   <div id="announce"></div>
+  <div id="downUI" hidden><b id="downHead">YOU'RE DOWN</b><small><span id="downSub">A teammate can revive you</span> <span id="bleedT"></span></small></div>
   <div id="quote"></div>
   <div id="lowHp">You are badly hurt — break away!</div>
   <div id="roundBox"><div id="perks"></div><div id="round"></div></div>
@@ -249,7 +266,7 @@
   </div>
   <div id="powerups"></div>
   <div id="right">
-    <div id="pointsWrap"><div id="points">500</div></div>
+    <div id="team"></div><div id="pointsWrap"><div id="points">500</div></div>
     <div id="wname"></div>
     <div id="ammo"><span id="mag">8</span> <span id="res">/ 80</span></div>
     <div id="nades"></div>
@@ -275,6 +292,7 @@
       <div class="hdr"><span class="eyebrow">Zombies</span><h2>Dead End Depot</h2></div>
       <nav class="list" aria-label="Main menu">
         <button class="mi" data-go="scrSolo">Solo <small>Survive the night alone</small></button>
+        <button class="mi" data-go="scrOnline">Online Co-op <small>Up to four players, anywhere</small></button>
         <button class="mi" data-go="scrBoards">Leaderboards <small>Your best runs</small></button>
         <button class="mi" data-go="scrOptions">Options <small>Controls, video, audio</small></button>
         <button class="mi" data-go="scrManual">Field Manual <small>Controls and survival notes</small></button>
@@ -356,6 +374,11 @@
           <p>Throw the power switch by the generator in the bus lot to wake the perk machines and the Forge.</p>
         </div>
         <div>
+          <h5>Online co-op</h5>
+          <p>Up to four players. One hosts and shares the room code; the others type it in. Doors, power, boards and power-ups are shared; your points, guns and perks are your own.</p>
+          <p>If you go down, a teammate can hold F next to you for 3 seconds to get you up. Bleed out and you're back next round. If everyone is down, the game is over.</p>
+        </div>
+        <div>
           <h5>Perks</h5>
           <p>Hold up to four. Ironhide Ale (more health), Quickhands Cola (fast reloads), Doubleshot Draught (faster fire, double damage), Second Wind Soda (one self-revive), Fleetfoot Fizz (run faster and longer), Third Holster Tonic (a third gun), Steady Hand Stout (tighter aim, harder headshots), Spark Cider (a shock when you reload) and Blastproof Bitters (your own explosions can't hurt you).</p>
         </div>
@@ -389,6 +412,36 @@
         <p>Weapons are real-world firearms. Perks, wonder weapons, buildables, locations and characters are original.</p>
       </div>
       <div class="list"><button class="mi back">Back</button></div>
+    </div>
+  </section>
+
+  <section class="scr" id="scrOnline" hidden>
+    <div class="panel">
+      <div class="hdr"><span class="eyebrow">Online</span><h3>Co-op</h3></div>
+      <div class="list">
+        <button class="mi sel" data-opt="mode">Map <em id="onMode"></em></button>
+        <button class="mi sel" data-opt="diff">Difficulty <em id="onDiff"></em></button>
+        <button class="mi sel" data-opt="start">Starting Round <em id="onStart"></em></button>
+        <button class="mi go" id="btnHost">Host a Game</button>
+        <div class="mi" tabindex="0">Room Code <input type="text" id="joinCode" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KXTP1" aria-label="Room code"></div>
+        <button class="mi" id="btnJoin">Join Game</button>
+        <button class="mi back">Back</button>
+      </div>
+      <div class="note" id="onlineNote"></div>
+      <div class="hints"><b>←→</b>Change &nbsp; <b>Enter</b>Select &nbsp; <b>Esc</b>Back</div>
+    </div>
+    <aside class="card" id="onlineCard"></aside>
+  </section>
+
+  <section class="scr" id="scrLobby" hidden>
+    <div class="panel">
+      <div class="hdr"><span class="eyebrow" id="lobbyEyebrow">Online Co-op</span><h3>Room <span id="lobbyCode" class="code"></span></h3></div>
+      <div id="lobbyPlayers"></div>
+      <div class="list">
+        <button class="mi go" id="btnLobbyStart">Start Match</button>
+        <button class="mi back" id="btnLobbyLeave">Leave</button>
+      </div>
+      <div class="note" id="lobbyNote"></div>
     </div>
   </section>
 
@@ -1792,6 +1845,17 @@ const G = {
   insta: 0, dbl: 0,
 };
 const door = { meshes: [], collider: null, cost: 750 };
+// Online co-op (see ONLINE CO-OP near the end). Everything below behaves exactly as before while it is off.
+const Net = { active: false, isHost: false, isClient: false, inGame: false, wasOnline: false, me: Math.random().toString(36).slice(2, 10),
+  room: '', code: '', cfg: null, mq: null, peers: new Map(), hostPid: null, hitBy: null, hits: [], takenPu: new Set(), lastShot: 0 };
+// Shared things any player can open (doors, power): key -> { is(), open() }. Online, the host's snapshot carries them to everyone.
+const WORLD = Object.create(null);
+function openWorld(key, fromNet) {
+  const w = WORLD[key]; if (!w || w.is()) return false;
+  w.open();
+  if (Net.isClient && !fromNet) netSend({ t: 'a', k: 'w', f: key });
+  return true;
+}
 
 /* =====================================================================
    VIEW MODEL
@@ -2426,66 +2490,70 @@ const WORLD_SPAWNS = [[-24, 0], [24, -4], [0, -20], [-30, 30], [30, 38], [-55, 4
 function spawnZombie() {
   // choose a spawner, weighted toward the player
   const cands = [];
-  const pz = zoneOf(P.pos);
+  const F = spawnFocus(), pz = zoneOf(F);
   if (activeMap) {   // other maps: zombies rise at that map's spawn points, or come to the windows of open rooms
     for (const [x, z] of activeMap.spawns) {
-      const pos = new V3(x + activeMap.ox, 0, z), d = pos.distanceTo(P.pos);
+      const pos = new V3(x + activeMap.ox, 0, z), d = pos.distanceTo(F);
       if (d >= 7 && d <= 50) cands.push({ w: null, pos, zone: 'world', weight: 1 / (1 + d * .1) });
     }
     for (const w of windows) {
       if (!w.room || !activeMap.open || !activeMap.open.has(w.room)) continue;
-      const d = w.inside.distanceTo(P.pos);
+      const d = w.inside.distanceTo(F);
       if (d <= 45) cands.push({ w, pos: w.spawn, zone: 'out', weight: 1.4 / (1 + d * .12) });
     }
     if (!cands.length) {
       const opts = activeMap.spawns.map(([x, z]) => ({ w: null, pos: new V3(x + activeMap.ox, 0, z), zone: 'world', weight: 1 }))
         .concat(windows.filter(w => w.room && activeMap.open && activeMap.open.has(w.room)).map(w => ({ w, pos: w.spawn, zone: 'out', weight: 1 })));
-      cands.push(opts.sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0]);
+      cands.push(opts.sort((a, b) => a.pos.distanceTo(F) - b.pos.distanceTo(F))[0]);
     }
   } else
   for (const w of windows) {
-    const d = w.inside.distanceTo(P.pos);
+    const d = w.inside.distanceTo(F);
     if (d > 45) continue;
     cands.push({ w, pos: w.spawn, zone: 'out', weight: (pz === 'in' ? 1.4 : pz === 'lot' ? .5 : .3) / (1 + d * .12) });
   }
   if (G.lotOpen && !activeMap) for (const [x, z] of [[-16, 12.5], [-15, 24], [0, 24.5], [10, 24], [15.8, 19]]) {
-    const pos = new V3(x, 0, z), d = pos.distanceTo(P.pos);
+    const pos = new V3(x, 0, z), d = pos.distanceTo(F);
     if (d < 4 || d > 45) continue;
     cands.push({ w: null, pos, zone: 'lot', weight: (pz === 'lot' ? 1.6 : .5) / (1 + d * .12) });
   }
   if (gate.open && !activeMap) for (const [x, z] of WORLD_SPAWNS) {
-    const pos = new V3(x, 0, z), d = pos.distanceTo(P.pos);
+    const pos = new V3(x, 0, z), d = pos.distanceTo(F);
     if (d < 9 || d > 42 || inBus(pos)) continue;
     cands.push({ w: null, pos, zone: 'world', weight: (pz === 'world' ? 1.6 : .3) / (1 + d * .1) });
   }
-  if (!cands.length) { const w = windows.reduce((a, b) => a.inside.distanceTo(P.pos) < b.inside.distanceTo(P.pos) ? a : b); cands.push({ w, pos: w.spawn, zone: 'out', weight: 1 }); }
+  if (!cands.length) { const w = windows.reduce((a, b) => a.inside.distanceTo(F) < b.inside.distanceTo(F) ? a : b); cands.push({ w, pos: w.spawn, zone: 'out', weight: 1 }); }
   let tot = cands.reduce((s, c) => s + c.weight, 0), r = Math.random() * tot, c = cands[0];
   for (const cc of cands) { r -= cc.weight; if (r <= 0) { c = cc; break; } }
 
-  const { g, parts, head, neck, torso, arms, elbows, legs, knees, armless, detail } = buildZombieBody();
-  g.scale.setScalar(rand(.94, 1.1));
-
   const spawnPos = c.pos.clone().add(new V3(rand(-1.5, 1.5), 0, rand(-1.5, 1.5)));
-  g.position.copy(spawnPos); g.position.y = -1.9;
-  scene.add(g);
-
   const r0 = G.round;
   const runC = r0 < 3 ? 0 : Math.min(.9, (r0 - 2) * .22 + DIFFS[G.diff].run), sprC = r0 < 8 ? 0 : Math.min(.5, (r0 - 7) * .1);
   const roll = Math.random();
   const gait = roll < sprC ? 'sprint' : roll < sprC + runC ? 'run' : 'walk';
+  makeZombie(spawnPos, { gait, speed: { walk: rand(1, 1.3), run: rand(2.8, 3.3), sprint: rand(4.1, 4.6) }[gait], hp: zombieHealth(r0),
+    state: c.w ? 'toWindow' : 'chase', win: c.w, zone: c.zone });
+  G.alive++;
+}
+let nextZid = 1;
+function makeZombie(spawnPos, { id = nextZid++, gait = 'walk', speed = 1.1, hp = 150, state = 'chase', win = null, zone = 'world' } = {}) {
+  const { g, parts, head, neck, torso, arms, elbows, legs, knees, armless, detail } = buildZombieBody();
+  g.scale.setScalar(rand(.94, 1.1));
+  g.position.copy(spawnPos); g.position.y = -1.9;
+  scene.add(g);
   const z = {
-    g, parts, head, neck, arms, legs, torso, elbows, knees, limp: Math.random() < .3 ? rand(.3, .6) : 0,
+    id, g, parts, head, neck, arms, legs, torso, elbows, knees, limp: Math.random() < .3 ? rand(.3, .6) : 0,
     detail, near: true, armStyle: pick(['reach', 'reach', 'one', 'limp']), lost: { armL: armless < 0, armR: armless > 0 }, crawler: false,
     hitLean: 0, hitTwist: 0, hitDir: new V3(), knock: 0, fallSign: -1, fallTwist: 0,
-    hp: zombieHealth(r0), gait, speed: { walk: rand(1, 1.3), run: rand(2.8, 3.3), sprint: rand(4.1, 4.6) }[gait],
-    state: c.w ? 'toWindow' : 'chase', win: c.w, zone: c.zone,
+    hp, gait, speed, state, win, zone,
     rise: 0, phase: Math.random() * 6, atkCd: 0, swing: 0, breakT: 0, climbT: 0,
     dead: false, deathT: 0, groanT: rand(1, 5), lastPos: spawnPos.clone(), stuckT: 0, jitterT: 0, jitter: new V3(),
-    pos: spawnPos.clone(), yaw: 0,
+    pos: spawnPos.clone(), yaw: 0, born: G.time,
   };
   for (const p of parts) { p.userData.z = z; shootables.push(p); }
-  zombies.push(z); G.alive++;
+  zombies.push(z);
   burst(spawnPos.clone().setY(.1), 'dust', 10, 2);
+  return z;
 }
 
 function removeZombieParts(z) {
@@ -2529,27 +2597,33 @@ function updateDebris(dt) {
 }
 function killZombie(z, how, hitPoint) {
   if (z.dead) return;
-  z.dead = true; G.alive--; P.kills++;
+  zombieDeathFx(z, how); G.alive--;
+  const pts = { head: 100, body: 60, melee: 130, splash: 50, nuke: 0 }[how] ?? 50;
+  if (!Net.hitBy) {   // yours (a teammate's kill is credited to them by the host)
+    P.kills++; if (how === 'head') P.headshots++;
+    if (pts) addPoints(pts);
+    hitmarker(true); Quotes.onKill(how);
+  }
+  if (Net.isHost) netSend({ t: 'k', i: z.id, h: HOWS.indexOf(how), b: Net.hitBy || Net.me, p: pts, fs: z.fallSign });
+  if (how !== 'nuke' && z.zone !== 'out' && z.state !== 'climb') maybeDrop(z.pos);
+}
+function zombieDeathFx(z, how) {
+  z.dead = true;
   // fall away from the hit: backwards if shot from the front, forwards if hit from behind
   const fwd = new V3(Math.sin(z.yaw), 0, Math.cos(z.yaw));
   const push = z.hitDir.lengthSq() > 0 ? z.hitDir : fwd.clone().negate();
   z.fallSign = push.dot(fwd) > 0 ? 1 : -1; z.fallTwist = rand(-.5, .5);
   z.deathArms = [rand(-1.2, .3), rand(-1.2, .3)];
   removeZombieParts(z);
-  if (how === 'head') { burst(z.head.getWorldPosition(new V3()), 'blood', 22, 3.5, 1.5); z.neck.visible = false; P.headshots++; }
+  if (how === 'head') { burst(z.head.getWorldPosition(new V3()), 'blood', 22, 3.5, 1.5); z.neck.visible = false; }
   else if (how !== 'nuke' && Math.random() < .6) SFX.zdeath(z.pos.clone().setY(1.3));
   if (z.state !== 'climb' && z.zone !== 'out') decal(z.pos.x + rand(-.3, .3), z.pos.z + rand(-.3, .3), rand(.9, 1.5), .85, 25);
-  const pts = { head: 100, body: 60, melee: 130, splash: 50, nuke: 0 }[how] ?? 50;
-  if (pts) addPoints(pts);
-  hitmarker(true);
-  if (how !== 'nuke' && z.zone !== 'out' && z.state !== 'climb') maybeDrop(z.pos);
-  Quotes.onKill(how);
 }
 
 function damageZombie(z, dmg, how, point, limb, dir) {
   if (z.dead) return;
-  if (G.insta > 0) dmg = 1e9;
-  z.hp -= dmg;
+  if (Net.isClient) netHit(z, dmg, how, limb, dir);   // the host decides what dies; the hit shows here at once
+  else { if (G.insta > 0) dmg = 1e9; z.hp -= dmg; }
   if (point) { burst(point, 'blood', how === 'head' ? 10 : 5, 2.2); puff(point, 'mist', how === 'head' ? .35 : .22, .5, (dir ? dir.clone().multiplyScalar(.8) : null)); }
   // hit reaction: push away from the shot, lean back, twist toward the side that was hit
   const away = dir ? dir.clone().setY(0) : new V3(z.pos.x - P.pos.x, 0, z.pos.z - P.pos.z);
@@ -2558,18 +2632,20 @@ function damageZombie(z, dmg, how, point, limb, dir) {
   z.hitDir.copy(away); z.knock = Math.max(z.knock, pow * .45); z.hitLean = Math.max(z.hitLean, pow * .55);
   z.hitTwist = limb === 'armL' ? .35 : limb === 'armR' ? -.35 : rand(-.15, .15);
   if (how === 'head') z.neck.rotation.x = -.6;
+  if (Net.isClient) { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); z.flinch = .15; if (how === 'head' || how === 'body') P.hits++; return; }
   // heavy hits can take a limb: an arm drops off, or a leg goes and it crawls
   if (z.hp > 0 && (limb === 'armL' || limb === 'armR') && !z.lost[limb] && dmg >= 90 && Math.random() < .35) loseArm(z, limb);
   if (z.hp > 0 && (limb === 'legL' || limb === 'legR') && !z.crawler && dmg >= 100 && Math.random() < .3) makeCrawler(z, limb);
   if (z.hp <= 0) { killZombie(z, how, point); }
-  else { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); z.flinch = .15; }
-  if (how === 'head' || how === 'body') P.hits++;
+  else { if (!Net.hitBy) { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); } z.flinch = .15; }
+  if (!Net.hitBy && (how === 'head' || how === 'body')) P.hits++;
 }
 
 const dPlayer = z => Math.hypot(z.pos.x - P.pos.x, z.pos.z - P.pos.z);
 function updateZombies(dt) {
-  const pz = zoneOf(P.pos);
-  updatePlayerVis();
+  const targets = zTargets();
+  for (const T of targets) { T.zone = zoneOf(T.pos); T.vis = visFrom(T.pos); }
+  playerVis = (targets.find(T => T.local) || targets[0]).vis;
   for (let i = zombies.length - 1; i >= 0; i--) {
     const z = zombies[i], g = z.g;
     if (z.dead) {
@@ -2594,87 +2670,120 @@ function updateZombies(dt) {
       continue;
     }
     // rising out of the ground
+    if (z.remote && z.net && z.net.st !== 0 && z.rise < 1) { z.rise = 1; g.position.y = 0; }
     if (z.rise < 1) {
       z.rise += dt / 1.3; g.position.y = -1.9 * (1 - Math.min(1, z.rise));
-      g.rotation.y = Math.atan2(P.pos.x - z.pos.x, P.pos.z - z.pos.z);
+      if (z.remote) g.rotation.y = z.net ? z.net.yaw : g.rotation.y;
+      else { const fp = nearestTarget(targets, z.pos).pos; g.rotation.y = Math.atan2(fp.x - z.pos.x, fp.z - z.pos.z); }
       z.arms.forEach((a, k) => a.rotation.x = -2.6 + Math.sin(G.time * 9 + k) * .3);
       if (Math.random() < dt * 3) burst(z.pos.clone().setY(.05), 'dust', 2, 1.5);
       continue;
     }
-    if (dPlayer(z) > 60 && !inBus(z.pos)) {   // left far behind: recycle it near the player
+    if (!z.remote && nearestDist(targets, z.pos) > 60 && !inBus(z.pos)) {   // left far behind: recycle it near the players
       scene.remove(g); removeZombieParts(z); zombies.splice(i, 1); G.alive--; G.toSpawn++; continue;
     }
     z.atkCd -= dt; z.swing = Math.max(0, z.swing - dt); z.flinch = Math.max(0, (z.flinch || 0) - dt);
     z.groanT -= dt;
-    const dP = z.pos.distanceTo(P.pos);
-    const near = dP < 14;   // level of detail: small parts only up close
+    const dL = dPlayer(z);   // distance to you: sound and detail
+    let T = LOCAL_T, tp = P.pos, pz = 'world', dP = dL;   // who it is after (the host decides; copies just follow)
+    if (!z.remote) {
+      if (!z.tgt || !targets.includes(z.tgt) || (z.tgtT = (z.tgtT || 0) - dt) <= 0) { z.tgt = nearestTarget(targets, z.pos); z.tgtT = rand(.6, 1.2); }
+      T = z.tgt; tp = T.pos; pz = T.zone; dP = Math.hypot(z.pos.x - tp.x, z.pos.z - tp.z);
+    }
+    const near = dL < 14;   // level of detail: small parts only up close
     if (near !== z.near) { z.near = near; for (const o of z.detail) o.visible = near; }
-    if (z.groanT <= 0) { z.groanT = rand(3, 8); if (dP < 30) SFX.groan(.5, z.pos.clone().setY(1.6)); }
+    if (z.groanT <= 0) { z.groanT = rand(3, 8); if (dL < 30) SFX.groan(.5, z.pos.clone().setY(1.6)); }
     // feet dragging, heard from where the zombie is (rate-limited across the horde)
-    if (dP < 11 && Math.floor(z.phase / Math.PI) !== z.lastStep) { z.lastStep = Math.floor(z.phase / Math.PI); if (G.time - (G.lastShuffle || 0) > .07) { G.lastShuffle = G.time; SFX.shuffle(z.pos.clone().setY(.1)); } }
+    if (dL < 11 && Math.floor(z.phase / Math.PI) !== z.lastStep) { z.lastStep = Math.floor(z.phase / Math.PI); if (G.time - (G.lastShuffle || 0) > .07) { G.lastShuffle = G.time; SFX.shuffle(z.pos.clone().setY(.1)); } }
 
     let target = null, moving = true;
     const speed = z.speed * (z.flinch > 0 ? .3 : 1);
 
-    if (!activeMap && z.state === 'toWindow' && pz === 'world' && dP < 18) { z.state = 'chase'; z.zone = 'world'; }
-    if (z.state === 'toWindow') {
-      target = z.win.out;
-      if (Math.hypot(z.pos.x - target.x, z.pos.z - target.z) < .35) { z.state = 'break'; z.breakT = 0; }
-    }
-    if (z.state === 'break') {
-      moving = false;
-      g.rotation.y = Math.atan2(-z.win.n.x, -z.win.n.z);
-      if (z.win.boards > 0) {
-        z.breakT += dt;
-        z.arms.forEach((a, k) => a.rotation.x = -1.6 + Math.sin(G.time * 8 + k * 2) * .6);
-        if (z.breakT > 1.15) { z.breakT = 0; tearBoard(z.win); }
-      } else { z.state = 'climb'; z.climbT = 0; }
-      if (dP < 1.7 && z.atkCd <= 0) attackPlayer(z);
-    }
-    if (z.state === 'climb') {
-      moving = false;
-      z.climbT += dt / (z.gait === 'walk' ? 1.3 : .8);
-      const t = Math.min(1, z.climbT);
-      z.pos.lerpVectors(z.win.out, z.win.inside, t);
-      g.position.set(z.pos.x, Math.sin(t * Math.PI) * .95, z.pos.z);
-      g.rotation.x = Math.sin(t * Math.PI) * .5;
-      if (t >= 1) { z.state = 'chase'; z.zone = 'in'; g.rotation.x = 0; }
-      continue;
-    }
-    if (z.state === 'chase') {
-      z.zone = zoneOf(z.pos);
-      target = P.pos;
-      if (z.zone !== pz) target = portalTarget(z.pos, z.zone, pz);
-      else if (pz === 'world') {
-        z.gT = (z.gT || 0) - dt;
-        if (z.gT <= 0) { z.gT = .25; z.gTarget = graphTarget(z.pos); }
-        target = busApproach(z.pos) || z.gTarget || target;
+    if (z.remote) {   // a copy of the host's zombie: go where it is, look how it looks
+      const n = z.net;
+      z.state = ZSTATES[n.st] || 'chase';
+      z.win = n.w >= 0 ? windows[n.w] || null : null;
+      if (z.state === 'climb' && z.win) {
+        const t = clamp(n.k, 0, 1);
+        z.pos.set(n.x, 0, n.z);
+        g.position.set(z.pos.x, Math.sin(t * Math.PI) * .95, z.pos.z);
+        g.rotation.x = Math.sin(t * Math.PI) * .5; g.rotation.y = n.yaw;
+        continue;
       }
-      target = steerTarget(z.pos, target);
-      if (dP < (z.crawler ? 1.9 : 1.15)) { moving = false; if (z.atkCd <= 0) attackPlayer(z); }
+      if (!z.crawler) g.rotation.x = 0;
+      if (z.state === 'break' && z.win) {
+        moving = false;
+        g.rotation.y = Math.atan2(-z.win.n.x, -z.win.n.z);
+        z.arms.forEach((a, k) => a.rotation.x = -1.6 + Math.sin(G.time * 8 + k * 2) * .6);
+        z.pos.lerp(new V3(n.x, 0, n.z), Math.min(1, dt * 8));
+      } else {
+        target = new V3(n.x, 0, n.z); moving = n.mv;
+        if (target.distanceTo(z.pos) > 4) z.pos.copy(target);
+      }
+    } else {
+      if (!activeMap && z.state === 'toWindow' && pz === 'world' && dP < 18) { z.state = 'chase'; z.zone = 'world'; }
+      if (z.state === 'toWindow') {
+        target = z.win.out;
+        if (Math.hypot(z.pos.x - target.x, z.pos.z - target.z) < .35) { z.state = 'break'; z.breakT = 0; }
+      }
+      if (z.state === 'break') {
+        moving = false;
+        g.rotation.y = Math.atan2(-z.win.n.x, -z.win.n.z);
+        if (z.win.boards > 0) {
+          z.breakT += dt;
+          z.arms.forEach((a, k) => a.rotation.x = -1.6 + Math.sin(G.time * 8 + k * 2) * .6);
+          if (z.breakT > 1.15) { z.breakT = 0; tearBoard(z.win); }
+        } else { z.state = 'climb'; z.climbT = 0; }
+        if (dP < 1.7 && z.atkCd <= 0) attackTarget(z, T);
+      }
+      if (z.state === 'climb') {
+        moving = false;
+        z.climbT += dt / (z.gait === 'walk' ? 1.3 : .8);
+        const t = Math.min(1, z.climbT);
+        z.pos.lerpVectors(z.win.out, z.win.inside, t);
+        g.position.set(z.pos.x, Math.sin(t * Math.PI) * .95, z.pos.z);
+        g.rotation.x = Math.sin(t * Math.PI) * .5;
+        if (t >= 1) { z.state = 'chase'; z.zone = 'in'; g.rotation.x = 0; }
+        continue;
+      }
+      if (z.state === 'chase') {
+        z.zone = zoneOf(z.pos);
+        target = tp;
+        if (z.zone !== pz) target = portalTarget(z.pos, z.zone, pz);
+        else if (pz === 'world') {
+          z.gT = (z.gT || 0) - dt;
+          if (z.gT <= 0) { z.gT = .25; z.gTarget = graphTarget(z.pos, T); }
+          target = busApproach(z.pos, tp) || z.gTarget || target;
+        }
+        target = steerTarget(z.pos, target);
+        if (dP < (z.crawler ? 1.9 : 1.15)) { moving = false; if (z.atkCd <= 0) attackTarget(z, T); }
+      }
+      z.netMv = moving && !!target;
     }
-
     if (moving && target) {
       const dir = new V3(target.x - z.pos.x, 0, target.z - z.pos.z);
       const len = dir.length();
       if (len > .01) {
         dir.divideScalar(len);
-        if (z.jitterT > 0) { z.jitterT -= dt; dir.add(z.jitter).normalize(); }
-        z.pos.addScaledVector(dir, Math.min(len, speed * dt));
-        const want = Math.atan2(dir.x, dir.z);
-        let da = want - z.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
-        z.yaw += da * Math.min(1, dt * 8);
+        if (!z.remote && z.jitterT > 0) { z.jitterT -= dt; dir.add(z.jitter).normalize(); }
+        z.pos.addScaledVector(dir, Math.min(len, (z.remote ? Math.max(speed, len * 5) : speed) * dt));
+        if (!z.remote) {
+          const want = Math.atan2(dir.x, dir.z);
+          let da = want - z.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+          z.yaw += da * Math.min(1, dt * 8);
+        }
       }
+      if (z.remote) { let da = z.net.yaw - z.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; z.yaw += da * Math.min(1, dt * 10); }
       // separation
-      for (const o of zombies) {
+      if (!z.remote) for (const o of zombies) {
         if (o === z || o.dead || o.state === 'climb') continue;
         const dx = z.pos.x - o.pos.x, dz = z.pos.z - o.pos.z, d2 = dx * dx + dz * dz;
         if (d2 < .45 && d2 > 1e-6) { const d = Math.sqrt(d2), push = (.67 - d) * .5; z.pos.x += dx / d * push; z.pos.z += dz / d * push; }
       }
-      resolve(z.pos, .32, 0, 1.8);
+      if (!z.remote) resolve(z.pos, .32, 0, 1.8);
       // stuck detection
       z.stuckT += dt;
-      if (z.stuckT > 1.2) {
+      if (!z.remote && z.stuckT > 1.2) {
         if (z.pos.distanceTo(z.lastPos) < speed * .25) { z.jitterT = .8; z.jitter.set(rand(-1.5, 1.5), 0, rand(-1.5, 1.5)); }
         z.stuckT = 0; z.lastPos.copy(z.pos);
       }
@@ -2698,7 +2807,8 @@ function updateZombies(dt) {
       z.neck.rotation.z = Math.sin(z.phase * .5) * .2;
       z.neck.rotation.x = -.15 + Math.sin(z.phase * .25) * .1;
     } else if (z.state === 'chase') {
-      z.yaw = Math.atan2(P.pos.x - z.pos.x, P.pos.z - z.pos.z);
+      if (z.remote) { let da = z.net.yaw - z.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; z.yaw += da * Math.min(1, dt * 10); }
+      else z.yaw = Math.atan2(tp.x - z.pos.x, tp.z - z.pos.z);
     }
     // walkers carry their arms differently: both reaching, one reaching, or hanging limp
     if (moving && z.gait === 'walk' && !z.crawler) {
@@ -2709,7 +2819,8 @@ function updateZombies(dt) {
     if (z.swing > 0) z.arms.forEach(a => a.rotation.x = -2.4 + (.3 - z.swing) * 8);
     // the head turns to follow the player
     if (z.state === 'chase' || z.state === 'break') {
-      let rel = Math.atan2(P.pos.x - z.pos.x, P.pos.z - z.pos.z) - (z.state === 'break' ? g.rotation.y : z.yaw);
+      const lp = z.remote ? P.pos : tp;   // copies look at you; the host's zombies at whoever they're after
+      let rel = Math.atan2(lp.x - z.pos.x, lp.z - z.pos.z) - (z.state === 'break' ? g.rotation.y : z.yaw);
       while (rel > Math.PI) rel -= Math.PI * 2; while (rel < -Math.PI) rel += Math.PI * 2;
       z.neck.rotation.y += (clamp(rel, -.8, .8) - z.neck.rotation.y) * Math.min(1, dt * 5);
     }
@@ -2768,10 +2879,16 @@ function updateHitArcs(dt) {
     if (h.life <= 0) { h.el.remove(); hitArcs.splice(i, 1); }
   }
 }
-function attackPlayer(z) {
+function attackPlayer(z) { attackTarget(z, LOCAL_T); }
+function attackTarget(z, T) {
   z.atkCd = 1.0; z.swing = .3;
   if (Math.random() < .7) SFX.zattack(z.pos.clone().setY(1.6));
-  if (P.invuln > 0 || G.state !== 'playing') return;
+  if (!T || T.local) hurtLocal(z);
+  else netSend({ t: 'hu', to: T.pid, i: z.id, x: Math.round(z.pos.x * 100), z: Math.round(z.pos.z * 100) });
+}
+function hurtLocal(z) {
+  if (P.invuln > 0 || P.down || P.dead) return;
+  if (G.state !== 'playing' && !(Net.inGame && G.state === 'paused')) return;
   if (shieldBlocks(z)) return;
   P.hp -= DIFFS[G.diff].dmg; P.lastHurt = G.time;
   showHitFrom(z.pos);
@@ -2792,6 +2909,7 @@ function playerDown() {
     for (const z of zombies) if (!z.dead && z.pos.distanceTo(P.pos) < 4.5 && z.state === 'chase') damageZombie(z, 1e9, 'splash');
     return;
   }
+  if (Net.inGame) { netDown(); return; }   // online: a teammate can revive you
   gameOver();
 }
 
@@ -2825,23 +2943,31 @@ function maybeDrop(pos) {
   const keys = Object.keys(PU);
   dropPowerup(pick(keys), pos);
 }
+let puSeq = 0;
 function dropPowerup(type, pos) {
   G.dropsThisRound++;
+  makePowerup(type, pos, ++puSeq);
+}
+function makePowerup(type, pos, id) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puTex[type], transparent: true, depthWrite: false }));
   s.scale.set(1, 1, 1); s.position.set(pos.x, 1, pos.z); scene.add(s);
-  powerups.push({ type, s, life: 26 });
+  const p = { id, type, s, life: 26 }; powerups.push(p); return p;
 }
 function updatePowerups(dt) {
   for (let i = powerups.length - 1; i >= 0; i--) {
     const p = powerups[i]; p.life -= dt;
     p.s.position.y = 1 + Math.sin(G.time * 3) * .12;
     p.s.material.opacity = p.life < 6 ? (Math.sin(G.time * (p.life < 2.5 ? 30 : 12)) > 0 ? 1 : .15) : 1;
-    if (Math.hypot(p.s.position.x - P.pos.x, p.s.position.z - P.pos.z) < 1.2) { applyPowerup(p.type); p.life = 0; }
+    if (!p.taken && !P.dead && Math.hypot(p.s.position.x - P.pos.x, p.s.position.z - P.pos.z) < 1.2) {
+      p.taken = true; p.life = 0;
+      if (Net.isClient) { Net.takenPu.add(p.id); netSend({ t: 'a', k: 'pu', i: p.id }); }   // the host hands it to everyone
+      else applyPowerup(p.type);
+    }
     if (p.life <= 0) { scene.remove(p.s); p.s.material.dispose(); powerups.splice(i, 1); }
   }
   G.insta = Math.max(0, G.insta - dt); G.dbl = Math.max(0, G.dbl - dt);
 }
-function applyPowerup(type) {
+function applyPowerup(type, fromNet) {
   SFX.powerup(); announce(PU[type].label + '!', PU[type].color);
   Quotes.say('pu_' + type, { chance: .8, prio: 2, cd: 10 });
   if (type === 'ammo') { for (const w of P.weapons) w.reserve = w.reserveMax; P.grenades = 4; }
@@ -2849,11 +2975,12 @@ function applyPowerup(type) {
   if (type === 'dbl') G.dbl = 30;
   if (type === 'nuke') {
     $('flash').style.opacity = .9; SFX.boom();
-    for (const z of zombies) if (!z.dead) { killZombie(z, 'nuke'); burst(z.pos.clone().setY(1), 'fire', 6, 3); }
+    if (!Net.isClient) for (const z of zombies) if (!z.dead) { killZombie(z, 'nuke'); burst(z.pos.clone().setY(1), 'fire', 6, 3); }
     addPoints(400);
   }
-  if (type === 'carp') { for (const w of windows) while (repairBoard(w)); addPoints(200); }
+  if (type === 'carp') { if (!Net.isClient) for (const w of windows) while (repairBoard(w)); addPoints(200); }
   updateHud();
+  if (Net.isHost && !fromNet) netSend({ t: 'e', e: 'pu', ty: type });
 }
 
 /* =====================================================================
@@ -3043,8 +3170,9 @@ function powerSwitch(x, z, rotY = 0) {
   interactables.push({
     pos: new V3(x - Math.cos(rotY) * .7, 0, z + Math.sin(rotY) * .7), r: 1.7,
     prompt() { return G.power ? null : 'Press <b>F</b> to turn on the Power'; },
-    use() { if (!G.power) turnOnPower(); },
+    use() { if (!G.power) openWorld('power'); },
   });
+  WORLD.power = { is: () => G.power, open: turnOnPower };
 }
 // The Forge upgrades the held weapon. rotY 0 faces +z.
 function buildForge(fx, fz, rotY = Math.PI / 4) {
@@ -3092,16 +3220,16 @@ function buildPowerAndForge() {
   interactables.push({
     pos: new V3(0, 0, 6.8), r: 2.3, pos2: new V3(0, 0, 9.2),
     prompt() { return G.lotOpen ? null : `Press <b>F</b> to clear the debris [Cost: ${door.cost}]`; },
-    use() {
-      if (G.lotOpen || !spend(door.cost)) return;
+    use() { if (!G.lotOpen && spend(door.cost)) openWorld('lot'); },
+  });
+  WORLD.lot = { is: () => G.lotOpen, open() {
       G.lotOpen = true; door.collider.off = true;
       for (const m of door.meshes) { scene.remove(m); }
       const set = new Set(door.meshes);
       shootables = shootables.filter(m => !set.has(m));
       burst(new V3(0, 1, 8), 'dust', 30, 4, 2); SFX.board();
       announce('THE BUS LOT IS OPEN', '#e8d9b0', 1.8); Quotes.say('door_lot', { prio: 2 });
-    },
-  });
+    } };
 
   // lot gate onto the road
   interactables.push({
@@ -3110,12 +3238,12 @@ function buildPowerAndForge() {
       if (gate.open || !G.lotOpen) return null;
       return G.mode === 'depot' ? 'The gate is chained shut' : `Press <b>F</b> to open the gate to the road [Cost: ${gate.cost}]`;
     },
-    use() {
-      if (gate.open || G.mode === 'depot' || !spend(gate.cost)) return;
-      gate.open = true; gate.collider.off = true; scene.remove(gate.lock); SFX.board();
-      announce('THE ROAD IS OPEN — CATCH THE BUS', '#ffcf6a', 2.2); Quotes.say('door_road', { prio: 2 });
-    },
+    use() { if (!gate.open && G.mode !== 'depot' && spend(gate.cost)) openWorld('gate'); },
   });
+  WORLD.gate = { is: () => gate.open, open() {
+    gate.open = true; gate.collider.off = true; scene.remove(gate.lock); SFX.board();
+    announce('THE ROAD IS OPEN — CATCH THE BUS', '#ffcf6a', 2.2); Quotes.say('door_road', { prio: 2 });
+  } };
 
   for (const w of windows) addWindowRepair(w);
 }
@@ -3130,7 +3258,10 @@ function addWindowRepair(w) {
         if (this.t >= .55) {
           this.t = 0;
           if (zombies.some(z => z.win === w && !z.dead && z.state === 'climb')) return;
-          if (repairBoard(w)) { addPoints(10); Quotes.say('repair', { chance: .08, cd: 45 }); }
+          if (repairBoard(w)) {
+            addPoints(10); Quotes.say('repair', { chance: .08, cd: 45 });
+            if (Net.isClient) { w.netHold = G.time + 1.2; netSend({ t: 'a', k: 'rep', i: windows.indexOf(w) }); }
+          }
         }
       },
     });
@@ -3500,7 +3631,7 @@ function updateBus(dt) {
     for (const z of zombies) if (!z.dead && inBus(z.pos)) z.pos.x += dx;
     bus.x += dx;
     for (const w of bus.wheels) w.rotation.y += dx / .55 * bus.f;
-    if (bus.v > 3) for (const z of zombies) {   // anything standing in the road gets run down
+    if (bus.v > 3 && !Net.isClient) for (const z of zombies) {   // anything standing in the road gets run down
       if (z.dead || z.rise < 1) continue;
       const ahead = sgn * (z.pos.x - bus.x);
       if (ahead > 5.2 && ahead < 6.6 && Math.abs(z.pos.z - BUS_Z) < 1.7) { burst(z.pos.clone().setY(1), 'blood', 20, 5, 1.3); damageZombie(z, 1e9, 'splash', null); }
@@ -3516,10 +3647,10 @@ function updateBus(dt) {
   placeBus();
 }
 // Where a zombie should head to reach a player who is inside the bus (or leave it to reach one outside).
-function busApproach(zp) {
-  const pIn = inBus(P.pos), zIn = inBus(zp);
+function busApproach(zp, tp = P.pos) {
+  const pIn = inBus(tp), zIn = inBus(zp);
   if (pIn === zIn || !bus.open) return null;
-  const dxw = bus.x + bus.f * 3.6, side = Math.sign((pIn ? zp.z : P.pos.z) - BUS_Z) || 1;
+  const dxw = bus.x + bus.f * 3.6, side = Math.sign((pIn ? zp.z : tp.z) - BUS_Z) || 1;
   const outside = new V3(dxw, 0, BUS_Z + side * 2.1), inside = new V3(dxw, 0, BUS_Z + side * .5);
   const at = (a) => Math.hypot(zp.x - a.x, zp.z - a.z) < .8;
   if (pIn) return at(outside) ? inside : outside;
@@ -3560,10 +3691,14 @@ function updateGrenades(dt) {
     }
   }
 }
-function explode(pos, radius, dmg, hurtsPlayer) {
+function boomFx(pos, radius = 5) {
   SFX.boom(pos); worldFlash(pos.clone().setY(pos.y + .5), 0xffa040, 6, radius * 2.5, .5);
   for (let i = 0; i < 6; i++) puff(pos.clone().add(new V3(rand(-.8, .8), rand(.2, 1.2), rand(-.8, .8))), 'smoke', rand(.5, .9), rand(1.2, 2.2), new V3(rand(-.4, .4), rand(.6, 1.2), rand(-.4, .4)));
   burst(pos, 'fire', 20, 6, 1.6); burst(pos, 'dust', 14, 4, 1.4);
+}
+function explode(pos, radius, dmg, hurtsPlayer) {
+  boomFx(pos, radius);
+  if (Net.inGame) netSend({ t: 'fx', k: 'boom', p: [+pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)] });
   for (const z of zombies) {
     if (z.dead) continue;
     const d = z.pos.distanceTo(new V3(pos.x, 0, pos.z));
@@ -3597,7 +3732,7 @@ function fire() {
   w.mag--; P.shots++;
   let rate = 60 / d.rpm; if (P.perks.has('dbl')) rate *= .75;
   W_STATE.fireCd = rate;
-  SFX.shot(d.kind);
+  SFX.shot(d.kind); Net.lastShot = performance.now();
   if (d.kind === 'shotgun' && !d.auto && !d.twin) setTimeout(() => SFX.pump(), 380);   // rack the pump
   vm.kick = Math.min(1, vm.kick + (d.kind === 'sniper' || d.kind === 'cannon' || d.kind === 'shotgun' ? 1 : .45));
   const steady = P.perks.has('steady') ? .5 : 1;
@@ -3782,12 +3917,22 @@ function switchWeapon(idx) {
    ROUNDS
    ===================================================================== */
 function startRound() {
-  G.round++; G.toSpawn = zombieCount(G.round); G.spawnT = 1; G.dropsThisRound = 0;
+  G.round++; G.toSpawn = Math.round(zombieCount(G.round) * (1 + .5 * (netPlayers() - 1))); G.spawnT = 1; G.dropsThisRound = 0;
+  roundStartFx();
+  if (Net.isHost) netSend({ t: 'e', e: 'round', r: G.round });
+}
+function roundStartFx() {
   SFX.roundStart(); renderRound(true);
+  if (P.dead) netRespawn();
   if (G.time > 8) G.round % 5 === 0 ? Quotes.say('roundBig', { prio: 2, round: G.round, cd: 0 }) : Quotes.say('round', { chance: .45, cd: 0 });
 }
 function endRound() {
-  SFX.roundEnd(); G.betweenT = 10;
+  G.betweenT = 10;
+  endRoundFx();
+  if (Net.isHost) netSend({ t: 'e', e: 'rend' });
+}
+function endRoundFx() {
+  SFX.roundEnd();
   Quotes.say('roundEnd', { chance: .5, cd: 0 });
   P.grenades = Math.min(4, P.grenades + 2); updateHud();
   const r = $('round'); r.classList.add('flash');
@@ -3856,13 +4001,14 @@ function updatePlayer(dt) {
   const fleet = P.perks.has('fleet');
   P.stamina = clamp(P.stamina + (sprinting ? -dt / (fleet ? 12 : 5) : dt / (fleet ? 2 : 3)), 0, 1);
   let speed = (sprinting ? 6.8 : 4.5) * (fleet ? 1.13 : 1);
+  if (P.down || P.dead) speed = 0;
   if (input.rmb) speed *= .6;
   const fwd = new V3(-Math.sin(P.yaw), 0, -Math.cos(P.yaw)), right = new V3(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const mv = fwd.multiplyScalar(f).add(right.multiplyScalar(s));
   if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(speed * dt * Math.min(1, Math.hypot(f, s)));
   P.pos.add(mv);
   // gravity / jump
-  if (k.Space && P.onGround) { P.vy = 6; P.onGround = false; }
+  if (k.Space && P.onGround && !P.down && !P.dead) { P.vy = 6; P.onGround = false; }
   P.vy -= 18 * dt; P.pos.y += P.vy * dt;
   if (P.pos.y <= 0) {
     if (!P.onGround && P.vy < -2) { vm.land = Math.min(.09, -P.vy * .012); camShake = Math.max(camShake, .08); SFX.step(surfaceUnder(), 1.8); }
@@ -3875,7 +4021,7 @@ function updatePlayer(dt) {
 
   // health regen
   P.invuln = Math.max(0, P.invuln - dt);
-  if (G.time - P.lastHurt > 2.5) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * .6 * dt);
+  if (!P.down && !P.dead && G.time - P.lastHurt > 2.5) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * .6 * dt);
   const hurt = 1 - P.hp / P.maxHp;
   $('vignette').style.opacity = clamp(hurt * .4, 0, .4);
   $('lowHp').style.opacity = P.hp / P.maxHp < .45 ? .9 : 0;
@@ -3883,7 +4029,7 @@ function updatePlayer(dt) {
   // camera
   camShake = Math.max(0, camShake - dt);
   recoilPitch *= Math.pow(.0001, dt);
-  camera.position.set(P.pos.x, P.pos.y + 1.62 + Math.sin(vm.bob) * .035 * (P.onGround ? 1 : 0), P.pos.z);
+  camera.position.set(P.pos.x, P.pos.y + (P.down || P.dead ? .55 : 1.62) + Math.sin(vm.bob) * .035 * (P.onGround ? 1 : 0), P.pos.z);
   camera.rotation.set(P.pitch + recoilPitch + (Math.random() - .5) * camShake * .05, P.yaw + (Math.random() - .5) * camShake * .05, 0);
   const w = P.weapons[P.cur];
   vm.sprintFov += ((P.sprinting ? 6 : 0) - vm.sprintFov) * Math.min(1, dt * 5);
@@ -4505,16 +4651,16 @@ function buildFarm(def) {
     interactables.push({
       pos: new V3(X(at[0]), 0, at[1]), pos2: new V3(X(at2[0]), 0, at2[1]), r: 2.2,
       prompt() { return col.off ? null : `Press <b>F</b> to ${label} [Cost: ${cost}]`; },
-      use() {
-        if (col.off || !spend(cost)) return;
+      use() { if (!col.off && spend(cost)) openWorld(room); },
+    });
+    WORLD[room] = { is: () => col.off, open() {
         col.off = true; def.open.add(room); SFX.board();
         for (const m of meshes) scene.remove(m);
         const set = new Set(meshes); shootables = shootables.filter(m => !set.has(m));
         burst(new V3(X((x0 + x1) / 2), 1, (z0 + z1) / 2), 'dust', 30, 4, 2);
         buildNavGraph(def);   // zombies can route through the new opening
         announce(room === 'parlor' ? 'THE PARLOR IS OPEN' : 'THE BARN IS OPEN', '#e8d9b0', 1.8); Quotes.say('door_' + room, { prio: 2 });
-      },
-    });
+    } };
   };
   doorway(rubble, -4.4, -3.6, -1, 1, 750, 'clear the rubble', 'parlor', [-5.2, 0], [-2.8, 0]);
   doorway([barnDoor], 5.6, 6.4, 2, 4, 1000, 'open the barn door', 'barn', [4.8, 3], [7.2, 3]);
@@ -4619,16 +4765,37 @@ function updatePlayerVis() {
   if (!activeMap || !activeMap.navNodes) return;
   activeMap.navNodes.forEach((nd, j) => { if (!wallBlocked(P.pos, nd)) playerVis.push([j, nd.distanceTo(P.pos)]); });
 }
+// Which route points can see a position (for each player zombies may be chasing).
+function visFrom(pos) {
+  const v = [];
+  if (activeMap && activeMap.navNodes) activeMap.navNodes.forEach((nd, j) => { if (!wallBlocked(pos, nd)) v.push([j, nd.distanceTo(pos)]); });
+  return v;
+}
+// Who zombies can go after: you, and online (when hosting) every teammate who is in the game and standing.
+const LOCAL_T = { local: true, pos: P.pos };
+function zTargets() {
+  const t = [];
+  if (!P.down && !P.dead) t.push(LOCAL_T);
+  if (Net.isHost) for (const p of Net.peers.values()) if (p.ig && !p.dn) t.push(p);
+  return t.length ? t : [LOCAL_T];
+}
+function nearestTarget(targets, pos) {
+  let best = targets[0], bd = Infinity;
+  for (const T of targets) { const d = Math.hypot(T.pos.x - pos.x, T.pos.z - pos.z); if (d < bd) { bd = d; best = T; } }
+  return best;
+}
+const nearestDist = (targets, pos) => Math.min(...targets.map(T => Math.hypot(T.pos.x - pos.x, T.pos.z - pos.z)));
+function spawnFocus() { return Net.isHost ? pick(zTargets()).pos : P.pos; }
 // When a railing blocks the straight line to the player, head for the route point on the shortest path.
-function graphTarget(zp) {
-  const def = activeMap;
-  if (!def || !def.navNodes || !wallBlocked(zp, P.pos)) return null;
+function graphTarget(zp, T) {
+  const def = activeMap, tpos = T ? T.pos : P.pos, tvis = T && T.vis ? T.vis : playerVis;
+  if (!def || !def.navNodes || !wallBlocked(zp, tpos)) return null;
   const nodes = def.navNodes, D = def.navD;
   let best = null, bc = Infinity;
   nodes.forEach((nd, i) => {
     const dz = nd.distanceTo(zp);
     if (dz < .8 || wallBlocked(zp, nd)) return;
-    for (const [j, dp] of playerVis) { const c = dz + D[i][j] + dp; if (c < bc) { bc = c; best = nd; } }
+    for (const [j, dp] of tvis) { const c = dz + D[i][j] + dp; if (c < bc) { bc = c; best = nd; } }
   });
   return best;
 }
@@ -4697,6 +4864,8 @@ const TIPS = [
   'Turn on the power before you buy perks. The switch is on the generator in the bus lot.',
   'The Ray Pistol\'s splash hurts you at point blank. Forge it, or drink Blastproof Bitters.',
   'You can hold four perks at a time. Choose the ones that fit how you play.',
+  'Online, a downed teammate gets back up if you hold F next to them for 3 seconds.',
+  'Online co-op: the host keeps the game running for everyone, so the host should keep the game open on screen.',
   'Third Holster Tonic lets you carry a third gun. The mystery box fills the new slot.',
   'Spark Cider shocks everything near you when you reload. The emptier the mag, the bigger the blast.',
   'Let the Gale Cannon cool between bursts. At 100% heat it breaks.',
@@ -4744,10 +4913,13 @@ const Menu = {
 const SCREEN_HOOKS = {
   scrMain() { $('profName').textContent = SETTINGS.name || 'Survivor'; const r = runs()[0]; $('best').textContent = r ? `Round ${r.round} · ${r.kills} kills` : '—'; },
   scrSolo() { renderSolo(); },
+  scrOnline() { if (Net.active && !Net.inGame) netLeave(); renderOnline(); },
+  scrLobby() { renderLobby(); },
   scrOptions() { renderOptions(); },
   scrBoards() { renderBoards(); },
   scrPause() {
-    $('pauseMode').textContent = `${MODES[G.mode].name} · ${DIFFS[G.diff].name}`;
+    $('pauseMode').textContent = `${Net.inGame ? 'Online · ' : ''}${MODES[G.mode].name} · ${DIFFS[G.diff].name}`;
+    $('btnRestart').hidden = Net.inGame; $('btnEnd').textContent = Net.inGame ? 'Leave Game' : 'End Game';
     $('pauseStats').innerHTML = `Round <b>${G.round}</b> · Kills <b>${P.kills}</b> · Points <b>${P.points}</b>`;
   },
 };
@@ -4795,11 +4967,11 @@ function renderOptions() {
 }
 function adjust(el, dir, wrap = false) {
   const key = el.dataset.opt;
-  if (el.closest('#scrSolo')) {
+  if (el.closest('#scrSolo, #scrOnline')) {
     if (key === 'mode') CFG.mode = cycle(Object.keys(MODES), CFG.mode, dir);
     if (key === 'diff') CFG.diff = cycle(Object.keys(DIFFS), CFG.diff, dir);
     if (key === 'start') CFG.start = cycle(STARTS, CFG.start, dir);
-    saveJSON('ded_lastcfg', CFG); renderSolo(); uiTick(); return;
+    saveJSON('ded_lastcfg', CFG); renderSolo(); renderOnline(); uiTick(); return;
   }
   const o = OPTS[key];
   if (o.toggle) o.set(!o.get());
@@ -4842,7 +5014,7 @@ function launchMatch(cfg) {
   renderRound(false);
   // loading screen
   const m = MODES[cfg.mode];
-  $('loadMode').textContent = `Solo · ${m.name}`;
+  $('loadMode').textContent = `${Net.inGame ? 'Online Co-op' : 'Solo'} · ${m.name}`;
   $('loadTitle').textContent = m.title;
   $('loadMeta').textContent = `${DIFFS[cfg.diff].name.toUpperCase()} · ROUND ${cfg.start}`;
   $('loadGo').textContent = ''; $('loadGo').classList.remove('ready');
@@ -4861,6 +5033,7 @@ function launchMatch(cfg) {
 }
 function beginPlay() {
   if (!G.loadReady) return;
+  if (Net.isClient) G.betweenT = 1e9;   // the host runs the rounds
   G.loadReady = false;
   MenuMusic.stop();
   $('overlay').hidden = true; $('hud').classList.remove('hidden');
@@ -4883,6 +5056,7 @@ function typeIntro(lines) {
 function pauseGame() {
   if (G.state !== 'playing') return;
   G.state = 'paused'; input.lmb = input.rmb = false; releaseTouches(); Quotes.stop();
+  if (Net.inGame) input.keys = {};
   document.documentElement.classList.remove('playing');
   if (document.pointerLockElement) document.exitPointerLock();
   $('overlay').hidden = false;
@@ -4916,6 +5090,13 @@ function gameOver() {
   $('overPb').textContent = rank === 0 ? 'New personal best' : rank > 0 && rank < 10 ? `Leaderboard rank #${rank + 1}` : '';
   $('overTable').innerHTML = `<thead><tr><th>Survivor</th><th>Score</th><th>Kills</th><th>Headshots</th><th>Downs</th><th>Accuracy</th></tr></thead>
     <tbody><tr class="me"><td>${escapeHtml(run.name)}</td><td>${run.score}</td><td>${run.kills}</td><td>${run.hs}</td><td>${run.downs}</td><td>${P.shots ? Math.round(P.hits / P.shots * 100) + '%' : '—'}</td></tr></tbody>`;
+  if (Net.wasOnline) {   // everyone's runs, from what they last told us
+    const rows = [...Net.peers.values()].filter(p => p.seen).map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.sc}</td><td>${p.k}</td><td>${p.hs}</td><td>${p.ds}</td><td>—</td></tr>`).join('');
+    $('overTable').insertAdjacentHTML('beforeend', `<tbody>${rows}</tbody>`);
+  }
+  $('btnAgain').hidden = Net.wasOnline;
+  if (Net.active) setTimeout(netLeave, 1200);
+  P.down = false; $('downUI').hidden = true;
   G.lastRun = run.id;
   $('overlay').hidden = false;
   Menu.reset('scrOver');
@@ -4938,9 +5119,13 @@ function bootMenus() {
   $('pressKey').textContent = TOUCH ? 'TAP TO START' : 'PRESS ANY KEY';
   document.querySelectorAll('#overlay .mi').forEach(b => b.addEventListener('mouseenter', () => { if (document.activeElement !== b) { b.focus({ preventScroll: true }); uiTick(); } }));
   $('btnStart').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); launchMatch(CFG); };
+  $('btnHost').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); netHost(); };
+  $('btnJoin').onclick = () => { uiPick(); netJoin(); };
+  $('btnLobbyStart').onclick = () => { uiPick(); netStartAsHost(); };
+  $('joinCode').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); netJoin(); } });
   $('btnResume').onclick = () => { uiPick(); resumeGame(); };
   $('btnRestart').onclick = () => confirmThen('Restart this match?', restartMatch);
-  $('btnEnd').onclick = () => confirmThen('End the game? This run will be scored.', () => { gameOver(); });
+  $('btnEnd').onclick = () => confirmThen(Net.inGame ? 'Leave this online game? Your run will be scored.' : 'End the game? This run will be scored.', () => { gameOver(); });
   $('btnAgain').onclick = restartMatch;
   $('btnMenu').onclick = toMainMenu;
   $('scrLoading').addEventListener('click', beginPlay);
@@ -5109,6 +5294,519 @@ function adaptResolution(rawDt) {
   if (frameAvg > 1 / 45) { setRenderScale(renderScale - .1); resT = 0; }
   else if (frameAvg < 1 / 58 && renderScale < 1 && resT > 4) { setRenderScale(renderScale + .05); resT = 0; }
 }
+/* =====================================================================
+   ONLINE CO-OP
+   Up to four players share a game through a free public MQTT broker reached over a secure
+   WebSocket, so it works from the Android app and any browser with no server of our own.
+   The host runs the zombies, rounds, doors, boards and power-ups; everyone runs their own
+   player, guns, perks, box and buildables, and sends their hits to the host, which decides
+   who got the kill. Anyone with a room code can join, so nothing received is trusted blindly.
+   ===================================================================== */
+const NET_BROKERS = [
+  { url: 'wss://broker.hivemq.com:8884/mqtt' },
+  { url: 'wss://broker.emqx.io:8084/mqtt' },
+  { url: 'wss://test.mosquitto.org:8081/mqtt' },
+  { url: 'wss://public.cloud.shiftr.io', user: 'public', pass: 'public' },
+];
+const NET_TOPIC = 'deadenddepot/coop1/';
+const NET_COLORS = ['#ffcf6a', '#6ad0ff', '#8dff7a', '#ff7ab8'];
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   // no I or O to misread
+const HOWS = ['body', 'head', 'melee', 'splash', 'nuke'], LIMBS = [null, 'armL', 'armR', 'legL', 'legR'];
+const ZSTATES = ['rise', 'toWindow', 'break', 'climb', 'chase'];
+const PU_KEYS = Object.keys(PU);
+const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
+const cleanName = n => String(n || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) || 'Survivor';
+const validCfg = c => c && own(MODES, c.mode) && own(DIFFS, c.diff) && STARTS.includes(c.start) ? { mode: c.mode, diff: c.diff, start: c.start } : null;
+
+// A small MQTT 3.1.1 client: connect, subscribe and publish at QoS 0, keep-alive pings.
+class MqttLink {
+  constructor(broker, id, onMsg, onLost) { this.b = broker; this.id = id; this.onMsg = onMsg; this.onLost = onLost; this.buf = new Uint8Array(0); this.ok = false; }
+  static str(s) { const b = new TextEncoder().encode(s), o = new Uint8Array(b.length + 2); o[0] = b.length >> 8; o[1] = b.length & 255; o.set(b, 2); return o; }
+  static pack(type, ...parts) {
+    let n = 0; for (const q of parts) n += q.length;
+    const len = []; let r = n; do { let d = r % 128; r = Math.floor(r / 128); if (r > 0) d |= 128; len.push(d); } while (r > 0);
+    const o = new Uint8Array(1 + len.length + n); o[0] = type; o.set(len, 1);
+    let i = 1 + len.length; for (const q of parts) { o.set(q, i); i += q.length; }
+    return o;
+  }
+  connect(timeout = 7000) {
+    return new Promise((res, rej) => {
+      let ws;
+      try { ws = new WebSocket(this.b.url, ['mqtt']); } catch (e) { rej(e); return; }
+      this.ws = ws; ws.binaryType = 'arraybuffer';
+      const tm = setTimeout(() => { rej(new Error('timeout')); try { ws.close(); } catch (e) {} }, timeout);
+      this.pending = { res, rej, tm };
+      ws.onopen = () => {
+        const u = this.b.user, flags = 0x02 | (u ? 0xC0 : 0);
+        const parts = [new Uint8Array([0, 4, 77, 81, 84, 84, 4, flags, 0, 60]), MqttLink.str(this.id)];
+        if (u) parts.push(MqttLink.str(u), MqttLink.str(this.b.pass || ''));
+        ws.send(MqttLink.pack(0x10, ...parts));
+      };
+      ws.onmessage = e => { if (e.data instanceof ArrayBuffer) this.feed(new Uint8Array(e.data)); };
+      ws.onerror = () => {};
+      ws.onclose = () => {
+        clearTimeout(tm); clearInterval(this.ping);
+        const was = this.ok; this.ok = false;
+        if (was) this.onLost(this); else if (this.pending) { this.pending.rej(new Error('closed')); this.pending = null; }
+      };
+    });
+  }
+  feed(chunk) {
+    const b = new Uint8Array(this.buf.length + chunk.length); b.set(this.buf); b.set(chunk, this.buf.length); this.buf = b;
+    for (;;) {
+      if (this.buf.length < 2) return;
+      let mul = 1, n = 0, i = 1, d;
+      do { if (i >= this.buf.length) return; d = this.buf[i++]; n += (d & 127) * mul; mul *= 128; } while (d & 128 && mul < 268435456);
+      if (this.buf.length < i + n) return;
+      const type = this.buf[0] >> 4, qos = (this.buf[0] >> 1) & 3, body = this.buf.subarray(i, i + n);
+      this.buf = this.buf.slice(i + n);
+      if (type === 2 && this.pending) {   // CONNACK
+        const { res, rej, tm } = this.pending; this.pending = null; clearTimeout(tm);
+        if (body[1] !== 0) { rej(new Error('refused')); try { this.ws.close(); } catch (e) {} return; }
+        this.ok = true; this.ping = setInterval(() => this.send(new Uint8Array([0xC0, 0])), 25000); res();
+      } else if (type === 3) {   // PUBLISH
+        const tl = (body[0] << 8) | body[1], off = 2 + tl + (qos ? 2 : 0);
+        try { this.onMsg(new TextDecoder().decode(body.subarray(2, 2 + tl)), new TextDecoder().decode(body.subarray(off))); }
+        catch (e) { console.warn('co-op message dropped', e); }
+      }
+    }
+  }
+  send(bytes) { if (this.ws && this.ws.readyState === 1) this.ws.send(bytes); }
+  sub(topic) { this.send(MqttLink.pack(0x82, new Uint8Array([0, 1]), MqttLink.str(topic), new Uint8Array([0]))); }
+  pub(topic, text) { this.send(MqttLink.pack(0x30, MqttLink.str(topic), new TextEncoder().encode(text))); }
+  close() { const was = this.ok; this.ok = false; clearInterval(this.ping); try { if (was) this.send(new Uint8Array([0xE0, 0])); this.ws.close(); } catch (e) {} }
+}
+
+function netSend(msg) { if (Net.mq && Net.mq.ok) Net.mq.pub(NET_TOPIC + Net.room + '/' + Net.me, JSON.stringify(msg)); }
+function netPlayers() { let n = 1; if (Net.inGame) for (const p of Net.peers.values()) if (p.ig) n++; return n; }
+function netNote(t) { for (const id of ['onlineNote', 'lobbyNote']) $(id).textContent = t; }
+function setOnlineBusy(b) { for (const id of ['btnHost', 'btnJoin']) $(id).disabled = b; }
+
+// Try the brokers in order (the room code's last digit says which one the host is on).
+async function netConnect(code, hosting) {
+  const room = code.slice(0, 4), want = +code[4] - 1;
+  const order = !hosting && want >= 0 && want < NET_BROKERS.length ? [want] : NET_BROKERS.map((_, i) => i);
+  for (const i of order) {
+    netNote(`Connecting to game server ${i + 1}…`);
+    const mq = new MqttLink(NET_BROKERS[i], 'ded-' + Net.me + Math.random().toString(36).slice(2, 6), onNetMessage, onNetLost);
+    try { await mq.connect(); } catch (e) { continue; }
+    if (!Net.active) { mq.close(); return false; }   // backed out while connecting
+    Net.mq = mq; Net.room = room; Net.code = room + (i + 1);
+    mq.sub(NET_TOPIC + room + '/+');
+    return true;
+  }
+  return false;
+}
+async function netHost() {
+  if (Net.active) return;
+  const room = Array.from({ length: 4 }, () => CODE_CHARS[Math.random() * CODE_CHARS.length | 0]).join('');
+  Object.assign(Net, { active: true, isHost: true, isClient: false, inGame: false, cfg: { mode: CFG.mode, diff: CFG.diff, start: CFG.start }, hostPid: Net.me });
+  setOnlineBusy(true);
+  const ok = await netConnect(room, true);
+  setOnlineBusy(false);
+  if (!ok) { netReset(); netNote('Couldn\'t reach a game server. Check your internet connection and try again.'); return; }
+  netClock.hi = 0; Menu.show('scrLobby');
+}
+async function netJoin() {
+  if (Net.active) return;
+  const code = ($('joinCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z]{4}[1-9]?$/.test(code)) { netNote('Type the 5-character room code from the host, like KXTP1.'); return; }
+  Object.assign(Net, { active: true, isHost: false, isClient: true, inGame: false, hostPid: null, joinT: performance.now() });
+  setOnlineBusy(true);
+  const ok = await netConnect(code, false);
+  setOnlineBusy(false);
+  if (!ok) { netReset(); netNote('Couldn\'t reach that game\'s server. Check your internet connection and the code.'); return; }
+  netClock.hi = 0; Menu.show('scrLobby');
+}
+function netStartAsHost() {
+  if (!Net.isHost || Net.inGame) return;
+  netSend({ t: 'go', cfg: Net.cfg });
+  startOnlineMatch(Net.cfg);
+}
+function startOnlineMatch(c) {
+  const cfg = validCfg(c); if (!cfg || Net.inGame) return;
+  Net.inGame = true; Net.wasOnline = true;
+  Object.assign(CFG, cfg);
+  launchMatch(CFG);
+}
+function netReset() {
+  if (Net.mq) Net.mq.close();
+  for (const p of Net.peers.values()) dropAvatar(p);
+  Net.peers.clear();
+  Object.assign(Net, { active: false, isHost: false, isClient: false, inGame: false, mq: null, hostPid: null, room: '', code: '', hits: [] });
+}
+function netLeave() { if (!Net.active) return; netSend({ t: 'bye' }); netReset(); }
+function onNetLost(mq) {
+  if (mq !== Net.mq || !Net.active) return;
+  if (Net.inGame && G.state !== 'over' && G.state !== 'menu') { announce('CONNECTION LOST', '#ff8a6a', 3); setTimeout(() => { if (G.state !== 'over') gameOver(); }, 2500); }
+  else { netReset(); netNote('Lost the connection to the game server.'); if (Menu.cur === 'scrLobby') Menu.back(); }
+}
+
+function addPeer(pid) {
+  const used = new Set([...Net.peers.values()].map(q => q.slot));
+  let slot = 1; while (used.has(slot)) slot++;
+  const p = { pid, name: 'Survivor', slot, color: NET_COLORS[slot % NET_COLORS.length], pos: new V3(), tpos: new V3(), yaw: 0, pitch: 0, w: 'm1911',
+    f: false, hp: 100, dn: 0, ig: false, pts: 0, sc: 0, k: 0, hs: 0, ds: 0, host: false, last: performance.now(), av: null, seen: false };
+  Net.peers.set(pid, p); return p;
+}
+function removePeer(pid, why) {
+  const p = Net.peers.get(pid); if (!p) return;
+  Net.peers.delete(pid); dropAvatar(p);
+  if (Net.inGame && (G.state === 'playing' || G.state === 'paused')) announce(`${p.name.toUpperCase()} ${why === 'left' ? 'LEFT' : 'DROPPED OUT'}`, '#e8d9b0', 1.8);
+  if (Net.isClient && pid === Net.hostPid) netHostGone();
+  if (Menu.cur === 'scrLobby') renderLobby();
+}
+function netHostGone() {
+  Net.hostPid = null;
+  if (Net.inGame && G.state !== 'over') {
+    if (G.state === 'menu') { netReset(); Menu.reset('scrMain'); return; }
+    announce('THE HOST LEFT THE GAME', '#ff8a6a', 3);
+    setTimeout(() => { if (G.state !== 'over') gameOver(); }, 2500);
+  } else if (!Net.inGame) netNote('The host closed the game.');
+}
+
+function onNetMessage(topic, text) {
+  const from = topic.slice(topic.lastIndexOf('/') + 1);
+  if (!from || from === Net.me || text.length > 30000) return;
+  let m; try { m = JSON.parse(text); } catch (e) { return; }
+  if (!m || typeof m !== 'object' || typeof m.t !== 'string' || !own(NET_HANDLERS, m.t)) return;
+  if (m.to && m.to !== Net.me) return;
+  if (m.t === 'bye') { removePeer(from, 'left'); return; }
+  let p = Net.peers.get(from);
+  if (!p) {
+    if (Net.peers.size >= 3) { if (Net.isHost && m.t === 'hi') netSend({ t: 'full', to: from }); return; }
+    p = addPeer(from);
+  }
+  p.last = performance.now();
+  NET_HANDLERS[m.t](m, p, from);
+}
+const NET_HANDLERS = {
+  bye() {},
+  hi(m, p, from) {
+    p.name = cleanName(m.n); p.host = !!m.h;
+    if (p.host && Net.isClient) {
+      Net.hostPid = from;
+      if (m.g && !Net.inGame) startOnlineMatch(m.cfg);   // the game is already on: jump in
+    }
+    if (Menu.cur === 'scrLobby') renderLobby();
+  },
+  go(m, p, from) { if (Net.isClient && from === Net.hostPid) startOnlineMatch(m.cfg); },
+  full() { if (Net.inGame) return; netReset(); if (Menu.cur === 'scrLobby') Menu.back(); netNote('That game is full: four players already.'); },
+  p(m, p) {
+    p.name = cleanName(m.n);
+    p.tpos.set(num(m.x), num(m.y), num(m.z)); if (!p.seen) { p.pos.copy(p.tpos); p.seen = true; }
+    p.yaw = num(m.yw); p.pitch = clamp(num(m.pt), -1.5, 1.5); p.w = own(W, m.w) ? m.w : 'm1911'; p.f = !!m.f;
+    p.hp = num(m.hp, 100); p.dn = clamp(num(m.dn), 0, 2) | 0; p.ig = !!m.ig;
+    p.pts = num(m.pts); p.sc = num(m.sc); p.k = num(m.k); p.hs = num(m.hs); p.ds = num(m.ds);
+  },
+  s(m, p, from) { if (Net.isClient && Net.inGame && from === Net.hostPid) applySnapshot(m); },
+  h(m, p, from) { if (Net.isHost && Net.inGame && Array.isArray(m.h)) applyNetHits(from, m.h); },
+  k(m, p, from) { if (Net.isClient && Net.inGame && from === Net.hostPid) applyNetKill(m); },
+  e(m, p, from) { if (Net.isClient && Net.inGame && from === Net.hostPid) applyNetEvent(m); },
+  a(m, p) { if (Net.isHost && Net.inGame) applyNetAction(m); },
+  hu(m) {
+    if (!Net.inGame) return;
+    const z = zombies.find(q => q.id === m.i) || { pos: new V3(num(m.x) / 100, 0, num(m.z) / 100) };
+    if (z.g) z.swing = .3;
+    if (Math.random() < .7) SFX.zattack(z.pos.clone().setY(1.6));
+    hurtLocal(z);
+  },
+  rv() { if (P.down && !P.dead) netRevived(); },
+  fx(m) { if (m.k === 'boom' && Array.isArray(m.p) && Net.inGame) boomFx(new V3(num(m.p[0]), num(m.p[1]), num(m.p[2]))); },
+};
+
+// ---- what everyone sends: where you are and how you're doing
+function netStateMsg() {
+  const w = P.weapons[P.cur];
+  return { t: 'p', n: SETTINGS.name, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yw: +P.yaw.toFixed(2), pt: +P.pitch.toFixed(2),
+    w: w ? w.def.id : 'm1911', f: performance.now() - Net.lastShot < 180 ? 1 : 0, hp: Math.max(0, Math.round(P.hp)), dn: P.dead ? 2 : P.down ? 1 : 0,
+    ig: G.state === 'playing' || G.state === 'paused' ? 1 : 0, pts: P.points, sc: P.earned, k: P.kills, hs: P.headshots, ds: P.downs };
+}
+// ---- what the host sends: the zombies, boards, doors, power-ups, the bus and the round
+function buildSnapshot() {
+  windows.forEach((w, i) => w.idx = i);
+  const zs = [];
+  for (const z of zombies) {
+    if (z.dead) continue;
+    const st = z.rise < 1 ? 0 : Math.max(1, ZSTATES.indexOf(z.state));
+    const fl = (z.crawler ? 1 : 0) | (z.lost.armL ? 2 : 0) | (z.lost.armR ? 4 : 0) | (z.gait === 'run' ? 8 : 0) | (z.gait === 'sprint' ? 16 : 0) | (z.netMv ? 32 : 0) | (z.swing > 0 ? 64 : 0);
+    zs.push([z.id, Math.round(z.pos.x * 100), Math.round(z.pos.z * 100), Math.round(z.yaw * 100), st, fl, st === 3 ? Math.round(Math.min(1, z.climbT) * 100) : 0, z.win ? z.win.idx : -1]);
+  }
+  const m = { t: 's', r: G.round, z: zs, b: windows.map(w => w.boards).join(''), wf: Object.keys(WORLD).filter(k => WORLD[k].is()),
+    pu: powerups.filter(q => q.life > 0 && !q.taken).map(q => [q.id, PU_KEYS.indexOf(q.type), Math.round(q.s.position.x * 10), Math.round(q.s.position.z * 10), Math.round(q.life * 10)]) };
+  if (!activeMap) m.bus = [Math.round(bus.x * 100), bus.state === 'stop' ? 1 : 0, Math.round(bus.t * 10), bus.stop, bus.next, bus.dir, bus.f, bus.open ? 1 : 0];
+  return m;
+}
+function applySnapshot(m) {
+  if (Number.isInteger(m.r) && m.r >= 0 && m.r !== G.round) { G.round = m.r; renderRound(false); }
+  if (Array.isArray(m.z)) applyNetZombies(m.z);
+  if (typeof m.b === 'string') windows.forEach((w, i) => {
+    const n = +m.b[i]; if (!(n >= 0 && n <= 6) || G.time < (w.netHold || 0)) return;
+    while (w.boards > n) tearBoard(w);
+    while (w.boards < n && repairBoard(w));
+  });
+  if (Array.isArray(m.wf)) for (const k of m.wf) if (own(WORLD, k)) openWorld(k, true);
+  if (Array.isArray(m.pu)) applyNetPowerups(m.pu);
+  if (Array.isArray(m.bus) && !activeMap) applyNetBus(m.bus);
+}
+function applyNetZombies(list) {
+  const seen = new Set();
+  for (const e of list) {
+    if (!Array.isArray(e) || e.length < 8) continue;
+    const id = num(e[0]), st = clamp(num(e[4]), 0, 4) | 0, fl = num(e[5]) | 0, x = num(e[1]) / 100, zz = num(e[2]) / 100;
+    seen.add(id);
+    let z = zombies.find(q => q.id === id);
+    if (z && z.dead) continue;
+    if (!z) {
+      const gait = fl & 16 ? 'sprint' : fl & 8 ? 'run' : 'walk';
+      z = makeZombie(new V3(x, 0, zz), { id, gait, speed: { walk: 1.15, run: 3, sprint: 4.3 }[gait], state: ZSTATES[st], zone: st === 1 || st === 2 ? 'out' : 'world' });
+      z.remote = true;
+      if (st !== 0) { z.rise = 1; z.g.position.y = 0; }
+    }
+    z.net = { x, z: zz, yaw: num(e[3]) / 100, st, mv: !!(fl & 32), k: num(e[6]) / 100, w: num(e[7], -1) };
+    if (st >= 3) z.zone = 'world';
+    if (fl & 1 && !z.crawler) makeCrawler(z, 'legL');
+    if (fl & 2 && !z.lost.armL) loseArm(z, 'armL');
+    if (fl & 4 && !z.lost.armR) loseArm(z, 'armR');
+    if (fl & 64 && !z.netSwing) z.swing = .3;
+    z.netSwing = !!(fl & 64);
+  }
+  for (const z of zombies) if (z.remote && !z.dead && !seen.has(z.id) && G.time - z.born > .5) { scene.remove(z.g); removeZombieParts(z); z.dead = true; z.deathT = 99; }
+}
+function applyNetPowerups(list) {
+  const seen = new Set();
+  for (const e of list) {
+    if (!Array.isArray(e)) continue;
+    const id = num(e[0]), type = PU_KEYS[num(e[1], -1)]; if (!type) continue;
+    seen.add(id);
+    let q = powerups.find(o => o.id === id);
+    if (!q) { if (Net.takenPu.has(id)) continue; q = makePowerup(type, new V3(num(e[2]) / 10, 0, num(e[3]) / 10), id); }
+    if (!q.taken) q.life = num(e[4], 260) / 10;
+  }
+  for (const q of powerups) if (!seen.has(q.id)) q.life = 0;
+}
+function applyNetBus(b) {
+  const [x100, stop, t10, st, nx, dir, f, open] = b.map(v => num(v));
+  if (!BUS_STOPS[st] || !BUS_STOPS[nx] || Math.abs(dir) !== 1 || Math.abs(f) !== 1) return;
+  if (f !== bus.f) { if (inBus(P.pos)) { P.pos.x = 2 * bus.x - P.pos.x; P.pos.z = 2 * BUS_Z - P.pos.z; P.yaw += Math.PI; } bus.f = f; }
+  const hx = x100 / 100, dx = hx - bus.x;
+  if (Math.abs(dx) > 1.2 || (stop ? 'stop' : 'drive') !== bus.state) {
+    if (inBus(P.pos)) P.pos.x += dx;
+    bus.x = hx; bus.state = stop ? 'stop' : 'drive'; bus.t = t10 / 10; bus.stop = st; bus.next = nx; bus.dir = dir; bus.open = !!open;
+    placeBus();
+  }
+}
+function applyNetKill(m) {
+  const how = HOWS[num(m.h)] || 'body', z = zombies.find(q => q.id === m.i);
+  if (z && !z.dead) zombieDeathFx(z, how);
+  if (m.b === Net.me) {   // yours: the host says so
+    P.kills++; if (how === 'head') P.headshots++;
+    const pts = clamp(num(m.p), 0, 500); if (pts) addPoints(pts);
+    hitmarker(true); Quotes.onKill(how);
+  }
+}
+function applyNetEvent(m) {
+  if (m.e === 'round' && Number.isInteger(m.r)) { G.round = m.r; roundStartFx(); }
+  else if (m.e === 'rend') endRoundFx();
+  else if (m.e === 'pu' && own(PU, m.ty)) applyPowerup(m.ty, true);
+  else if (m.e === 'over' && (G.state === 'playing' || G.state === 'paused')) gameOver();
+}
+// ---- on the host: what teammates did
+function applyNetHits(pid, list) {
+  Net.hitBy = pid;
+  try {
+    for (const e of list.slice(0, 80)) {
+      if (!Array.isArray(e)) continue;
+      const z = zombies.find(q => q.id === e[0]); if (!z || z.dead) continue;
+      const dir = new V3(num(e[4]) / 100, 0, num(e[5]) / 100);
+      burst(z.pos.clone().setY(1.3), 'blood', 3, 2);
+      damageZombie(z, clamp(num(e[1]), 0, 1e9), HOWS[num(e[2])] || 'body', null, LIMBS[num(e[3])] || null, dir.lengthSq() > 1e-4 ? dir.normalize() : null);
+    }
+  } finally { Net.hitBy = null; }
+}
+function applyNetAction(m) {
+  if (m.k === 'w' && own(WORLD, m.f)) openWorld(m.f, true);
+  else if (m.k === 'rep') { const w = windows[num(m.i, -1)]; if (w) repairBoard(w); }
+  else if (m.k === 'pu') { const q = powerups.find(o => o.id === m.i && o.life > 0 && !o.taken); if (q) { q.taken = true; q.life = 0; applyPowerup(q.type); } }
+}
+function netHit(z, dmg, how, limb, dir) {
+  if (Net.hits.length < 200) Net.hits.push([z.id, Math.round(Math.min(dmg, 1e9)), Math.max(0, HOWS.indexOf(how)), Math.max(0, LIMBS.indexOf(limb || null)), dir ? Math.round(dir.x * 100) : 0, dir ? Math.round(dir.z * 100) : 0]);
+}
+function hostCheckOver() {
+  if (!Net.isHost || !Net.inGame || !(G.state === 'playing' || G.state === 'paused')) return;
+  const up = (!P.down && !P.dead) || [...Net.peers.values()].some(p => p.ig && !p.dn);
+  if (!up) { netSend({ t: 'e', e: 'over' }); gameOver(); }
+}
+
+// ---- going down, getting back up
+function netDown() {
+  if (P.down || P.dead) return;
+  P.down = true; P.bleed = 30; P.downs++; P.hp = 0;
+  announce('YOU\'RE DOWN', '#ff6a6a', 2.4); Quotes.say('lowHp', { prio: 3, cd: 0 });
+  $('downHead').textContent = 'YOU\'RE DOWN'; $('downSub').textContent = 'A teammate can revive you'; $('downUI').hidden = false;
+  netClock.p = 0;
+}
+function netRevived() {
+  P.down = false; P.dead = false; P.hp = P.maxHp; P.invuln = 2.5; P.lastHurt = -99;
+  $('downUI').hidden = true; announce('BACK ON YOUR FEET', '#7dff9a', 1.8); Quotes.say('revive', { prio: 3, cd: 0 });
+  netClock.p = 0;
+}
+function netRespawn() {
+  P.dead = false; P.down = false; P.hp = P.maxHp; P.invuln = 3; P.lastHurt = -99;
+  if (activeMap) P.pos.set(activeMap.ox + activeMap.start[0], 0, activeMap.start[1]); else P.pos.set(0, 0, 2);
+  vm.holder.visible = true; $('downUI').hidden = true; announce('BACK IN THE FIGHT', '#7dff9a', 2);
+  netClock.p = 0;
+}
+function updateDown(dt) {
+  if (P.dead) { input.lmb = false; return; }
+  if (!P.down) return;
+  P.bleed -= dt;
+  $('bleedT').textContent = Math.max(0, Math.ceil(P.bleed));
+  if (P.bleed <= 0) {
+    P.dead = true; P.perks.clear(); renderPerks(); P.hp = 0; vm.holder.visible = false; input.lmb = false;
+    $('downHead').textContent = 'YOU BLED OUT'; $('downSub').textContent = 'You\'re back next round, if anyone lives that long'; $('bleedT').textContent = '';
+    netClock.p = 0;
+  }
+}
+
+// ---- teammates in the world: a body, a name tag, gunfire, and a revive prompt when they're down
+function tagSprite(text, color, w = 256, h = 64) {
+  const t = canvasTex(w, h, g => {
+    g.clearRect(0, 0, w, h); g.font = '600 34px Oswald, Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(text, w / 2, h / 2); g.fillStyle = color; g.fillText(text, w / 2, h / 2);
+  });
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }));
+  s.scale.set(1.3, .325, 1); s.renderOrder = 10; return s;
+}
+function makeAvatar(p) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const jacket = mat(new THREE.Color(p.color).multiplyScalar(.6).getHex(), { roughness: .75 }), pants = mat(0x2b2e33, { roughness: .9 }), skin = mat(0xc89a7a, { roughness: .8 });
+  const add = (geo, m, x, y, z, parent = body) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
+  const legs = [-.12, .12].map(x => {
+    const hip = new THREE.Group(); hip.position.set(x, .86, 0); body.add(hip);
+    add(new THREE.BoxGeometry(.17, .82, .2), pants, 0, -.41, 0, hip); add(new THREE.BoxGeometry(.18, .1, .3), M.darkMetal, 0, -.8, -.05, hip);
+    return hip;
+  });
+  add(new THREE.BoxGeometry(.48, .6, .27), jacket, 0, 1.17, 0);
+  add(new THREE.BoxGeometry(.52, .16, .3), jacket, 0, 1.42, 0);
+  add(new THREE.SphereGeometry(.14, 14, 10), skin, 0, 1.65, 0);
+  add(new THREE.SphereGeometry(.148, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x2e2a26, { roughness: .9 }), 0, 1.68, 0);
+  const arms = new THREE.Group(); arms.position.set(0, 1.4, 0); body.add(arms);
+  add(new THREE.BoxGeometry(.12, .12, .5), jacket, -.24, -.06, -.22, arms); add(new THREE.BoxGeometry(.12, .12, .46), jacket, .2, -.06, -.2, arms);
+  add(new THREE.BoxGeometry(.08, .13, .56), M.darkMetal, .02, -.02, -.5, arms);
+  const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltHalo, color: 0xffcf80, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  flash.scale.setScalar(.45); flash.position.set(.02, -.02, -.84); flash.visible = false; arms.add(flash);
+  const tag = tagSprite(p.name, p.color); tag.position.y = 2.1; g.add(tag);
+  const cross = tagSprite('✚ REVIVE', '#ff6a6a'); cross.position.y = 1.0; cross.visible = false; g.add(cross);
+  g.traverse(o => { o.userData.dynamic = true; });
+  g.position.copy(p.pos); scene.add(g);
+  const a = { g, body, legs, arms, flash, tag, cross, yaw: p.yaw, phase: 0, nextShot: 0, flashT: 0, name: p.name };
+  a.it = {   // hold F by a downed teammate to get them up
+    pos: p.pos, r: 1.9, hold: true, t: 0, last: -9,
+    prompt() {
+      if (G.time - this.last > .25) this.t = 0;
+      if (p.dn !== 1 || P.down || P.dead) return null;
+      return this.t > 0 ? `Reviving ${escapeHtml(p.name)}… ${Math.min(99, Math.round(this.t / 3 * 100))}%` : `Hold <b>F</b> to revive ${escapeHtml(p.name)}`;
+    },
+    hold(dt) {
+      if (G.time - this.last > .25) this.t = 0;
+      this.last = G.time; this.t += dt;
+      if (this.t >= 3) { this.t = 0; netSend({ t: 'rv', to: p.pid }); announce(`YOU REVIVED ${p.name.toUpperCase()}`, '#7dff9a', 1.6); }
+    },
+  };
+  interactables.push(a.it);
+  return a;
+}
+function dropAvatar(p) {
+  if (!p.av) return;
+  scene.remove(p.av.g);
+  const i = interactables.indexOf(p.av.it); if (i >= 0) interactables.splice(i, 1);
+  p.av = null;
+}
+function remoteShot(kind, at) {
+  if (!AC) return;
+  if (!playSample('shot-' + kind, { at, vol: .55 })) noiseHit({ dur: .09, freq: 1500, vol: .2, at });
+}
+function updateAvatars(dt) {
+  for (const p of Net.peers.values()) {
+    if (!p.ig || !p.seen || p.dn === 2) { if (p.av) p.av.g.visible = false; continue; }
+    if (!p.av) p.av = makeAvatar(p);
+    const a = p.av; a.g.visible = true;
+    if (a.name !== p.name) { a.g.remove(a.tag); a.tag = tagSprite(p.name, p.color); a.tag.position.y = 2.1; a.g.add(a.tag); a.name = p.name; }
+    const bx = p.pos.x, bz = p.pos.z;
+    if (p.pos.distanceTo(p.tpos) > 6) p.pos.copy(p.tpos); else p.pos.lerp(p.tpos, Math.min(1, dt * 12));
+    const spd = Math.hypot(p.pos.x - bx, p.pos.z - bz) / Math.max(dt, 1e-3);
+    a.g.position.copy(p.pos);
+    let da = p.yaw - a.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+    a.yaw += da * Math.min(1, dt * 12); a.g.rotation.y = a.yaw;
+    if (p.dn) { a.body.rotation.x = -1.35; a.body.position.set(0, .3, .7); a.cross.visible = true; a.tag.position.y = 1.4; }
+    else {
+      a.body.rotation.x = 0; a.body.position.set(0, 0, 0); a.cross.visible = false; a.tag.position.y = 2.1;
+      a.phase += dt * Math.min(spd, 8) * 2.4; const sw = Math.min(1, spd / 4) * .7;
+      a.legs[0].rotation.x = Math.sin(a.phase) * sw; a.legs[1].rotation.x = -Math.sin(a.phase) * sw;
+      a.arms.rotation.x = p.pitch * .9;
+    }
+    if (p.f && p.dn !== 2 && G.time >= a.nextShot) {
+      const d = W[p.w] || W.m1911;
+      a.nextShot = G.time + Math.max(.07, 60 / d.rpm);
+      remoteShot(d.kind, a.flash.getWorldPosition(new V3())); a.flashT = .05;
+    }
+    a.flashT -= dt; a.flash.visible = a.flashT > 0; if (a.flash.visible) a.flash.material.rotation = Math.random() * 6;
+  }
+}
+function renderTeam() {
+  const el = $('team');
+  const html = Net.inGame ? [...Net.peers.values()].filter(p => p.ig || p.seen).map(p =>
+    `<div${p.dn ? ' class="dn"' : ''}><span>${escapeHtml(p.name)}</span><b>${p.dn === 2 ? 'OUT' : p.dn ? 'DOWN' : p.pts}</b><i style="background:${p.color}"></i></div>`).join('') : '';
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
+// ---- lobby screens
+function renderOnline() {
+  const m = MODES[CFG.mode], d = DIFFS[CFG.diff];
+  $('onMode').textContent = m.short || m.name; $('onDiff').textContent = d.name; $('onStart').textContent = CFG.start;
+  $('onlineCard').innerHTML = `<span class="tag">Online Co-op</span><h4>Play with friends</h4>
+    <p>Host a game and share the room code, or type a friend's code to join. Up to four players, on phones and computers, as long as everyone has internet.</p>
+    <ul><li>The host's map, difficulty and starting round are used</li><li>Doors, power, boards and power-ups are shared; points, guns and perks are your own</li><li>Downed players can be revived; if everyone goes down, it's over</li></ul>
+    <p>Hosting: <span style="color:var(--amber)">${m.name}</span> · ${d.name} · round ${CFG.start}</p>`;
+}
+function renderLobby() {
+  $('lobbyCode').textContent = Net.code || '…';
+  $('lobbyEyebrow').textContent = Net.isHost ? 'Hosting · Online Co-op' : 'Joined · Online Co-op';
+  const rows = [`<li style="--c:${NET_COLORS[0]}"><i></i>${escapeHtml(SETTINGS.name)} <small>${Net.isHost ? 'host · you' : 'you'}</small></li>`]
+    .concat([...Net.peers.values()].map(p => `<li style="--c:${p.color}"><i></i>${escapeHtml(p.name)}${p.host ? ' <small>host</small>' : ''}</li>`));
+  $('lobbyPlayers').innerHTML = `<ul>${rows.join('')}</ul>`;
+  $('btnLobbyStart').hidden = !Net.isHost;
+  const cfg = Net.cfg;
+  $('lobbyNote').textContent = Net.isHost ? `${MODES[cfg.mode].name} · ${DIFFS[cfg.diff].name}. Tell your friends the code, then start when everyone's in.`
+    : Net.hostPid ? 'Waiting for the host to start the match…' : 'Looking for the host…';
+}
+
+// ---- once a frame
+const netClock = { hi: 0, p: 0, s: 0, h: 0, hud: 0 };
+function netTick(dt) {
+  if (!Net.active) return;
+  const now = performance.now();
+  if ((netClock.hi -= dt) <= 0) {
+    netClock.hi = Net.inGame ? 2 : 1;
+    netSend({ t: 'hi', n: SETTINGS.name, h: Net.isHost ? 1 : 0, g: Net.isHost && Net.inGame ? 1 : 0, cfg: Net.isHost ? Net.cfg : undefined });
+  }
+  for (const [pid, p] of Net.peers) if (now - p.last > 9000) removePeer(pid, 'lost');
+  if (!Net.active) return;
+  if (Net.isClient && !Net.inGame && !Net.hostPid && now - Net.joinT > 10000 && Menu.cur === 'scrLobby') $('lobbyNote').textContent = `No game found for ${Net.code} yet. Check the code with the host.`;
+  if (!Net.inGame) return;
+  const live = G.state === 'playing' || G.state === 'paused';
+  if ((netClock.p -= dt) <= 0) { netClock.p = .1; netSend(netStateMsg()); }
+  if (Net.isHost && live && (netClock.s -= dt) <= 0) { netClock.s = .125; netSend(buildSnapshot()); }
+  if (Net.isClient && Net.hits.length && (netClock.h -= dt) <= 0) { netClock.h = .05; netSend({ t: 'h', h: Net.hits.splice(0, 60) }); }
+  if (live) { updateAvatars(dt); updateDown(dt); }
+  if ((netClock.hud -= dt) <= 0) { netClock.hud = .25; renderTeam(); }
+  if (Net.isHost) hostCheckOver();
+}
+addEventListener('pagehide', () => { if (Net.active) netSend({ t: 'bye' }); });
+
 function frame(now) {
   requestAnimationFrame(frame);
   const rawDt = (now - last) / 1000;
@@ -5116,7 +5814,8 @@ function frame(now) {
   adaptResolution(rawDt);
   if (SHADOWS && (++frameNo & 1)) renderer.shadowMap.needsUpdate = true;
   if (fpsT > .5) { if (SETTINGS.showFps) $('fps').textContent = `${Math.round(fpsN / fpsT)} FPS`; fpsT = 0; fpsN = 0; }
-  if (G.state === 'playing') {
+  netTick(dt);
+  if (G.state === 'playing' || (G.state === 'paused' && Net.inGame)) {   // online, the game goes on under the pause menu
     G.time += dt;
     touchAimAssist(dt);
     updatePlayer(dt);
@@ -5126,7 +5825,7 @@ function frame(now) {
     updateRayBolts(dt);
     updateBuildables(dt);
     updateZombies(dt);
-    updateRounds(dt);
+    if (!Net.isClient) updateRounds(dt);   // the host runs the rounds
     updatePowerups(dt);
     Quotes.update(dt);
     updateBox(dt);

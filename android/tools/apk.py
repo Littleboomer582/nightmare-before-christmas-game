@@ -118,6 +118,8 @@ def manifest(version_code, version_name):
         a('versionCode', T_INT, version_code), a('versionName', T_STRING, version_name),
     ], [
         El('uses-sdk', [a('minSdkVersion', T_INT, MIN_SDK), a('targetSdkVersion', T_INT, TARGET_SDK)]),
+        # online co-op talks to a public game server
+        El('uses-permission', [a('name', T_STRING, 'android.permission.INTERNET')]),
         # Android 11+ hides other apps unless declared: this lets the game find the phone's speech engine
         El('queries', [], [El('intent', [], [El('action', [a('name', T_STRING, 'android.intent.action.TTS_SERVICE')])])]),
         El('application', [

@@ -23,7 +23,7 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Realism:** screen-space ambient occlusion, rain-slick wet patches that reflect the lamps, large-scale surface variation, sculpted zombies (gaunt faces, ribcage torsos, fingers, ragged clothes) that stagger when hit, fall away from the shot, lose arms and become crawlers when their legs go. Guns climb and kick under recoil, sway as you turn, leave bullet holes and smoke; you'll see a red arc pointing at whatever hit you. Zombie groans and footsteps are positioned in 3D, gunfire echoes indoors, and your footsteps change with the surface.
 
-**Menus:** a title screen over live shots of the map, then a main menu with Solo, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
+**Menus:** a title screen over live shots of the map, then a main menu with Solo, Online Co-op, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
 - **Solo** sets up the match: map, difficulty (Casual, Normal, Hardened) and starting round (1, 5, 10, 15 or 20, with extra starting points). Maps:
   - **Route 9**: the full map, with the depot, bus lot, foggy road and the bus.
   - **Depot Survival**: the depot and bus lot only, with the gate chained shut.
@@ -65,6 +65,17 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Controls:** WASD move · Shift sprint · Space jump · Mouse aim · LMB fire · RMB aim down sights · R reload ·
 F/E interact · V knife · G grenade · T place turret/trap · Q/1/2/3/wheel switch weapon · Esc pause.
+
+## Online co-op
+
+Up to four players on any mix of phones (the Android app) and browsers. One player picks **Online Co-op → Host a Game** and reads out the 5-character room code; the others type it under **Join Game**. Players can also join a match that has already started.
+
+- **How it connects:** there is no game server of our own. Players exchange small messages through a free public MQTT broker over a secure WebSocket (HiveMQ, EMQX, Eclipse Mosquitto's test server or shiftr.io; the host takes the first one that answers, and the code's last digit tells joiners which). Both sides only make outgoing connections, so it works on mobile data and home Wi-Fi without port forwarding. The brokers are public: anyone who knows a room code could see that room's messages, which only carry game data and player names.
+- **Who runs what:** the host's game runs the zombies, rounds, doors, power, boards, power-ups and the bus, and sends a snapshot about 8 times a second. Everyone runs their own player, guns, perks, mystery box and buildables, and sends their hits to the host, which decides kills and credits the points to whoever made them.
+- **Shared:** doors, power, window boards, power-ups (they apply to everyone) and the round. **Your own:** points, guns, perks and buildables.
+- **Downs:** at zero health you go down instead of dying. A teammate holds F (or USE) next to you for 3 seconds to revive you; after 30 seconds you bleed out and come back at the start of the next round. If everyone is down at once, the game is over. Second Wind Soda still revives you on the spot.
+- **Zombies** chase whichever standing player is nearest, and rounds have 50% more zombies for each extra player.
+- The host's game must stay open and on screen: if the host leaves, the game ends for everyone. On the claude.ai page, the page's own security rules may not allow the connection; the Android app and a normal browser tab can make it.
 
 ## Android app
 
