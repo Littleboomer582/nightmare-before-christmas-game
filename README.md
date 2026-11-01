@@ -27,6 +27,7 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
   - **Depot Survival**: the depot and bus lot only, with the gate chained shut.
   - **Blackwater Pier**: a foggy fishing harbour. Zombies climb out of the water onto a boardwalk with a bait shop, warehouse, chowder shack and a long T-shaped fishing pier; the power switch is by the lighthouse.
   - **Cold Hollow Mine**: a snowed-in mining camp ringed by cliffs, with log cabins, a bunkhouse, a mess tent, a bonfire and falling snow; the Forge waits at the end of a dead-end mine tunnel.
+  - **Ashgrove Farmhouse**: classic survival in a ruined stone farmhouse in the marsh. Start in the kitchen, clear the rubble into the parlor (fireplace and the mystery box) and open the barn door. Zombies only get in through the boarded windows of rooms you've opened. No power, perks or buildables: just the wall guns and the box.
 - A loading screen shows the map, mode and a survival tip; press any key to begin, and the location is typed out as the match starts.
 - **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music, graphics quality and an FPS counter.
 - **Pause** (Esc) has Resume, Options, Field Manual, Restart Match and End Game.

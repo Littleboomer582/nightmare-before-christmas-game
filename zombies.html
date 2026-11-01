@@ -358,6 +358,7 @@
         <div>
           <h5>Other maps</h5>
           <p><b style="color:#fff">Blackwater Pier</b>: they climb out of the harbour onto the boardwalk. The power switch is by the lighthouse at the end of the pier.</p>
+          <p><b style="color:#fff">Ashgrove Farmhouse</b>: classic survival. No power, perks or buildables; zombies only come through the boarded windows of rooms you've opened.</p>
           <p><b style="color:#fff">Cold Hollow Mine</b>: a snowed-in camp. The power switch is on the generator by the bunkhouse, and the Forge is at the end of the mine tunnel.</p>
         </div>
         <div>
@@ -2249,12 +2250,21 @@ function spawnZombie() {
   // choose a spawner, weighted toward the player
   const cands = [];
   const pz = zoneOf(P.pos);
-  if (activeMap) {   // other maps: zombies rise at that map's spawn points near the player
+  if (activeMap) {   // other maps: zombies rise at that map's spawn points, or come to the windows of open rooms
     for (const [x, z] of activeMap.spawns) {
       const pos = new V3(x + activeMap.ox, 0, z), d = pos.distanceTo(P.pos);
       if (d >= 7 && d <= 50) cands.push({ w: null, pos, zone: 'world', weight: 1 / (1 + d * .1) });
     }
-    if (!cands.length) { const near = activeMap.spawns.map(([x, z]) => new V3(x + activeMap.ox, 0, z)).sort((a, b) => a.distanceTo(P.pos) - b.distanceTo(P.pos))[0]; cands.push({ w: null, pos: near, zone: 'world', weight: 1 }); }
+    for (const w of windows) {
+      if (!w.room || !activeMap.open || !activeMap.open.has(w.room)) continue;
+      const d = w.inside.distanceTo(P.pos);
+      if (d <= 45) cands.push({ w, pos: w.spawn, zone: 'out', weight: 1.4 / (1 + d * .12) });
+    }
+    if (!cands.length) {
+      const opts = activeMap.spawns.map(([x, z]) => ({ w: null, pos: new V3(x + activeMap.ox, 0, z), zone: 'world', weight: 1 }))
+        .concat(windows.filter(w => w.room && activeMap.open && activeMap.open.has(w.room)).map(w => ({ w, pos: w.spawn, zone: 'out', weight: 1 })));
+      cands.push(opts.sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0]);
+    }
   } else
   for (const w of windows) {
     const d = w.inside.distanceTo(P.pos);
@@ -2427,7 +2437,7 @@ function updateZombies(dt) {
     let target = null, moving = true;
     const speed = z.speed * (z.flinch > 0 ? .3 : 1);
 
-    if (z.state === 'toWindow' && pz === 'world' && dP < 18) { z.state = 'chase'; z.zone = 'world'; }
+    if (!activeMap && z.state === 'toWindow' && pz === 'world' && dP < 18) { z.state = 'chase'; z.zone = 'world'; }
     if (z.state === 'toWindow') {
       target = z.win.out;
       if (Math.hypot(z.pos.x - target.x, z.pos.z - target.z) < .35) { z.state = 'break'; z.breakT = 0; }
@@ -2916,8 +2926,11 @@ function buildPowerAndForge() {
     },
   });
 
-  // window repair (hold F)
-  for (const w of windows) {
+  for (const w of windows) addWindowRepair(w);
+}
+// Hold F at a broken window to nail the boards back up.
+function addWindowRepair(w) {
+  {
     interactables.push({
       pos: w.inside, r: 1.8, hold: true, win: w, t: 0,
       prompt() { return w.boards < 6 ? 'Hold <b>F</b> to rebuild barrier' : null; },
@@ -2961,6 +2974,7 @@ function buildParts() {
   // five spots inside the depot, four in the bus lot; parts are shuffled each game
   // five inside the depot, four in the bus lot, two at the gas station, two at the mill
   const mapDef = MAPDEFS[MODES[G.mode].map];
+  if (mapDef && mapDef.classic) return;   // classic maps: no buildables
   const spots = mapDef ? mapDef.spots.map(([x, z]) => [x + mapDef.ox, z]) : [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6],
     [-88, 25], [-104, 22], [74, 51.5], [91, 47]];
   if (G.mode === 'depot') { delete BUILDS.gale; spots.length = 9; }
@@ -4131,6 +4145,176 @@ function buildMine(def) {
   def.snow.frustumCulled = false; scene.add(def.snow);
 }
 
+// ---------------------------------------------------------------------------------------------
+// ASHGROVE FARMHOUSE (classic): a ruined stone farmhouse in a marsh. Kitchen -> parlor -> barn,
+// opened room by room; zombies only get in through the boarded windows of rooms that are open.
+// No power, no perks, no buildables.
+// ---------------------------------------------------------------------------------------------
+MT.farmWall = () => canvasTex(512, 512, (g, w, h) => {
+  const band = h * .62;   // canvas top = top of the wall; grimy whitewash above, bare fieldstone below
+  g.fillStyle = '#9d9786'; g.fillRect(0, 0, w, band); speckle(g, w, band, 9000, .12);
+  stains(g, w, band, 16, 'rgba(70,80,50,.25)'); stains(g, w, band, 10, 'rgba(60,45,30,.3)');
+  for (let i = 0; i < 7; i++) {   // whitewash peeled off, plaster showing
+    g.fillStyle = 'rgba(110,88,62,.55)'; g.beginPath(); let x = rand(0, w), y = rand(0, band); g.moveTo(x, y);
+    for (let k = 0; k < 9; k++) g.lineTo(x + rand(-40, 40), y + rand(-26, 26)); g.fill();
+  }
+  for (let i = 0; i < 22; i++) { const x = rand(0, w); const gr = g.createLinearGradient(0, 0, 0, band * rand(.4, 1)); gr.addColorStop(0, 'rgba(35,40,25,.45)'); gr.addColorStop(1, 'rgba(35,40,25,0)'); g.fillStyle = gr; g.fillRect(x, 0, rand(3, 14), band); }
+  g.strokeStyle = 'rgba(30,25,20,.5)'; g.lineWidth = 1.5;
+  for (let i = 0; i < 6; i++) { g.beginPath(); let x = rand(0, w), y = rand(0, band); g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += rand(-14, 14); y += rand(4, 18); g.lineTo(x, y); } g.stroke(); }
+  // fieldstone: irregular courses of rough stones in dark mortar
+  g.fillStyle = '#2e2a25'; g.fillRect(0, band, w, h - band);
+  for (let y = band + 2; y < h; ) {
+    const rh = rand(18, 30);
+    for (let x = rand(-30, 0); x < w; ) {
+      const sw = rand(28, 66), v = rand(70, 112) | 0, t = rand(-8, 8) | 0;
+      const jit = () => rand(-3, 3), x0 = x + 2, x1 = x + sw - 2, y0 = y + 1, y1 = y + rh - 2;
+      g.fillStyle = `rgb(${v + 6 + t},${v + 2},${v - 8 - t})`;
+      g.beginPath(); g.moveTo(x0 + 4 + jit(), y0 + jit()); g.lineTo(x1 - 4 + jit(), y0 + jit()); g.lineTo(x1 + jit(), (y0 + y1) / 2 + jit());
+      g.lineTo(x1 - 3 + jit(), y1 + jit()); g.lineTo(x0 + 3 + jit(), y1 + jit()); g.lineTo(x0 + jit(), (y0 + y1) / 2 + jit()); g.closePath(); g.fill();
+      const sh = g.createLinearGradient(0, y0, 0, y1); sh.addColorStop(0, 'rgba(255,250,235,.12)'); sh.addColorStop(.6, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)');
+      g.fillStyle = sh; g.fill();
+      x += sw;
+    }
+    y += rh;
+  }
+  speckle(g, w, h - band, 5000, .1);
+  const grime = g.createLinearGradient(0, h - 70, 0, h); grime.addColorStop(0, 'rgba(15,12,8,0)'); grime.addColorStop(1, 'rgba(15,12,8,.8)');
+  g.fillStyle = grime; g.fillRect(0, h - 70, w, 70);
+});
+MT.straw = (rx, ry) => canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#6b5a32'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1600; i++) { const v = rand(.5, 1); g.strokeStyle = `rgba(${200 * v | 0},${170 * v | 0},${90 * v | 0},.55)`; g.lineWidth = 1; g.beginPath(); const x = rand(0, w), y = rand(0, h), a = rand(0, 6.3), l = rand(4, 14); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  stains(g, w, h, 4, 'rgba(30,25,10,.12)');
+}, rx, ry);
+function buildFarm(def) {
+  const K = mapKit(def.ox), { X, bx, plane, navCol } = K;
+  const wallM = weather(mat(0xc4beae, { map: MT.farmWall(), roughness: .95 }), .3);
+  const floorM = (w, d) => { const t = MT.planks(w / 4, d / 4); return weather(mat(0xa8a090, { map: t, roughness: .85, bumpMap: t, bumpScale: .03 }), .25, .25); };
+  const darkWood = mat(0x2e2218, { map: T.wood(), roughness: .85 });
+  // marsh around the house
+  plane(160, 160, 0, 0, -.02, weather(mat(0x3a3324, { map: T.dirt(30, 30), roughness: 1 }), .35, .7));
+  const puddle = mat(0x07090b, { shininess: 160, specular: 0x8a8f99, transparent: true, opacity: .9 });
+  for (const [x, z, r] of [[-22, -14, 3], [24, 12, 4], [-18, 16, 2.5], [10, -18, 3.5], [30, -10, 2]]) { const pd = new THREE.Mesh(new THREE.CircleGeometry(r, 20), puddle); pd.rotation.x = -Math.PI / 2; pd.position.set(X(x), .006, z); pd.scale.y = .6; scene.add(pd); }
+  // floors: plank kitchen and parlor, straw-strewn barn
+  bx(9, .1, 16, -8.5, -.04, 0, floorM(9, 16), { collide: false });
+  bx(10, .1, 16, 1, -.04, 0, floorM(10, 16), { collide: false });
+  bx(10, .1, 16, 11, -.04, 0, weather(mat(0xffffff, { map: MT.straw(3, 5), roughness: 1 }), .3), { collide: false });
+  // walls: every segment is also a "wall" for zombie pathing, so they route through doorways
+  const c0 = colliders.length;
+  const win = { c: 0, w: 1.6, bottom: .9, top: 2.3 };
+  wallRun('x', -8, X(-13.15), X(16.15), [{ ...win, c: X(-9) }, { ...win, c: X(1) }, { ...win, c: X(11) }], wallM);
+  wallRun('x', 8, X(-13.15), X(16.15), [{ ...win, c: X(1) }, { ...win, c: X(11) }], wallM);
+  wallRun('z', X(-13), -8, 8, [{ ...win, c: 0 }], wallM);
+  wallRun('z', X(16), -8, 8, [{ ...win, c: -2 }], wallM);
+  wallRun('z', X(-4), -8, 8, [{ c: 0, w: 2, bottom: 0, top: 3, block: false }], wallM);    // kitchen | parlor
+  wallRun('z', X(6), -8, 8, [{ c: 3, w: 2, bottom: 0, top: 3, block: false }], wallM);     // parlor | barn
+  for (let i = c0; i < colliders.length; i++) if (colliders[i].minY < 1) { colliders[i].wall = true; navObstacles.push(colliders[i]); }   // not the lintels over doorways
+  // windows, each belonging to a room
+  const windowAt = (x, z, nx, nz, room) => { const w = makeWindow(X(x), z, nx, nz); w.room = room; addWindowRepair(w); };
+  windowAt(-9, -8, 0, -1, 'kitchen'); windowAt(-13, 0, -1, 0, 'kitchen');
+  windowAt(1, -8, 0, -1, 'parlor'); windowAt(1, 8, 0, 1, 'parlor');
+  windowAt(11, -8, 0, -1, 'barn'); windowAt(11, 8, 0, 1, 'barn'); windowAt(16, -2, 1, 0, 'barn');
+  // sagging plank ceiling with a hole torn in each room; moonlight falls through
+  const ceil = (x0, x1, z0, z1) => bx(x1 - x0, .2, z1 - z0, (x0 + x1) / 2, WALL_H + .1, (z0 + z1) / 2, darkWood, { collide: false });
+  for (const [x0, x1, hx, hz] of [[-13.15, -4, -10, 3], [-4, 6, 2.5, -3], [6, 16.15, 12.5, 2]]) {
+    ceil(x0, hx - 1.1, -8.15, 8.15); ceil(hx + 1.1, x1, -8.15, 8.15); ceil(hx - 1.1, hx + 1.1, -8.15, hz - 1.1); ceil(hx - 1.1, hx + 1.1, hz + 1.1, 8.15);
+    lightShaft(X(hx), WALL_H + .2, hz, .9, 1.6, 0xa8b8d8, .1);
+    for (let i = 0; i < 3; i++) { const plank = bx(rand(1.2, 2.2), .06, .25, hx + rand(-1, 1), WALL_H - .1 - i * .15, hz + rand(-.8, .8), darkWood, { collide: false }); plank.rotation.set(rand(-.5, .5), rand(0, 3), rand(-.4, .4)); }
+  }
+  for (let x = -12; x < 16; x += 2.4) bx(.22, .3, 16.2, x, WALL_H - .15, 0, darkWood, { collide: false });   // roof beams
+  // pitched roof over it all, fallen in above each hole in the ceiling: rafters stay, boards are gone
+  const roofM = weather(mat(0x4a4038, { map: T.wood(), roughness: .9 }), .4, .2);
+  const eave = 8.6, rise = 2.9, slope = Math.hypot(eave, rise), pitch = Math.atan2(rise, eave), ry = WALL_H + .1 + rise / 2;
+  const holes = [[-10, 3], [2.5, -3], [12.5, 2]];
+  for (const side of [-1, 1]) for (let x = -12.75; x < 16.5; x += 1.5) {
+    bx(.12, .2, slope, x, ry - .14, side * eave / 2, darkWood, { collide: false }).rotation.x = side * pitch;
+    if (holes.some(([hx, hz]) => Math.sign(hz) === side && Math.abs(x + .75 - hx) < 1.6)) continue;
+    bx(1.52, .1, slope, x + .75, ry, side * eave / 2, roofM, { collide: false }).rotation.x = side * pitch;
+  }
+  bx(30, .25, .25, 1.5, WALL_H + .1 + rise, 0, darkWood, { collide: false });                           // ridge
+  const gable = new THREE.Shape([new THREE.Vector2(-8.15, 0), new THREE.Vector2(8.15, 0), new THREE.Vector2(0, rise + .05)]);
+  for (const gx of [-13.15, 15.85]) {
+    const gm = new THREE.Mesh(new THREE.ExtrudeGeometry(gable, { depth: .3, bevelEnabled: false }), wallM);
+    gm.rotation.y = Math.PI / 2; gm.position.set(X(gx), WALL_H, 0); scene.add(gm);
+  }
+  bx(1.1, 5.8, .9, 4.2, 5.3, 7.5, mat(0x5a544a, { map: T.concrete(1, 3, '#55504a'), roughness: .95 }), { collide: false });   // chimney
+  // kitchen
+  bx(2.2, .1, 1.2, -8.5, .82, 2, darkWood, { collide: false });
+  for (const [dx, dz] of [[-1, -.5], [1, -.5], [-1, .5], [1, .5]]) bx(.08, .8, .08, -8.5 + dx, .4, 2 + dz, darkWood, { collide: false });
+  navCol(-9.7, -7.3, 1.35, 2.65, .9);
+  for (const [x, z, r] of [[-9.6, 3.1, 0], [-7.4, .9, 2.6], [-9.8, 1, .3]]) { const ch = bx(.45, .45, .45, x, .23, z, darkWood, { collide: false }); ch.rotation.y = r; bx(.45, .5, .06, x, .7, z + .2, darkWood, { collide: false }).rotation.y = r; }
+  bx(1.2, 1, .9, -12, .5, 6.6, M.darkMetal, { nav: true });                                         // iron stove
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 3, 10), M.darkMetal); pipe.position.set(X(-12), 2.5, 6.8); scene.add(pipe);
+  bx(.8, 2.2, 1.6, -12.5, 1.1, -4.5, mat(0x4a3a28, { roughness: .8 }), { nav: true });           // cupboard
+  bx(2.4, .95, .7, -6, .48, -7.45, mat(0x5a4a38, { roughness: .8 }), { nav: true });             // counter
+  // parlor
+  bx(2.2, 2.4, .8, 4.2, 1.2, 7.5, mat(0x6a6258, { map: T.concrete(1, 1, '#5c564c'), roughness: .9 }), { nav: true });   // fireplace
+  bx(1.2, .9, .1, 4.2, .55, 7.08, mat(0x080605), { collide: false, shoot: false });
+  def.fire = anchor(X(4.2), .9, 6.6, 0xff7a2a, 1.4, 9);
+  bx(2.4, .9, .9, -1.5, .45, 5.6, mat(0x4a2a24, { roughness: .9 }), { nav: true });              // sofa
+  bx(.9, .9, .9, 2, .45, 4.2, mat(0x3a3a2a, { roughness: .9 }), { nav: true });                  // armchair
+  bx(.6, 2.2, .45, -3.4, 1.1, -6.6, darkWood, { nav: true });                                    // grandfather clock
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.6), mat(0x5a2420, { roughness: 1 })); rug.rotation.x = -Math.PI / 2; rug.position.set(X(1), .015, 1.5); scene.add(rug);
+  // barn
+  const hay = mat(0xb08a42, { map: MT.straw(1, 1), roughness: 1 });
+  for (const [x, y, z] of [[13.6, .4, -6.6], [14.8, .4, -6.6], [14.2, 1.2, -6.6], [13.6, .4, -5.4], [7.4, .4, 7.2], [14.8, .4, 6.6], [14.8, 1.2, 6.6]]) bx(1.2, .8, .9, x, y, z, hay, { collide: false });
+  navCol(13, 15.4, -7.2, -4.9, 1.6); navCol(6.8, 8, 6.75, 7.65, .8); navCol(14.2, 15.4, 6.1, 7.2, 1.6);
+  bx(2.6, .25, 1.4, 9.5, .7, 5.6, darkWood, { nav: true });                                       // hay cart
+  for (const [dx, dz] of [[-.9, -.75], [.9, -.75], [-.9, .75], [.9, .75]]) { const wh = new THREE.Mesh(new THREE.TorusGeometry(.4, .05, 6, 16), darkWood); wh.position.set(X(9.5 + dx), .4, 5.6 + dz); scene.add(wh); }
+  for (const z of [-3.2, -.6]) bx(.12, 1.2, 2.2, 8.6, .6, z, darkWood, { collide: false });     // stall dividers
+  // lanterns: one per room, flickering
+  def.lanterns = [[-8.5, 2], [1, -1], [11, 0]].map(([x, z]) => {
+    bx(.2, .3, .2, x, 3.3, z, M.lamp, { collide: false, shoot: false });
+    const ch = new THREE.Mesh(new THREE.CylinderGeometry(.01, .01, .7, 4), M.darkMetal); ch.position.set(X(x), 3.75, z); scene.add(ch);
+    return anchor(X(x), 3.1, z, 0xffa04a, 1, 12);
+  });
+  // rubble between kitchen and parlor; a barn door between parlor and barn
+  const rubble = [];
+  for (const [y, z, w, h] of [[.35, -.5, .9, .7], [.35, .5, .9, .7], [.95, 0, .8, .5], [1.6, .2, .3, 2.6]]) rubble.push(bx(.8, h, w, -4, y, z, M.crate, { collide: false }));
+  rubble[3].rotation.x = .9;
+  const stoneM = mat(0x5a5650, { roughness: .95 });
+  for (let i = 0; i < 6; i++) { const st = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.15, .3), 0), stoneM); st.position.set(X(-4 + rand(-.6, .6)), .15, rand(-1, 1)); scene.add(st); rubble.push(st); }
+  const barnDoor = bx(.12, 2.9, 2, 6, 1.45, 3, mat(0x5a3e26, { map: T.wood(), roughness: .85 }), { collide: false });
+  [...rubble, barnDoor].forEach(m => m.userData.dynamic = true);
+  const doorway = (meshes, x0, x1, z0, z1, cost, label, room, at, at2) => {
+    const col = navCol(x0, x1, z0, z1, 3); col.wall = true;
+    interactables.push({
+      pos: new V3(X(at[0]), 0, at[1]), pos2: new V3(X(at2[0]), 0, at2[1]), r: 2.2,
+      prompt() { return col.off ? null : `Press <b>F</b> to ${label} [Cost: ${cost}]`; },
+      use() {
+        if (col.off || !spend(cost)) return;
+        col.off = true; def.open.add(room); SFX.board();
+        for (const m of meshes) scene.remove(m);
+        const set = new Set(meshes); shootables = shootables.filter(m => !set.has(m));
+        burst(new V3(X((x0 + x1) / 2), 1, (z0 + z1) / 2), 'dust', 30, 4, 2);
+        buildNavGraph(def);   // zombies can route through the new opening
+        announce(room === 'parlor' ? 'THE PARLOR IS OPEN' : 'THE BARN IS OPEN', '#e8d9b0', 1.8);
+      },
+    });
+  };
+  doorway(rubble, -4.4, -3.6, -1, 1, 750, 'clear the rubble', 'parlor', [-5.2, 0], [-2.8, 0]);
+  doorway([barnDoor], 5.6, 6.4, 2, 4, 1000, 'open the barn door', 'barn', [4.8, 3], [7.2, 3]);
+  // guns chalked on the walls
+  chalk('m14', X(-8.5), 1.7, 7.83, Math.PI);
+  chalk('dbl', X(-4.17), 1.7, -5, -Math.PI / 2);
+  chalk('mp5', X(-3.83), 1.7, 5, Math.PI / 2);
+  chalk('r870', X(-2), 1.7, -7.83, 0);
+  chalk('ak74u', X(8), 1.7, -7.83, 0);
+  chalk('m16', X(15.83), 1.7, 4, -Math.PI / 2);
+  // outside: dead trees, a well, a broken fence (all seen only through the windows)
+  const bark = mat(0x2a2119);
+  for (let i = 0; i < 26; i++) {
+    const a = rand(0, 6.3), r = rand(18, 45), x = Math.cos(a) * r, z = Math.sin(a) * r * .8;
+    const t = new THREE.Group(), h = rand(4, 8);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.12, .3, h, 6), bark); trunk.position.y = h / 2; trunk.rotation.z = rand(-.15, .15); t.add(trunk);
+    for (let k = 0; k < 4; k++) { const br = new THREE.Mesh(new THREE.CylinderGeometry(.04, .1, rand(1.5, 3), 5), bark); br.position.y = h * rand(.5, .9); br.rotation.z = rand(-1.2, 1.2); br.rotation.y = rand(0, 6); t.add(br); }
+    t.position.set(X(x), 0, z); t.userData.staticGroup = true; scene.add(t);
+  }
+  const well = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.1, 1, 14, 1, true), stoneM); well.position.set(X(-20), .5, 11); scene.add(well);
+  for (let x = -26; x <= 30; x += 2.2) { if (Math.random() < .25) continue; const post = bx(.12, rand(.7, 1.2), .12, x, .5, -15, darkWood, { collide: false }); post.rotation.z = rand(-.2, .2); }
+  anchor(X(-20), 2.5, 11, 0x8fa0c0, .5, 10);
+}
+
 const MAPDEFS = {
   pier: {
     ox: 600, build: buildPier, start: [0, -12], yaw: Math.PI,
@@ -4175,6 +4359,23 @@ const MAPDEFS = {
       }
       this.snow.position.x = this.ox;
       p.needsUpdate = true;
+    },
+  },
+  farm: {
+    ox: 1200, build: buildFarm, start: [-8.5, -2], yaw: -Math.PI / 2, classic: true,
+    fog: 0x141a16, density: .05, zenith: 0x05070a,
+    spots: [], spawns: [],
+    nav: [[-8.5, -2], [-11, -5], [-11, 5], [-6, -5], [-6, 5], [-5.2, 0], [-2.8, 0], [1, 0], [-2, -5], [-2, 4], [4, -5], [4.2, 1.5], [4.8, 3], [7.2, 3], [11, 0], [8, -4.5], [14, -3.5], [8, 3], [12.5, 4]],
+    box: [3.5, -7.35, 0],
+    shots: [
+      { from: [-11, 1.7, 5], to: [-10, 1.9, 4], look: [-8.5, 1, 1] },
+      { from: [-1, 1.7, -4], to: [0, 1.8, -3], look: [4.2, 1, 7] },
+      { from: [-26, 1.8, -20], to: [-22, 2.2, -21], look: [0, 2, 0] },
+    ],
+    update(dt, t) {
+      this.fire.intensity = 1.2 + Math.sin(t * 11) * .2 + Math.random() * .3;
+      if (Math.random() < dt * 8) burst(new V3(this.ox + 4.2 + rand(-.4, .4), .6, 7.1), 'fire', 1, 1, .5);
+      this.lanterns.forEach((l, i) => l.intensity = .85 + Math.sin(t * 7 + i * 2) * .08 + (Math.random() < .02 ? -.5 : 0));
     },
   },
 };
@@ -4223,6 +4424,7 @@ function enterMap(key) {
     if (def.nav) buildNavGraph(def);
   }
   activeMap = def;
+  if (def.classic) def.open = new Set(['kitchen']);
   P.pos.set(def.ox + def.start[0], 0, def.start[1]); P.yaw = def.yaw; P.pitch = 0;
   moveBox(def.ox + def.box[0], def.box[1], def.box[2]);
   setAtmosphere(def.fog, def.density, def.zenith);
@@ -4248,6 +4450,10 @@ const MODES = {
     desc: 'A snowed-in mining camp ringed by cliffs. They stagger out of the dark tunnel and down off the rocks. Keep the bonfire at your back and the Forge waits at the end of the mine.',
     bullets: ['Log cabins, bunkhouse and mess tent', 'Dead-end mine tunnel with the Forge', 'All four buildables, falling snow'],
     intro: ['COLD HOLLOW MINE No. 3', 'Snowed in since Tuesday', 'November 2 · 3:40 AM'] },
+  farm: { map: 'farm', name: 'Ashgrove Farmhouse', short: 'Ashgrove Farm', tag: 'Classic · Survival', title: 'Ashgrove Farmhouse',
+    desc: 'Back to basics. A ruined farmhouse in the marsh, boarded windows and the guns on the walls: no power, no perks, no buildables. Open it up room by room and hold out.',
+    bullets: ['Kitchen, parlor and barn, opened one at a time', 'Seven boarded windows: the only way in', 'Wall guns and the mystery box, nothing else'],
+    intro: ['ASHGROVE FARMHOUSE', 'Blackmarsh Road, abandoned', 'November 3 · 12:20 AM'] },
 };
 const DIFFS = {
   easy:   { name: 'Casual', hp: .7, dmg: 40, run: -.1, desc: 'Weaker, slower zombies that hit softer.' },
@@ -4322,7 +4528,7 @@ const SCREEN_HOOKS = {
 // ---- solo setup ----
 function renderSolo() {
   const m = MODES[CFG.mode], d = DIFFS[CFG.diff];
-  $('optMode').textContent = m.name; $('optDiff').textContent = d.name; $('optStart').textContent = CFG.start;
+  $('optMode').textContent = m.short || m.name; $('optDiff').textContent = d.name; $('optStart').textContent = CFG.start;
   $('soloCard').innerHTML = `<span class="tag">${m.tag}</span><h4>${m.name}</h4><p>${m.desc}</p><ul>${m.bullets.map(b => `<li>${b}</li>`).join('')}</ul>
     <p><span style="color:var(--amber)">${d.name}.</span> ${d.desc}</p>
     <p>${CFG.start > 1 ? `Start at round ${CFG.start} with ${startPoints(CFG.start)} points.` : 'Start at round 1 with 500 points.'}</p>`;
