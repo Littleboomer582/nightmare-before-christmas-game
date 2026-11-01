@@ -58,3 +58,11 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Controls:** WASD move · Shift sprint · Space jump · Mouse aim · LMB fire · RMB aim down sights · R reload ·
 F/E interact · V knife · G grenade · T place turret/trap · Q/1/2/3/wheel switch weapon · Esc pause.
+
+## Android app
+
+`android/dist/DeadEndDepot.apk` is the game packaged as an Android app (Android 7.0 or newer). It runs full screen in landscape, works completely offline (three.js and the fonts are bundled inside), keeps your settings and leaderboard, and uses the touch controls. The Back button pauses during play, steps back through menus, and exits from the title screen.
+
+**Installing:** copy the APK to your phone (or download it from GitHub on the phone) and open it. Android asks you to allow installs from that app (your browser or Files) the first time; Play Protect may warn that the app is from an unknown developer, choose to install anyway.
+
+**Rebuilding:** `android/build.sh [versionCode] [versionName]` rebuilds it from `zombies.html`. It doesn't need the Android SDK: it compiles `android/app/src` with the JDK against Android's API stubs, converts it with `dx`, writes the binary manifest and resource table itself (`android/tools/apk.py`), and signs with Google's `apksig` (`android/tools/Sign.java`), all fetched from Maven Central and npm. The signing key lives in `android/keystore/` (not committed); Android only installs an update over an existing install when it is signed with the same key.

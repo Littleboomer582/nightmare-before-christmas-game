@@ -4336,6 +4336,22 @@ document.querySelectorAll('#scrOptions .back').forEach(b => b.addEventListener('
   if (G.state === 'menu' && pendingQuality !== QUALITY) { e.stopImmediatePropagation(); try { sessionStorage.setItem('ded_return', 'scrOptions'); } catch (er) {} location.reload(); }
 }, true));
 
+// Leaving the page or switching apps pauses the match and silences the audio.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (G.state === 'playing') pauseGame(); if (AC && AC.state === 'running') AC.suspend(); }
+  else if (AC && AC.state === 'suspended' && G.state !== 'playing') AC.resume();
+});
+// Android app hooks: the system Back button and app pause/resume.
+window.onAppPause = () => { if (G.state === 'playing') pauseGame(); if (AC) AC.suspend(); };
+window.onAppResume = () => { if (AC && G.state !== 'playing') AC.resume(); };
+window.androidBack = () => {
+  if (G.state === 'playing') { pauseGame(); return; }
+  if (G.state === 'paused' && Menu.cur === 'scrPause') { resumeGame(); return; }
+  if (Menu.cur === 'scrLoading') return;
+  if (Menu.stack.length) { Menu.back(); return; }
+  if (Menu.cur === 'scrMain') { Menu.reset('scrTitle'); return; }
+  if (window.AndroidApp) window.AndroidApp.exit();
+};
 document.addEventListener('pointerlockchange', () => {
   if (!document.pointerLockElement && G.state === 'playing' && !TOUCH) pauseGame();
 });
