@@ -356,6 +356,10 @@
           <p>Throw the power switch by the generator in the bus lot to wake the perk machines and the Forge.</p>
         </div>
         <div>
+          <h5>Perks</h5>
+          <p>Hold up to four. Ironhide Ale (more health), Quickhands Cola (fast reloads), Doubleshot Draught (faster fire, double damage), Second Wind Soda (one self-revive), Fleetfoot Fizz (run faster and longer), Third Holster Tonic (a third gun), Steady Hand Stout (tighter aim, harder headshots), Spark Cider (a shock when you reload) and Blastproof Bitters (your own explosions can't hurt you).</p>
+        </div>
+        <div>
           <h5>The route</h5>
           <p>Past the gate, a bus runs the foggy road between the depot, Pine Hollow Gas &amp; Motel and Kessler Lumber Mill. Walk in through its side door before it leaves.</p>
           <p>Thirteen parts lie around the route. Build the Riot Shield, Sentry Turret, Shock Trap and Gale Cannon at any workbench.</p>
@@ -715,7 +719,7 @@ function textTex(lines, { w = 512, h = 256, bg = null, color = '#fff', font = 'S
     if (glow) { g.shadowColor = glow; g.shadowBlur = 18; }
     g.fillStyle = color;
     const lh = size * 1.15, y0 = h / 2 - (lines.length - 1) * lh / 2;
-    lines.forEach((l, i) => g.fillText(l, w / 2, y0 + i * lh));
+    lines.forEach((l, i) => g.fillText(l, w / 2, y0 + i * lh, w * .92));   // squeeze, never clip, a long line
     if (chalk) { g.globalCompositeOperation = 'destination-out'; speckle(g, w, h, 2500, 0.6); }
   });
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
@@ -1511,6 +1515,7 @@ const SFX = {
   power() { tone(60, 2.5, { type: 'sawtooth', vol: .25, slide: 2, attack: .3 }); noiseHit({ dur: .3, freq: 800, vol: .5 }); },
   powerup() { [523, 659, 784, 1046].forEach((f, i) => tone(f, .25, { type: 'square', vol: .1, when: i * .07 })); },
   boxSpin() { for (let i = 0; i < 18; i++) tone(rand(500, 900), .08, { type: 'triangle', vol: .08, when: i * .19 }); },
+  zap() { noiseHit({ dur: .3, freq: 3500, type: 'highpass', vol: .35 }); tone(95, .35, { type: 'sawtooth', vol: .22, slide: 2.5 }); tone(1900, .12, { type: 'square', vol: .06, slide: .4 }); },
   upgrade() { [220, 277, 330, 440, 554].forEach((f, i) => tone(f, .6, { type: 'sawtooth', vol: .1, when: i * .12 })); },
   // recording-only events: silent unless a recording is loaded
   pump() {}, zattack() {}, zdeath() {}, pdeath() {},
@@ -2023,6 +2028,12 @@ const QUOTE_LINES = {
   perk_quick: ["Whoa. My hands are buzzing.", "Fast hands. Fast reloads. Fast everything."],
   perk_dbl: ["Double the fire. Double the fun.", "Tastes like gunpowder. Is that normal?"],
   perk_wind: ["Second chances, bottled. Nice.", "Insurance in a can."],
+  perk_fleet: ["My legs feel like they've had three coffees.", "Run now. Ask questions later."],
+  perk_holster: ["Room for one more gun. Always room for one more gun.", "Three guns. That's a lot of guns. Good."],
+  perk_steady: ["Hands steady. Eyes sharp.", "Tastes like focus. And a little like pennies."],
+  perk_spark: ["My fingers are crackling. That's new.", "Static in a bottle. Let's light 'em up."],
+  perk_blast: ["Explosions don't scare me anymore. Well. Less.", "Tastes like smoke. Feels like armor."],
+  sparkKill: ["Bzzzt. Next!", "Reloading with a side of lightning.", "Shocked? Me too."],
   power: ["Lights! We've got lights!", "Power's on. Let's see what works.", "Hear that hum? That's the sound of perks."],
   forge: ["Forged. Shiny. Deadly.", "{w}. Oh, they're in trouble now.", "That machine just made my gun angry."],
   door_lot: ["Bus lot's open. More room to run.", "More room to run. More room for them, too."],
@@ -2885,7 +2896,7 @@ function spend(cost) {
 function giveWeapon(id, upgraded = false) {
   const w = makeWeapon(id, upgraded);
   const guns = P.weapons.filter(x => x.def.id !== 'gale');
-  if (guns.length < 2) { P.weapons.push(w); P.cur = P.weapons.length - 1; }
+  if (guns.length < (P.perks.has('holster') ? 3 : 2)) { P.weapons.push(w); P.cur = P.weapons.length - 1; }
   else {
     let idx = P.cur;
     if (P.weapons[idx].def.id === 'gale') idx = P.weapons.map(x => x.def.id).lastIndexOf(guns[guns.length - 1].def.id);
@@ -2900,6 +2911,11 @@ const PERKS = {
   quick: { name: 'Quickhands Cola', short: 'Q', color: '#2fb6c9', hex: 0x2fb6c9, cost: 3000, desc: 'reload twice as fast' },
   dbl:   { name: 'Doubleshot Draught', short: 'D', color: '#e2a52a', hex: 0xe2a52a, cost: 2000, desc: 'faster fire, double damage' },
   wind:  { name: 'Second Wind Soda', short: 'S', color: '#4bd56b', hex: 0x4bd56b, cost: 1500, desc: 'one free self-revive' },
+  fleet:   { name: 'Fleetfoot Fizz', short: 'F', color: '#ff8a2a', hex: 0xff8a2a, cost: 2000, desc: 'run faster, sprint longer' },
+  holster: { name: 'Third Holster Tonic', short: '3', color: '#b58552', hex: 0xb58552, cost: 4000, desc: 'carry a third gun' },
+  steady:  { name: 'Steady Hand Stout', short: 'H', color: '#5f7fd6', hex: 0x5f7fd6, cost: 1500, desc: 'tighter aim, less kick, harder headshots' },
+  spark:   { name: 'Spark Cider', short: 'Z', color: '#ff4fa3', hex: 0xff4fa3, cost: 2000, desc: 'reloading shocks zombies around you' },
+  blast:   { name: 'Blastproof Bitters', short: 'B', color: '#9a5ae8', hex: 0x9a5ae8, cost: 2000, desc: 'your own explosions can\'t hurt you; grenades hit harder' },
 };
 const perkMachines = [];
 function perkMachine(id, x, z, rotY) {
@@ -2907,7 +2923,8 @@ function perkMachine(id, x, z, rotY) {
   const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; g.userData.staticGroup = true; scene.add(g);
   const bodyM = mat(p.hex, { shininess: 50, emissive: 0x000000 });
   const bodyMesh = box(1.05, 2.2, .8, 0, 1.1, 0, bodyM, { collide: false, parent: g });
-  const panelTex = textTex([p.name.split(' ')[0].toUpperCase(), p.name.split(' ').slice(1).join(' ').toUpperCase()], { w: 256, h: 256, bg: '#111', color: p.color, size: 40, font: 'Oswald', glow: p.color });
+  const words = p.name.toUpperCase().split(' ');
+  const panelTex = textTex(words.length > 2 ? words : [words[0], words.slice(1).join(' ')], { w: 256, h: 256, bg: '#111', color: p.color, size: 40, font: 'Oswald', glow: p.color });
   const panelM = mat(0xffffff, { map: panelTex, emissive: 0x000000, emissiveMap: panelTex });
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(.8, .8), panelM); panel.position.set(0, 1.55, .41); g.add(panel);
   const slot = box(.5, .2, .05, 0, .55, .41, M.darkMetal, { collide: false, shoot: false, parent: g });
@@ -3539,7 +3556,7 @@ function updateGrenades(dt) {
     n.m.position.copy(n.pos);
     if (n.fuse <= 0) {
       scene.remove(n.m); grenades.splice(i, 1);
-      explode(n.pos, 5, 260 + G.round * 90, true);
+      explode(n.pos, 5, (260 + G.round * 90) * (P.perks.has('blast') ? 1.5 : 1), true);
     }
   }
 }
@@ -3553,7 +3570,7 @@ function explode(pos, radius, dmg, hurtsPlayer) {
     if (d < radius) damageZombie(z, dmg * (1 - d / radius * .6), 'splash', null, null, new V3(z.pos.x - pos.x, 0, z.pos.z - pos.z));
   }
   const pd = P.pos.distanceTo(new V3(pos.x, 0, pos.z));
-  if (hurtsPlayer && pd < 3) { P.hp -= 35 * (1 - pd / 3); P.lastHurt = G.time; camShake = .4; if (P.hp <= 0) playerDown(); }
+  if (hurtsPlayer && pd < 3 && !P.perks.has('blast')) { P.hp -= 35 * (1 - pd / 3); P.lastHurt = G.time; camShake = .4; if (P.hp <= 0) playerDown(); }
   else if (pd < 8) camShake = .2;
 }
 
@@ -3568,6 +3585,7 @@ function currentSpread(w) {
   const moving = input.keys.KeyW || input.keys.KeyA || input.keys.KeyS || input.keys.KeyD;
   let s = w.def.spread * (moving ? 1.6 : 1) * (P.onGround ? 1 : 2);
   s *= 1 - vm.ads * .75;
+  if (P.perks.has('steady')) s *= .5;
   return s;
 }
 function muzzleWorld() {
@@ -3582,9 +3600,10 @@ function fire() {
   SFX.shot(d.kind);
   if (d.kind === 'shotgun' && !d.auto && !d.twin) setTimeout(() => SFX.pump(), 380);   // rack the pump
   vm.kick = Math.min(1, vm.kick + (d.kind === 'sniper' || d.kind === 'cannon' || d.kind === 'shotgun' ? 1 : .45));
-  recoilPitch += d.kind === 'sniper' ? .03 : d.kind === 'shotgun' || d.kind === 'cannon' ? .025 : d.auto ? .006 : .012;
+  const steady = P.perks.has('steady') ? .5 : 1;
+  recoilPitch += steady * (d.kind === 'sniper' ? .03 : d.kind === 'shotgun' || d.kind === 'cannon' ? .025 : d.auto ? .006 : .012);
   // real recoil: the aim itself climbs (more for automatics held down) and kicks sideways a little
-  const climb = (d.kind === 'sniper' ? .012 : d.kind === 'shotgun' || d.kind === 'cannon' ? .016 : d.auto ? .0055 : .006) * (1 - vm.ads * .35);
+  const climb = (d.kind === 'sniper' ? .012 : d.kind === 'shotgun' || d.kind === 'cannon' ? .016 : d.auto ? .0055 : .006) * (1 - vm.ads * .35) * steady;
   P.pitch = Math.min(1.5, P.pitch + climb); P.yaw += rand(-1, 1) * climb * .55;
   vm.rollKick = rand(-1, 1) * .05;
   puff(muzzleWorld(), 'smoke', d.kind === 'shotgun' ? .14 : .07, .9);
@@ -3623,7 +3642,7 @@ function fire() {
       hitZ.add(z);
       const isHead = h.object.userData.part === 'head';
       if (d.kind === 'arc') { end = h.point; arcChain(z, h.point, dmg, w.up); break; }
-      damageZombie(z, dmg * (isHead ? d.head : 1), isHead ? 'head' : 'body', h.point, h.object.userData.limb, dir);
+      damageZombie(z, dmg * (isHead ? d.head * (steady < 1 ? 1.25 : 1) : 1), isHead ? 'head' : 'body', h.point, h.object.userData.limb, dir);
       if (isHead) SFX.head(); else SFX.hit();
       end = h.point;
       if (--pierce <= 0) break;
@@ -3682,7 +3701,7 @@ function rayImpact(pt, dmg, up, direct) {
   }
   // fire it at your own feet and it bites back (the upgraded version doesn't)
   const pd = new V3(P.pos.x, P.pos.y + 1, P.pos.z).distanceTo(pt);
-  if (!up && pd < 2 && P.invuln <= 0 && G.state === 'playing') { P.hp -= 15 + 25 * (1 - pd / 2); P.lastHurt = G.time; camShake = .3; if (P.hp <= 0) playerDown(); }
+  if (!up && !P.perks.has('blast') && pd < 2 && P.invuln <= 0 && G.state === 'playing') { P.hp -= 15 + 25 * (1 - pd / 2); P.lastHurt = G.time; camShake = .3; if (P.hp <= 0) playerDown(); }
 }
 function arcChain(first, pt, dmg, up) {
   const col = up ? 0xd36bff : 0x8fe6ff;
@@ -3705,6 +3724,23 @@ function startReload() {
   const dur = w.def.reload * (P.perks.has('quick') ? .5 : 1);
   W_STATE.reloading = dur; vm.reloadDur = dur;
   SFX.reload();
+  if (P.perks.has('spark')) sparkBlast(1 - w.mag / w.magSize);
+}
+// Spark Cider: reloading lets off a shock round you; the emptier the magazine, the bigger it is.
+function sparkBlast(empty) {
+  if (empty < .1 || G.time < (P.sparkReady || 0)) return;
+  P.sparkReady = G.time + 3;
+  const r = 2.5 + 3 * empty, dmg = (250 + G.round * 110) * empty, c = P.pos.clone().setY(1.1);
+  SFX.zap(); worldFlash(c, 0xff6ab8, 3.5, r * 2, .35); burst(c, 'spark', 18, 5, .8);
+  let n = 0, kills = 0;
+  for (const z of zombies) {
+    if (z.dead || z.state === 'toWindow' || z.state === 'climb') continue;
+    const d = dPlayer(z); if (d > r) continue;
+    if (n++ < 8) bolt(c, z.pos.clone().setY(1.2), 0xff8ad0);
+    damageZombie(z, dmg * (1 - d / r * .4), 'splash', null, null, new V3(z.pos.x - P.pos.x, 0, z.pos.z - P.pos.z));
+    if (z.dead) kills++; else z.flinch = Math.max(z.flinch || 0, .8);
+  }
+  if (kills >= 2) Quotes.say('sparkKill', { chance: .5, cd: 30 });
 }
 function finishReload() {
   const w = P.weapons[P.cur];
@@ -3817,8 +3853,9 @@ function updatePlayer(dt) {
   const wantSprint = k.ShiftLeft || (stick.id !== null && stick.mag > .92 && f > .7);
   const sprinting = wantSprint && f > 0 && !input.rmb && P.stamina > 0 && W_STATE.reloading <= 0;
   P.sprinting = sprinting;
-  P.stamina = clamp(P.stamina + (sprinting ? -dt / 5 : dt / 3), 0, 1);
-  let speed = sprinting ? 6.8 : 4.5;
+  const fleet = P.perks.has('fleet');
+  P.stamina = clamp(P.stamina + (sprinting ? -dt / (fleet ? 12 : 5) : dt / (fleet ? 2 : 3)), 0, 1);
+  let speed = (sprinting ? 6.8 : 4.5) * (fleet ? 1.13 : 1);
   if (input.rmb) speed *= .6;
   const fwd = new V3(-Math.sin(P.yaw), 0, -Math.cos(P.yaw)), right = new V3(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const mv = fwd.multiplyScalar(f).add(right.multiplyScalar(s));
@@ -4206,6 +4243,11 @@ function buildPier(def) {
   perkMachine('dbl', X(-18.6), -18, Math.PI / 2);
   perkMachine('quick', X(-2.6), 43, Math.PI / 2);
   perkMachine('wind', X(24), -34, -Math.PI / 2);
+  perkMachine('blast', X(-10), -6.95, Math.PI);         // behind the chowder shack
+  perkMachine('fleet', X(-5.55), -32.6, Math.PI / 2);   // warehouse, east side
+  perkMachine('steady', X(5.55), -37, -Math.PI / 2);    // bait shop, west side
+  perkMachine('spark', X(19.4), -10, -Math.PI / 2);     // boardwalk, east railing
+  perkMachine('holster', X(16), 45.45, Math.PI);        // out at the end of the pier
   powerSwitch(X(21.4), 43.8, 0);
   buildForge(X(-16), 5.5, Math.PI * .75);
   workbench(X(0), -42.6, 0);
@@ -4311,6 +4353,11 @@ function buildMine(def) {
   perkMachine('dbl', X(6.5), -5, -Math.PI / 2);
   perkMachine('quick', X(12), 8.6, Math.PI);
   perkMachine('wind', X(-6.5), -33.2, 0);
+  perkMachine('fleet', X(-20), 7.05, Math.PI);          // Cabin 2, front
+  perkMachine('spark', X(16), -17.45, Math.PI);         // behind the bunkhouse
+  perkMachine('steady', X(-2.95), 24, -Math.PI / 2);    // foreman's cabin, west side
+  perkMachine('holster', X(18), 15.45, 0);              // mess tent, south side
+  perkMachine('blast', X(-21.95), -12, -Math.PI / 2);   // assay office, west side
   buildForge(X(0), -50.5, 0);
   workbench(X(-10.4), -2, Math.PI / 2);
   workbench(X(10), 20.6, Math.PI);
@@ -4648,7 +4695,10 @@ const TIPS = [
   'Headshots are worth more points than body shots, and knife kills more still.',
   'The bus waits 25 seconds at each stop. It honks before it leaves.',
   'Turn on the power before you buy perks. The switch is on the generator in the bus lot.',
-  'The Ray Pistol\'s splash hurts you at point blank. Forge it to fix that.',
+  'The Ray Pistol\'s splash hurts you at point blank. Forge it, or drink Blastproof Bitters.',
+  'You can hold four perks at a time. Choose the ones that fit how you play.',
+  'Third Holster Tonic lets you carry a third gun. The mystery box fills the new slot.',
+  'Spark Cider shocks everything near you when you reload. The emptier the mag, the bigger the blast.',
   'Let the Gale Cannon cool between bursts. At 100% heat it breaks.',
   'Placed traps and turrets wear out. Rebuild them at any workbench after 30 seconds.',
   'A Riot Shield only blocks hits from the front. Keep your back to a wall.',
@@ -5006,6 +5056,11 @@ perkMachine('iron', -11.2, -7.2, Math.PI / 4);
 perkMachine('dbl', 11.2, -7.2, -Math.PI / 4);
 perkMachine('quick', -17.2, 9.3, Math.PI / 2);
 perkMachine('wind', 17.2, 24.6, -Math.PI / 2 - .4);
+perkMachine('steady', 10.5, 8.6, 0);              // bus lot, against the depot's back wall
+perkMachine('blast', 17.4, 19.5, -Math.PI / 2);   // bus lot, east fence
+perkMachine('fleet', -83.55, 15, Math.PI / 2);    // Pine Hollow: side of the store, past the Galil
+perkMachine('spark', -108.7, 19.45, 0);           // the motel, between rooms 1 and 2
+perkMachine('holster', 80.5, 53.4, Math.PI);      // Kessler Lumber: back of the saw shed, behind the saw
 buildBox();
 buildPowerAndForge();
 buildAtmosphere();

@@ -42,7 +42,7 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
   - **Debris (750):** clears the south door into the bus lot.
   - **Lot gate (1000):** opens the bus lot onto the road.
   - **Power switch** (by the generator in the lot): powers the perk machines and the Forge.
-  - **Perks:** Ironhide Ale (more health), Quickhands Cola (fast reload), Doubleshot Draught (faster fire and double damage), Second Wind Soda (one self-revive).
+  - **Perks** (hold up to four): Ironhide Ale (more health), Quickhands Cola (fast reload), Doubleshot Draught (faster fire and double damage), Second Wind Soda (one self-revive), Fleetfoot Fizz (run faster, sprint longer), Third Holster Tonic (carry a third gun), Steady Hand Stout (half the spread and recoil, harder headshots), Spark Cider (reloading shocks zombies around you; the emptier the mag, the bigger the shock) and Blastproof Bitters (your own grenades and Ray Pistol splash can't hurt you; grenades hit harder). Route 9 has all nine (six in Depot Survival), and Blackwater Pier and Cold Hollow Mine have all nine too.
   - **The Forge (5000):** upgrades your current weapon to its stronger version.
 - **The road and the bus:** past the lot gate a foggy road runs west and east. A bus shuttles along it, waiting 25 seconds at each stop: walk in through its side door to ride. It turns around at each end of the line, runs over anything in the road, and the horde follows you wherever you go.
   - **Pine Hollow Gas & Motel** (west): pumps under a canopy, a store with the Galil on its wall (1700), and a neon-lit motel row.
