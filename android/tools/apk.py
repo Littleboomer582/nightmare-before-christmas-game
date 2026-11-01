@@ -192,6 +192,9 @@ def prepare_web(html_path, npm_dir, out):
         print('warning: the page head still references the network', file=sys.stderr)
     with open(os.path.join(out, 'index.html'), 'w', encoding='utf-8') as fh:
         fh.write(html)
+    sounds = os.path.join(os.path.dirname(os.path.abspath(html_path)), 'sounds')   # optional recorded sounds
+    if os.path.isdir(sounds):
+        shutil.copytree(sounds, os.path.join(out, 'sounds'))
 
 
 # ---------------------------------------------------------------- APK zip

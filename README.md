@@ -15,6 +15,10 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Goal:** survive as many rounds as you can.
 
+**Performance:** the static world is merged into a few hundred batched meshes, zombies are built from pre-merged parts (small details switch off beyond 14 m), particles, smoke, bullet holes and tracers each draw in one call, shadows refresh every other frame, and the lamp budget depends on the graphics level. Graphics has three levels: High (soft contact shadows, anti-aliasing, flashlight shadows), Medium (the default on computers) and Low (the default on phones). Dynamic Resolution (on by default) renders fewer pixels when frames run slow and recovers when there's headroom.
+
+**Recorded sounds:** put audio files in a `sounds/` folder next to `zombies.html` and list them in `sounds/sounds.json` (for example `["shot-rifle.ogg", "groan-1.ogg", "groan-2.ogg"]`). Each recording replaces the synthesized sound of the same name, numbered takes are picked at random, and anything without a recording keeps its synthesized sound. The names are listed above `loadSamples()` in `zombies.html`. The Android build bundles the folder automatically. Use recordings you have the rights to, such as CC0 packs.
+
 **Realism:** screen-space ambient occlusion, rain-slick wet patches that reflect the lamps, large-scale surface variation, sculpted zombies (gaunt faces, ribcage torsos, fingers, ragged clothes) that stagger when hit, fall away from the shot, lose arms and become crawlers when their legs go. Guns climb and kick under recoil, sway as you turn, leave bullet holes and smoke; you'll see a red arc pointing at whatever hit you. Zombie groans and footsteps are positioned in 3D, gunfire echoes indoors, and your footsteps change with the surface.
 
 **Menus:** a title screen over live shots of the map, then a main menu with Solo, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
