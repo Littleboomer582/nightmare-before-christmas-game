@@ -263,7 +263,7 @@
     <h1>Dead End Depot</h1>
     <div class="logoSub">ROUTE 9 · LAST BUS OUT</div>
     <div class="pressKey" id="pressKey">PRESS ANY KEY</div>
-    <div class="legal">A fan-made, round-based zombies survival tribute. All art, audio, names and music are original.</div>
+    <div class="legal">A fan-made, round-based zombies survival tribute. Art, names and music are original; sound effects are CC0 recordings (see Credits).</div>
   </section>
 
   <section class="scr" id="scrMain" hidden>
@@ -374,7 +374,8 @@
       <div class="hdr"><span class="eyebrow">Dead End Depot</span><h3>Credits</h3></div>
       <div class="card" style="align-self:stretch">
         <p>A fan-made tribute to round-based zombies survival games, built as a single web page.</p>
-        <p>Every model, texture, sound and music cue is generated in code. Rendering by three.js. Fonts from Google Fonts.</p>
+        <p>Every model, texture and music cue is generated in code. Rendering by three.js. Fonts from Google Fonts.</p>
+        <p>Sound effects are CC0 (public domain) recordings from OpenGameArt.org by bart (The Free Firearm Sound Library), artisticdude, Darsycho, ArcadeParty, TinyWorlds, qubodup, SpringySpringo, NenadSimic, rubberduck and remaxim. Thank you!</p>
         <p>Weapons are real-world firearms. Perks, wonder weapons, buildables, locations and characters are original.</p>
       </div>
       <div class="list"><button class="mi back">Back</button></div>
@@ -1505,6 +1506,8 @@ const SFX = {
   powerup() { [523, 659, 784, 1046].forEach((f, i) => tone(f, .25, { type: 'square', vol: .1, when: i * .07 })); },
   boxSpin() { for (let i = 0; i < 18; i++) tone(rand(500, 900), .08, { type: 'triangle', vol: .08, when: i * .19 }); },
   upgrade() { [220, 277, 330, 440, 554].forEach((f, i) => tone(f, .6, { type: 'sawtooth', vol: .1, when: i * .12 })); },
+  // recording-only events: silent unless a recording is loaded
+  pump() {}, zattack() {}, zdeath() {}, pdeath() {},
 };
 
 // Recorded sounds. Put audio files in sounds/ and list them in sounds/sounds.json, e.g.
@@ -1551,6 +1554,10 @@ const SAMPLE_OF = {
   shuffle: at => ['shuffle', { vol: .6, at }],
   boom: at => ['boom', { rev: roomReverb() * 1.2 }],
   impact: metal => [metal ? 'impact-metal' : 'impact', { vol: .5 }],
+  pump: () => ['pump', { vol: .9 }],
+  zattack: at => ['zattack', { at, vol: .9 }],
+  zdeath: at => ['zdeath', { at }],
+  pdeath: () => ['pdeath', {}],
 };
 for (const k of ['casing', 'reload', 'click', 'knife', 'hit', 'head', 'hurt', 'board', 'hammer', 'buy', 'deny', 'powerup', 'power', 'upgrade', 'boxSpin', 'roundStart', 'roundEnd']) SAMPLE_OF[k] = () => [k, {}];
 for (const k in SAMPLE_OF) {
@@ -2342,6 +2349,7 @@ function killZombie(z, how, hitPoint) {
   z.deathArms = [rand(-1.2, .3), rand(-1.2, .3)];
   removeZombieParts(z);
   if (how === 'head') { burst(z.head.getWorldPosition(new V3()), 'blood', 22, 3.5, 1.5); z.neck.visible = false; P.headshots++; }
+  else if (how !== 'nuke' && Math.random() < .6) SFX.zdeath(z.pos.clone().setY(1.3));
   if (z.state !== 'climb' && z.zone !== 'out') decal(z.pos.x + rand(-.3, .3), z.pos.z + rand(-.3, .3), rand(.9, 1.5), .85, 25);
   const pts = { head: 100, body: 60, melee: 130, splash: 50, nuke: 0 }[how] ?? 50;
   if (pts) addPoints(pts);
@@ -2572,6 +2580,7 @@ function updateHitArcs(dt) {
 }
 function attackPlayer(z) {
   z.atkCd = 1.0; z.swing = .3;
+  if (Math.random() < .7) SFX.zattack(z.pos.clone().setY(1.6));
   if (P.invuln > 0 || G.state !== 'playing') return;
   if (shieldBlocks(z)) return;
   P.hp -= DIFFS[G.diff].dmg; P.lastHurt = G.time;
@@ -3383,6 +3392,7 @@ function fire() {
   let rate = 60 / d.rpm; if (P.perks.has('dbl')) rate *= .75;
   W_STATE.fireCd = rate;
   SFX.shot(d.kind);
+  if (d.kind === 'shotgun' && !d.auto && !d.twin) setTimeout(() => SFX.pump(), 380);   // rack the pump
   vm.kick = Math.min(1, vm.kick + (d.kind === 'sniper' || d.kind === 'cannon' || d.kind === 'shotgun' ? 1 : .45));
   recoilPitch += d.kind === 'sniper' ? .03 : d.kind === 'shotgun' || d.kind === 'cannon' ? .025 : d.auto ? .006 : .012;
   // real recoil: the aim itself climbs (more for automatics held down) and kicks sideways a little
@@ -4470,6 +4480,7 @@ function gameOver() {
   G.lastRun = run.id;
   $('overlay').hidden = false;
   Menu.reset('scrOver');
+  SFX.pdeath();
   SFX.roundEnd();
 }
 
