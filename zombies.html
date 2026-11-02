@@ -96,6 +96,13 @@
   #lobbyPlayers li i{width:10px;height:10px;border-radius:50%;background:var(--c)}
   #lobbyPlayers li small{color:#9a9384;font-size:13px;letter-spacing:1px;text-transform:uppercase}
   .code{color:var(--amber);letter-spacing:4px}
+  #onlineCard{align-self:flex-start;max-height:calc(100vh - 32px);overflow-y:auto}
+  @media (max-height:520px){#scrOnline .panel{max-height:calc(100vh - 16px);overflow-y:auto}}
+  .netNote{background:rgba(160,40,30,.35);border-left:3px solid #ff7a6a;padding:8px 10px;margin-bottom:10px;font-size:14px;line-height:1.4;color:#f6e8de}
+  .netCheck{background:rgba(0,0,0,.35);padding:8px 10px;margin-bottom:12px;font-size:13px;line-height:1.55}
+  .netCheck b{display:block;font-weight:600;margin-bottom:2px}
+  .netCheck div{display:flex;justify-content:space-between;gap:10px}
+  .netCheck em{font-style:normal;text-align:right}
   #joinCode{text-transform:uppercase;letter-spacing:3px;width:7em}
   #quote{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);max-width:min(70vw,760px);width:max-content;text-align:center;font-family:'Special Elite',monospace;font-size:18px;line-height:1.35;color:#ece6d6;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:3px;opacity:0;transition:opacity .25s;pointer-events:none;text-shadow:0 1px 2px #000}
   #quote b{color:#ffcf6a;font-weight:normal;margin-right:4px}
@@ -2660,7 +2667,7 @@ function updateZombies(dt) {
         g.rotation.z = z.fallTwist * e;
         g.position.y = -buckle * .18 - e * .12;
         z.torso.rotation.x = z.fallSign * e * .25;
-        z.arms.forEach((a, k) => { a.rotation.x += (z.deathArms[k] - a.rotation.x) * Math.min(1, dt * 6); a.rotation.z = (k ? -1 : 1) * e * .9; });
+        z.arms.forEach((a, k) => { a.rotation.x += ((z.deathArms ? z.deathArms[k] : a.rotation.x) - a.rotation.x) * Math.min(1, dt * 6); a.rotation.z = (k ? -1 : 1) * e * .9; });
         z.neck.rotation.x = -z.fallSign * e * .5;
         if (fall >= 1 && !z.landed) { z.landed = true; burst(z.pos.clone().setY(.1), 'dust', 8, 1.8); noiseHit({ dur: .14, freq: 220, vol: .25 * Math.max(0, 1 - dPlayer(z) / 18) }); }
       }
@@ -4913,7 +4920,7 @@ const Menu = {
 const SCREEN_HOOKS = {
   scrMain() { $('profName').textContent = SETTINGS.name || 'Survivor'; const r = runs()[0]; $('best').textContent = r ? `Round ${r.round} · ${r.kills} kills` : '—'; },
   scrSolo() { renderSolo(); },
-  scrOnline() { if (Net.active && !Net.inGame) netLeave(); renderOnline(); },
+  scrOnline() { if (Net.active && !Net.inGame) netLeave(); renderOnline(); netCheckServers(); },
   scrLobby() { renderLobby(); },
   scrOptions() { renderOptions(); },
   scrBoards() { renderBoards(); },
@@ -5417,12 +5424,12 @@ class RoomLink {
       if (typeof pid !== 'string' || !/^[a-z0-9]{4,16}$/.test(pid)) continue;
       this.pidOf.set(pr.peer, pid);
       const lf = this.lastF.get(pid) || {}; this.lastF.set(pid, lf);
-      for (const f of ['hi', 'p', 's']) { const e = v[f]; if (e && typeof e.q === 'number' && e.q > (lf[f] || 0)) { lf[f] = e.q; netDispatch(pid, e.m); } }
-      if (Array.isArray(v.o)) {
-        let last = this.lastO.get(pid) || 0;
-        for (const e of v.o) if (e && typeof e.q === 'number' && e.q > last) { last = e.q; netDispatch(pid, e.m); }
-        this.lastO.set(pid, last);
-      }
+      let last = this.lastO.get(pid) || 0;
+      const todo = [];   // everything new from this player, in the order it was sent
+      for (const f of ['hi', 'p', 's']) { const e = v[f]; if (e && typeof e.q === 'number' && e.q > (lf[f] || 0)) { lf[f] = e.q; todo.push(e); } }
+      if (Array.isArray(v.o)) for (const e of v.o) if (e && typeof e.q === 'number' && e.q > last) { last = e.q; todo.push(e); }
+      this.lastO.set(pid, last);
+      todo.sort((a, b) => a.q - b.q).forEach(e => netDispatch(pid, e.m));
     }
   }
   lost() { if (!this.ok) return; this.ok = false; onNetLost(this); }
@@ -5433,7 +5440,7 @@ document.addEventListener('securitypolicyviolation', e => { if (/^wss?:/.test(e.
 
 function netSend(msg) { if (Net.link && Net.link.ok) Net.link.post(msg); }
 function netPlayers() { let n = 1; if (Net.inGame) for (const p of Net.peers.values()) if (p.ig) n++; return n; }
-function netNote(t) { for (const id of ['onlineNote', 'lobbyNote']) $(id).textContent = t; }
+function netNote(t) { Net.note = t; for (const id of ['onlineNote', 'lobbyNote']) $(id).textContent = t; const c = document.querySelector('#onlineCard .netNote'); if (c) { c.textContent = t; c.hidden = !t; } }
 function setOnlineBusy(b) { for (const id of ['btnHost', 'btnJoin']) $(id).disabled = b; }
 
 // Connect: a claude.ai room where the page has one, otherwise the public servers. Hosting tries
@@ -5483,10 +5490,11 @@ async function netHost() {
   if (Net.active) return;
   const room = Array.from({ length: 4 }, () => CODE_CHARS[Math.random() * CODE_CHARS.length | 0]).join('');
   Object.assign(Net, { active: true, isHost: true, isClient: false, inGame: false, cfg: { mode: CFG.mode, diff: CFG.diff, start: CFG.start }, hostPid: Net.me, lastFail: [] });
+  netNote('');
   setOnlineBusy(true);
   const ok = await netConnect(room, true);
   setOnlineBusy(false);
-  if (!ok) { netReset(); netNote(netFailText(false)); return; }
+  if (!ok) { netReset(); netNote(netFailText(false)); netCheckServers(true); return; }
   netClock.hi = 0; Menu.show('scrLobby');
 }
 async function netJoin() {
@@ -5494,10 +5502,11 @@ async function netJoin() {
   const code = ($('joinCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!/^[A-Z]{4}[0-9]?$/.test(code)) { netNote('Type the 5-character room code from the host, like KXTP1.'); return; }
   Object.assign(Net, { active: true, isHost: false, isClient: true, inGame: false, hostPid: null, joinT: performance.now(), lastFail: [] });
+  netNote('');
   setOnlineBusy(true);
   const ok = await netConnect(code, false);
   setOnlineBusy(false);
-  if (!ok) { netReset(); netNote(netFailText(true)); return; }
+  if (!ok) { netReset(); netNote(netFailText(true)); netCheckServers(true); return; }
   netClock.hi = 0; Menu.show('scrLobby');
 }
 function netStartAsHost() {
@@ -5656,7 +5665,10 @@ function applyNetZombies(list) {
     if (fl & 64 && !z.netSwing) z.swing = .3;
     z.netSwing = !!(fl & 64);
   }
-  for (const z of zombies) if (z.remote && !z.dead && !seen.has(z.id) && G.time - z.born > .5) { scene.remove(z.g); removeZombieParts(z); z.dead = true; z.deathT = 99; }
+  for (let i = zombies.length - 1; i >= 0; i--) {   // copies the host no longer has: gone (a kill message plays the death)
+    const z = zombies[i];
+    if (z.remote && !z.dead && !seen.has(z.id) && G.time - z.born > .5) { scene.remove(z.g); removeZombieParts(z); zombies.splice(i, 1); }
+  }
 }
 function applyNetPowerups(list) {
   const seen = new Set();
@@ -5848,10 +5860,34 @@ function renderTeam() {
 }
 
 // ---- lobby screens
+// A quick look at which public game servers this device can reach, shown on the setup screen.
+const netCheck = { at: -1e9, rows: null, busy: false };
+async function netCheckServers(force) {
+  if (netCheck.busy || Net.active || (!force && performance.now() - netCheck.at < 60000 && netCheck.rows)) return;
+  if (await roomCap) return;   // on claude.ai the game uses claude.ai's own rooms
+  netCheck.busy = true;
+  netCheck.rows = NET_BROKERS.map(b => ({ name: b.name, ok: null, st: 'checking…' }));
+  if (Menu.cur === 'scrOnline') renderOnline();
+  await Promise.all(NET_BROKERS.map((b, i) => {
+    const t0 = performance.now(), mq = new MqttLink(b, 'dedchk' + Net.me + i, () => {}, () => {});
+    return mq.connect(8000).then(() => { netCheck.rows[i] = { name: b.name, ok: true, st: `OK · ${Math.round(performance.now() - t0)} ms` }; mq.close(); },
+      e => { netCheck.rows[i] = { name: b.name, ok: false, st: e.message }; })
+      .then(() => { if (Menu.cur === 'scrOnline') renderOnline(); });
+  }));
+  netCheck.busy = false; netCheck.at = performance.now();
+  if (Menu.cur === 'scrOnline') renderOnline();
+}
+function netCheckHtml() {
+  if (Net.roomAvail || !netCheck.rows) return '';
+  const done = netCheck.rows.filter(r => r.ok !== null), good = done.filter(r => r.ok).length;
+  const head = netCheck.busy ? 'Checking the game servers…' : good ? `${good} of ${NET_BROKERS.length} game servers reachable from this device` : 'No game server is reachable from this device';
+  return `<div class="netCheck"><b style="color:${netCheck.busy ? '#e8d9b0' : good ? '#8dff7a' : '#ff7a6a'}">${head}</b>${netCheck.rows.map(r =>
+    `<div><span>${r.ok === true ? '✓' : r.ok === false ? '✗' : '…'} ${escapeHtml(r.name)}</span><em style="color:${r.ok === true ? '#8dff7a' : r.ok === false ? '#ff9a8a' : '#a59e8e'}">${escapeHtml(r.st)}</em></div>`).join('')}</div>`;
+}
 function renderOnline() {
   const m = MODES[CFG.mode], d = DIFFS[CFG.diff];
   $('onMode').textContent = m.short || m.name; $('onDiff').textContent = d.name; $('onStart').textContent = CFG.start;
-  $('onlineCard').innerHTML = `<span class="tag">Online Co-op</span><h4>Play with friends</h4>
+  $('onlineCard').innerHTML = `<div class="netNote"${Net.note ? '' : ' hidden'}>${escapeHtml(Net.note || '')}</div>${netCheckHtml()}<span class="tag">Online Co-op</span><h4>Play with friends</h4>
     <p>Host a game and share the room code, or type a friend's code to join. Up to four players, on phones and computers, as long as everyone has internet.</p>
     <ul><li>The host's map, difficulty and starting round are used</li><li>Doors, power, boards and power-ups are shared; points, guns and perks are your own</li><li>Downed players can be revived; if everyone goes down, it's over</li></ul>
     <p>Hosting: <span style="color:var(--amber)">${m.name}</span> · ${d.name} · round ${CFG.start}</p>
