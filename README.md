@@ -66,6 +66,8 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 **Controls:** WASD move · Shift sprint · Space jump · Mouse aim · LMB fire · RMB aim down sights · R reload ·
 F/E interact · V knife · G grenade · T place turret/trap · Q/1/2/3/wheel switch weapon · Esc pause.
 
+**Secrets:** every map hides three small objects; find them all and an original song starts (four songs, each in its own style, played live by the game's own synthesizer: drums, bass, distorted guitar and a lead). Each map also has a radio with a piece of the story, the farmhouse has a clock you shouldn't wind, and there are two menu cheats (Big Head Mode and Confetti Mode). Objects you're close to give off a faint chime. The Field Manual keeps track of what you've found and gives a hint for each secret you haven't.
+
 ## Online co-op
 
 Up to four players on any mix of phones (the Android app) and browsers. One player picks **Online Co-op → Host a Game** and reads out the 5-character room code; the others type it under **Join Game**. Players can also join a match that has already started.

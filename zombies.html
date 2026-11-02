@@ -82,6 +82,10 @@
     font-size:20px;text-shadow:0 0 4px #000,0 0 8px #000;white-space:nowrap}
   #prompt b{color:#ffd24a}
   [hidden]{display:none !important}
+  .secrets{list-style:none;padding:0;margin:0;font-size:14px;line-height:1.5}
+  .secrets li{color:#8a8476;margin-bottom:4px} .secrets li.got{color:#d9a2ff} .secrets small{display:block;color:#9a9384;font-size:12px}
+  #cheatToast{position:fixed;left:50%;top:18px;transform:translate(-50%,-30px);opacity:0;transition:.25s;z-index:60;font-family:'Oswald',sans-serif;letter-spacing:3px;color:#d9a2ff;background:rgba(10,6,16,.85);border:1px solid #6a3a9a;padding:8px 18px;pointer-events:none;z-index:999;max-width:88vw;text-align:center;font-size:15px}
+  #cheatToast.on{opacity:1;transform:translate(-50%,0)}
   #downUI{position:absolute;left:50%;top:34%;transform:translateX(-50%);text-align:center;font-family:'Oswald',sans-serif;color:#ff6a6a;text-shadow:0 2px 6px #000;pointer-events:none}
   #downUI b{display:block;font-size:40px;letter-spacing:4px;font-weight:600}
   #downUI small{display:block;font-family:'Special Elite',monospace;font-size:16px;color:#f1e4d0}
@@ -243,6 +247,7 @@
 </head>
 <body>
 
+<div id="cheatToast"></div>
 <div id="hud" class="hidden">
   <div id="scope"></div>
   <div id="vignette"></div>
@@ -305,7 +310,7 @@
         <button class="mi" data-go="scrManual">Field Manual <small>Controls and survival notes</small></button>
         <button class="mi" data-go="scrCredits">Credits</button>
       </nav>
-      <div class="profile">Survivor <b id="profName">Survivor</b> · Best <b id="best">—</b></div>
+      <div class="profile" id="profLine">Survivor <b id="profName">Survivor</b> · Best <b id="best">—</b> <span id="cheatsOn" style="color:#d9a2ff"></span></div>
       <div class="hints"><b>↑↓</b>Navigate &nbsp; <b>Enter</b>Select &nbsp; <b>Esc</b>Back</div>
     </div>
   </section>
@@ -379,6 +384,10 @@
           <p>Zombies tear the boards off the depot windows. Hold F at a window to rebuild it for points.</p>
           <p>Spend points on chalk wall weapons, the mystery box, the debris door (750) and the lot gate (1000).</p>
           <p>Throw the power switch by the generator in the bus lot to wake the perk machines and the Forge.</p>
+        </div>
+        <div>
+          <h5>Secrets <small id="secCount" style="color:#d9a2ff"></small></h5>
+          <ul id="secList" class="secrets"></ul>
         </div>
         <div>
           <h5>Online co-op</h5>
@@ -1895,7 +1904,8 @@ function refreshViewModel() {
    ===================================================================== */
 // Debris particles (blood droplets, dust, sparks, casings): one instanced mesh, one draw call.
 const PMAX = 400, pGeo = new THREE.IcosahedronGeometry(.022, 0);
-const pCols = { blood: 0x3c0303, dust: 0x8a8578, spark: 0xffd070, green: 0x8dff6a, purple: 0xd36bff, wood: 0x6b4a2b, fire: 0xff8a2a, brass: 0xc9a23a };
+const pCols = { blood: 0x3c0303, dust: 0x8a8578, spark: 0xffd070, green: 0x8dff6a, purple: 0xd36bff, wood: 0x6b4a2b, fire: 0xff8a2a, brass: 0xc9a23a,
+  conf0: 0xff3a6a, conf1: 0x3ad0ff, conf2: 0xffe23a, conf3: 0x6aff5a, conf4: 0xc06aff };
 for (const k in pCols) pCols[k] = new THREE.Color(pCols[k]);
 const pInst = new THREE.InstancedMesh(pGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), PMAX);
 pInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage); pInst.frustumCulled = false; pInst.userData.dynamic = true;
@@ -2143,16 +2153,16 @@ const Voice = {
     this.unlocked = true;
     try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
   },
-  speak(text) {
+  speak(text, { pitch = .85, rate = 1.06 } = {}) {
     const vol = Math.min(1, SETTINGS.volume * 1.15);
     if (vol <= 0) return;
     try {
-      if (this.native()) { window.AndroidApp.speak(text, .92, 1.05, vol); return; }
+      if (this.native()) { window.AndroidApp.speak(text, pitch + .07, rate, vol); return; }
       if (!('speechSynthesis' in window)) return;
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       if (this.v) { u.voice = this.v; u.lang = this.v.lang; } else u.lang = 'en-US';
-      u.pitch = .85; u.rate = 1.06; u.volume = vol;
+      u.pitch = pitch; u.rate = rate; u.volume = vol;
       speechSynthesis.speak(u);
     } catch (e) {}
   },
@@ -2195,6 +2205,11 @@ const Quotes = {
     return true;
   },
   sayLater(ev, delay, o) { this.later.push({ at: G.time + delay, ev, o }); },
+  narrate(speaker, text, pitch = .72) {   // someone else talking (radios): always subtitled
+    this.showT = Math.max(3, 1 + text.split(/\s+/).length * .38); this.quietT = this.showT + 3; this.prio = 3;
+    const el = $('quote'); el.innerHTML = `<b>${escapeHtml(speaker)}:</b> ${escapeHtml(text)}`; el.style.opacity = 1;
+    if (this.mode() === 'voice') Voice.speak(text, { pitch, rate: .95 });
+  },
   onKill(how) {
     const t = G.time;
     this.streak = this.streak.filter(k => t - k < 2.5); this.streak.push(t);
@@ -2221,6 +2236,247 @@ const Quotes = {
   },
   stop() { this.showT = this.quietT = 0; this.prio = 0; $('quote').style.opacity = 0; Voice.stop(); },
 };
+/* =====================================================================
+   SECRETS: a hidden song on every map (find three objects), story radios, the farmhouse
+   clock, and two menu cheats. All original. Found secrets are remembered in this browser.
+   ===================================================================== */
+const SECRETS = [
+  { id: 'song_route9', name: 'Last Bus Out', hint: 'Route 9: three bus tokens. One sits higher than you would think to look.' },
+  { id: 'song_pier', name: 'Tide Wrack', hint: 'Blackwater Pier: three rubber ducks washed up where they shouldn\'t be.' },
+  { id: 'song_mine', name: 'Hollow Ground', hint: 'Cold Hollow Mine: three lucky horseshoes around the camp.' },
+  { id: 'song_farm', name: 'Marsh Lullaby', hint: 'Ashgrove Farmhouse: three porcelain dolls, one in every room.' },
+  { id: 'radio_route9', name: 'Dispatch: Bus 31', hint: 'Somebody left the dispatch radio on in the depot.' },
+  { id: 'radio_pier', name: 'Harbormaster\'s Log', hint: 'A radio crackles near the water on the boardwalk.' },
+  { id: 'radio_mine', name: 'Shaft Three', hint: 'A radio sits on a crate at the edge of the mining camp.' },
+  { id: 'radio_farm', name: 'Grandmother\'s House', hint: 'There\'s a radio in the farmhouse kitchen.' },
+  { id: 'clock_farm', name: 'Midnight', hint: 'Some clocks should never strike twelve.' },
+  { id: 'cheat_bighead', name: 'Big Heads', hint: 'Type what zombies want on the main menu. On a phone, tap the title five times.' },
+  { id: 'cheat_confetti', name: 'Party Time', hint: 'Type something festive on the main menu. On a phone, tap the word ZOMBIES five times.' },
+];
+const foundSecrets = new Set(loadJSON('ded_secrets', []).filter(id => SECRETS.some(s => s.id === id)));
+function foundSecret(id) {
+  if (foundSecrets.has(id)) return false;
+  foundSecrets.add(id); saveJSON('ded_secrets', [...foundSecrets]);
+  const sec = SECRETS.find(s => s.id === id);
+  if (G.state === 'playing' || G.state === 'paused') cheatToast(`SECRET FOUND · ${sec.name.toUpperCase()} · ${foundSecrets.size}/${SECRETS.length}`, 3500);
+  return true;
+}
+function renderSecrets() {
+  $('secCount').textContent = `${foundSecrets.size} of ${SECRETS.length} found`;
+  $('secList').innerHTML = SECRETS.map(sc => foundSecrets.has(sc.id) ? `<li class="got">✓ ${escapeHtml(sc.name)}</li>` : `<li>??? <small>${escapeHtml(sc.hint)}</small></li>`).join('');
+}
+
+// ---- cheats: typed on the menus (or tapped on a phone), remembered in this browser
+const CHEATS = Object.assign({ bighead: false, confetti: false }, loadJSON('ded_cheats', {}));
+function toggleCheat(k) {
+  CHEATS[k] = !CHEATS[k]; saveJSON('ded_cheats', CHEATS);
+  foundSecret(k === 'bighead' ? 'cheat_bighead' : 'cheat_confetti');
+  uiPick(); tone(CHEATS[k] ? 880 : 440, .18, { type: 'square', vol: .12 }); tone(CHEATS[k] ? 1320 : 330, .22, { type: 'square', vol: .12, when: .12 });
+  cheatToast(`${k === 'bighead' ? 'BIG HEAD MODE' : 'CONFETTI MODE'} ${CHEATS[k] ? 'ON' : 'OFF'}`);
+  if (Menu.cur === 'scrMain') SCREEN_HOOKS.scrMain();
+}
+function cheatToast(text, ms = 1800) {
+  const el = $('cheatToast'); el.textContent = text; el.classList.add('on');
+  clearTimeout(cheatToast.t); cheatToast.t = setTimeout(() => el.classList.remove('on'), ms);
+}
+let cheatBuf = '';
+function cheatKey(e) {
+  if (!/^Key[A-Z]$/.test(e.code) || (document.activeElement && document.activeElement.tagName === 'INPUT')) return;
+  cheatBuf = (cheatBuf + e.code[3]).slice(-12);
+  if (cheatBuf.endsWith('BRAINS')) { cheatBuf = ''; toggleCheat('bighead'); }
+  else if (cheatBuf.endsWith('CONFETTI')) { cheatBuf = ''; toggleCheat('confetti'); }
+}
+function tapCounter(el, k) {
+  let n = 0, t = 0;
+  el.addEventListener('click', () => { const now = performance.now(); n = now - t < 1500 ? n + 1 : 1; t = now; if (n >= 5) { n = 0; toggleCheat(k); } });
+}
+function confettiBurst(pos) {
+  for (let i = 0; i < 5; i++) burst(pos, 'conf' + i, 7, 4.5, 1.6);
+  noiseHit({ dur: .08, freq: 3000, type: 'highpass', vol: .25, at: pos }); tone(1200, .12, { type: 'triangle', vol: .08, slide: 1.6, at: pos });
+}
+
+// ---- secret songs: drums, bass, distorted guitar and a lead, sequenced live on the Web Audio clock
+const SONGS = {
+  route9: { title: 'Last Bus Out', bpm: 146, root: 40, scale: [0, 2, 3, 5, 7, 8, 10], steps: 16, seed: 31,
+    riff: ['x', 'x', 0, 'x', 'x', 3, 'x', 'x', 5, 'x', 3, null, 0, 'x', 7, 6], prog: [0, 5, 3, 6] },
+  pier: { title: 'Tide Wrack', bpm: 124, root: 38, scale: [0, 1, 3, 5, 7, 8, 10], steps: 12, seed: 7,
+    riff: [0, 'x', 'x', 1, 'x', 'x', 3, 'x', 1, 0, 'x', null], prog: [0, 1, 6, 0] },
+  mine: { title: 'Hollow Ground', bpm: 84, root: 36, scale: [0, 2, 3, 5, 7, 8, 11], steps: 16, seed: 3,
+    riff: [0, null, null, 'x', 'x', null, 6, null, 5, null, 3, null, 1, null, 'x', null], prog: [0, 5, 6, 4] },
+  farm: { title: 'Marsh Lullaby', bpm: 104, root: 45, scale: [0, 2, 3, 5, 7, 8, 11], steps: 12, seed: 13,
+    riff: [0, 'x', 'x', 7, 'x', 'x', 8, 'x', 'x', 7, 3, 'x'], prog: [0, 3, 5, 4] },
+};
+const DRUMS = {
+  16: { verse: ['x.......x.x.....', '....x.......x...', 'x.x.x.x.x.x.x.x.'], chorus: ['x.x...x.x.x...x.', '....x.......x...', 'xxxxxxxxxxxxxxxx'], half: ['x...........x...', '........x.......', 'x...x...x...x...'] },
+  12: { verse: ['x.....x.....', '...x.....x..', 'x.xx.xx.xx.x'], chorus: ['x..x..x..x..', '...x.....x..', 'xxxxxxxxxxxx'], half: ['x...........', '......x.....', 'x..x..x..x..'] },
+};
+const Songs = {
+  playing: null, timer: null,
+  rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; },
+  hz: m => 440 * Math.pow(2, (m - 69) / 12),
+  play(key) {
+    if (!AC || !SONGS[key]) return;
+    this.stop();
+    const S = SONGS[key], R = this.rng(S.seed), step = 60 / S.bpm / 4, bars = [];
+    // the song: intro, verse, chorus, verse, chorus, half-time bridge, chorus, outro
+    for (const [sec, n] of [['intro', 2], ['verse', 4], ['chorus', 4], ['verse', 4], ['chorus', 4], ['half', 4], ['chorus', 4], ['outro', 2]]) for (let i = 0; i < n; i++) bars.push({ sec, i });
+    // a lead melody for the chorus, written once from the song's scale (the same every time)
+    const deg = d => S.scale[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
+    let d = 7; const melody = [];
+    for (let i = 0; i < S.steps * 2; i++) { if (i % 2 && R() < .35) { melody.push(null); continue; } d = clamp(d + Math.round((R() - .5) * 4), 4, 13); melody.push(deg(d)); }
+    const bus = AC.createGain(); bus.gain.value = .55; bus.connect(master);
+    const dist = AC.createWaveShaper(), curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 6); }
+    dist.curve = curve; const gtone = AC.createBiquadFilter(); gtone.type = 'lowpass'; gtone.frequency.value = 2600;
+    const gg = AC.createGain(); gg.gain.value = .16; dist.connect(gtone); gtone.connect(gg); gg.connect(bus);
+    const echo = AC.createDelay(); echo.delayTime.value = step * 3; const fb = AC.createGain(); fb.gain.value = .3; echo.connect(fb); fb.connect(echo); echo.connect(bus);
+    const env = (node, t, v, dur) => { node.gain.setValueAtTime(.0001, t); node.gain.linearRampToValueAtTime(v, t + .005); node.gain.exponentialRampToValueAtTime(.0001, t + dur); };
+    const osc = (type, f, t, dur, out, v, detune = 0) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.value = f; o.detune.value = detune; env(g, t, v, dur); o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + .05); return o; };
+    const noise = (t, dur, f, type, v) => { const n = AC.createBufferSource(); n.buffer = noiseBuf; const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const g = AC.createGain(); env(g, t, v, dur); n.connect(fl); fl.connect(g); g.connect(bus); n.start(t, Math.random()); n.stop(t + dur + .05); };
+    const kick = t => { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .12); env(g, t, .9, .3); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .35); };
+    const power = (m, t, dur, chug) => { for (const [iv, dt] of [[0, -6], [7, 5], [12, 0]]) osc('sawtooth', this.hz(m + iv), t, chug ? .09 : dur, dist, chug ? .35 : .3, dt); };
+    const sched = (b, t) => {
+      const bar = bars[b], kit = DRUMS[S.steps][bar.sec === 'intro' || bar.sec === 'outro' ? 'verse' : bar.sec], chord = S.scale[S.prog[bar.i % 4] % 7];
+      for (let k = 0; k < S.steps; k++) {
+        const tt = t + k * step;
+        if (bar.sec !== 'intro') {
+          if (kit[0][k] === 'x') kick(tt);
+          if (kit[1][k] === 'x') { noise(tt, .16, 1900, 'bandpass', .55); osc('triangle', 190, tt, .08, bus, .25); }
+          if (kit[2][k] === 'x') noise(tt, .035, 7500, 'highpass', .12);
+        }
+        if (bar.sec === 'chorus' || bar.sec === 'half') {   // big chords and the lead
+          if (k % 2 === 0) power(S.root + chord, tt, step * 2, bar.sec === 'half' ? false : k % 4 === 2);
+          if (k % 4 === 0) osc('sawtooth', this.hz(S.root - 12 + chord), tt, step * 4, bus, .3);
+          const note = melody[(bar.i % 2) * S.steps + k];
+          if (bar.sec === 'chorus' && note !== null && k % 2 === 0) { const o = osc('square', this.hz(S.root + 24 + note), tt, step * 1.8, bus, .07); osc('square', this.hz(S.root + 24 + note), tt, step * 1.8, echo, .03); o.frequency.setValueAtTime(o.frequency.value, tt); }
+        } else {   // the riff
+          const r = S.riff[k];
+          if (r === 'x') power(S.root, tt, step, true);
+          else if (r !== null) { power(S.root + r, tt, step * 1.6, false); osc('sawtooth', this.hz(S.root - 12 + r), tt, step * 1.6, bus, bar.sec === 'intro' ? 0 : .28); }
+        }
+      }
+      if (bar.sec === 'outro' && b === bars.length - 1) { power(S.root, t + S.steps * step, 2.5, false); kick(t + S.steps * step); noise(t + S.steps * step, 1.2, 5000, 'highpass', .25); }
+    };
+    let b = 0, t0 = AC.currentTime + .15;
+    const barLen = step * S.steps;
+    this.playing = { key, title: S.title, bus, end: t0 + barLen * bars.length + 3 };
+    const pump = () => { while (b < bars.length && t0 + b * barLen < AC.currentTime + .6) { sched(b, t0 + b * barLen); b++; } if (b >= bars.length) { clearInterval(this.timer); this.timer = null; } };
+    pump(); this.timer = setInterval(pump, 150);
+    announce(`♪ ${S.title.toUpperCase()}`, '#d9a2ff', 3);
+  },
+  stop() {
+    clearInterval(this.timer); this.timer = null;
+    if (this.playing) { const g = this.playing.bus.gain; g.cancelScheduledValues(AC.currentTime); g.setValueAtTime(g.value, AC.currentTime); g.linearRampToValueAtTime(0, AC.currentTime + .4); this.playing = null; }
+  },
+};
+
+// ---- the objects hidden on each map (positions are map-local for the other maps)
+const RADIO_TALK = {
+  route9: ['DISPATCH', 'Dispatch to all units. Bus thirty-one never made the Pine Hollow stop. The driver keeps calling in. He says the passengers are standing up again. Whatever you do, don\'t open the doors.'],
+  pier: ['HARBORMASTER', 'Harbormaster\'s log, November first. The fog came in at eleven and the tide went out the wrong way. Something is walking up out of the water, and the lighthouse won\'t turn off. If you hear the bell, you\'re already too late.'],
+  mine: ['FOREMAN PRUITT', 'Foreman Dale Pruitt, shaft three. We broke into a cave that isn\'t on any survey. It\'s warm down there. The men who went in came back out, but they don\'t talk anymore. Seal the tunnel.'],
+  farm: ['THE RADIO', 'If you found this, you\'re in my grandmother\'s house. She said the marsh keeps what it takes. Board the windows, keep the fire lit, and don\'t let anyone hear that clock strike midnight.'],
+};
+const EGG_SPOTS = {   // [x, y, z] for three collectibles, then the radio
+  route: { key: 'route9', kind: 'token', items: [[-11.55, 2.03, 4.5], [-89, .04, 13.3], [84, .04, 55.1]], radio: [8.4, 1.16, 5.4] },
+  depot: { key: 'route9', kind: 'token', items: [[-11.55, 2.03, 4.5], [11.2, .04, 7.3], [-12, .04, 25.4]], radio: [8.4, 1.16, 5.4] },
+  pier: { key: 'pier', kind: 'duck', items: [[14.7, 1.31, -18.6], [-20, .04, -44.6], [2, .04, 45.4]], radio: [17.5, 1.11, 2] },
+  mine: { key: 'mine', kind: 'horseshoe', items: [[-26, .04, 26], [0, 1.16, -45], [1, .04, 26.7]], radio: [-24, 1.21, 2] },
+  farm: { key: 'farm', kind: 'doll', items: [[-12, 1.01, 6.6], [4.2, 2.41, 7.3], [10.2, .83, 5.9]], radio: [-6, .96, -7.45] },
+};
+const EGG = { found: 0, items: [], radio: null, song: null, cueT: 0 };
+function eggMesh(kind) {
+  const g = new THREE.Group();
+  const shine = (c, e) => mat(c, { roughness: .3, metalness: .6, emissive: e });
+  if (kind === 'token') {
+    const coin = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, .014, 20), shine(0xd8a83a, 0x3a2a00)); coin.rotation.x = Math.PI / 2; coin.position.y = .09; g.add(coin); g.userData.spin = coin;
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .016, 10), mat(0x111111)); hole.rotation.x = Math.PI / 2; coin.add(hole); hole.rotation.x = 0;
+  } else if (kind === 'duck') {
+    const y = mat(0xf2c81e, { roughness: .45, emissive: 0x2a2000 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(.1, 14, 10), y); body.scale.set(1.2, .8, 1); body.position.y = .08; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.06, 12, 10), y); head.position.set(.07, .17, 0); g.add(head);
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(.025, .06, 8), mat(0xff7a1a)); beak.rotation.z = -Math.PI / 2; beak.position.set(.14, .165, 0); g.add(beak);
+  } else if (kind === 'horseshoe') {
+    const hs = new THREE.Mesh(new THREE.TorusGeometry(.09, .018, 8, 18, Math.PI * 1.35), shine(0xb0b4b8, 0x101418)); hs.rotation.set(-Math.PI / 2, 0, Math.PI * .82); hs.position.y = .02; g.add(hs);
+  } else {   // a porcelain doll, staring
+    const dress = new THREE.Mesh(new THREE.ConeGeometry(.08, .2, 12), mat(0xe8e2d6, { roughness: .5 })); dress.position.y = .1; g.add(dress);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.055, 14, 10), mat(0xf4ece4, { roughness: .2 })); head.position.y = .25; g.add(head);
+    for (const s of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(.011, 6, 6), mat(0x050505)); eye.position.set(s * .02, .26, .048); g.add(eye); }
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(.058, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x2a1a10)); hair.position.y = .255; g.add(hair);
+  }
+  g.traverse(o => { o.userData.dynamic = true; if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function radioMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(.36, .22, .14), mat(0x3a2e24, { roughness: .6 })); body.position.y = .11; g.add(body);
+  const grille = new THREE.Mesh(new THREE.PlaneGeometry(.16, .14), mat(0x8a7a5a, { roughness: .8 })); grille.position.set(-.07, .11, .071); g.add(grille);
+  const dial = new THREE.Mesh(new THREE.CircleGeometry(.04, 16), mat(0xffd27a, { emissive: 0x664400 })); dial.position.set(.09, .12, .071); g.add(dial);
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(.005, .005, .4, 5), M.darkMetal); ant.position.set(.14, .4, 0); ant.rotation.z = -.3; g.add(ant);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(.012, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff3a2a })); led.position.set(.15, .19, .071); g.add(led); g.userData.led = led;
+  g.traverse(o => { o.userData.dynamic = true; if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function setupEggs(mode) {
+  const spots = EGG_SPOTS[mode]; if (!spots) return;
+  const ox = activeMap ? activeMap.ox : 0, song = spots.key;
+  Object.assign(EGG, { found: 0, items: [], song, cueT: 0 });
+  const label = { token: 'the bus token', duck: 'the rubber duck', horseshoe: 'the horseshoe', doll: 'the doll' }[spots.kind];
+  spots.items.forEach(([x, y, z], i) => {
+    const m = eggMesh(spots.kind); m.position.set(ox + x, y, z); m.rotation.y = i * 2.1 + .4; scene.add(m);
+    const item = { m, got: false };
+    item.it = {
+      pos: new V3(ox + x, 0, z), r: 1.9, hold: true, t: 0, last: -9,
+      prompt() { if (G.time - this.last > .3) this.t = 0; return item.got ? null : this.t > 0 ? 'Picking it up…' : `Hold <b>F</b> to take ${label}`; },
+      hold(dt) {
+        if (G.time - this.last > .3) this.t = 0;
+        this.last = G.time; this.t += dt;
+        if (this.t < .6 || item.got) return;
+        item.got = true; scene.remove(m); EGG.found++;
+        [880, 1175, 1568].forEach((f, k) => tone(f * (1 + EGG.found * .06), .35, { type: 'triangle', vol: .12, when: k * .09 }));
+        if (EGG.found < 3) announce(`${EGG.found} / 3`, '#d9a2ff', 1.6);
+        else { foundSecret('song_' + song); Songs.play(song); }
+      },
+    };
+    interactables.push(item.it); EGG.items.push(item);
+  });
+  const [rx, ry, rz] = spots.radio, rm = radioMesh();
+  rm.position.set(ox + rx, ry, rz); rm.rotation.y = activeMap ? Math.PI / 2 : 0; scene.add(rm);
+  EGG.radio = { m: rm, played: false };
+  interactables.push({
+    pos: new V3(ox + rx, 0, rz), r: 1.8,
+    prompt() { return EGG.radio.played ? null : 'Press <b>F</b> to listen to the radio'; },
+    use() {
+      if (EGG.radio.played) return;
+      EGG.radio.played = true; rm.userData.led.material.color.setHex(0x3aff6a);
+      noiseHit({ dur: .5, freq: 2200, type: 'bandpass', q: .7, vol: .3, at: rm.position });
+      const [who, text] = RADIO_TALK[song];
+      setTimeout(() => { Quotes.narrate(who, text); foundSecret('radio_' + song); }, 500);
+    },
+  });
+}
+tapCounter(document.querySelector('#scrMain h2'), 'bighead');   // phones: tap the title five times
+tapCounter(document.querySelector('#scrMain .eyebrow'), 'confetti');   // or the word above it
+// a faint chime from hidden things you're close to, so careful players can find them
+function updateEggs(dt) {
+  for (const it of EGG.items) if (!it.got && it.m.userData.spin) it.m.userData.spin.rotation.z += dt * 1.5;
+  if ((EGG.cueT -= dt) > 0) return;
+  EGG.cueT = 2.6;
+  for (const it of EGG.items) if (!it.got && it.m.position.distanceTo(P.pos) < 6) tone(2093, .25, { type: 'sine', vol: .035, at: it.m.position.clone() });
+}
+// the farmhouse clock: wind it and it strikes midnight
+function midnightClock(def) {
+  foundSecret('clock_farm');
+  const chimeAt = new V3(def.ox - 3.4, 1.8, -6.6);
+  for (let i = 0; i < 12; i++) for (const [f, v] of [[523, .16], [1046, .08], [1568, .04]]) tone(f, 2.2, { type: 'sine', vol: v, when: i * .62, at: chimeAt });
+  def.dark = G.time + 8.5;
+  setTimeout(() => {
+    Quotes.narrate('???', 'The marsh remembers you. Take this, and stay alive.', .6);
+    if (!Net.isClient) dropPowerup(pick(Object.keys(PU)), P.pos.clone().add(new V3(Math.sin(P.yaw) * -1.5, 0, Math.cos(P.yaw) * -1.5)));
+    else addPoints(1000);
+  }, 7600);
+}
+
 function boxQuote(id) {
   const d = W[id];
   if (id === 'ray' || id === 'arc') return 'box_' + id;
@@ -2546,6 +2802,7 @@ let nextZid = 1;
 function makeZombie(spawnPos, { id = nextZid++, gait = 'walk', speed = 1.1, hp = 150, state = 'chase', win = null, zone = 'world' } = {}) {
   const { g, parts, head, neck, torso, arms, elbows, legs, knees, armless, detail } = buildZombieBody();
   g.scale.setScalar(rand(.94, 1.1));
+  if (CHEATS.bighead) { head.scale.multiplyScalar(2.3); head.position.y += .13; }
   g.position.copy(spawnPos); g.position.y = -1.9;
   scene.add(g);
   const z = {
@@ -2622,7 +2879,8 @@ function zombieDeathFx(z, how) {
   z.fallSign = push.dot(fwd) > 0 ? 1 : -1; z.fallTwist = rand(-.5, .5);
   z.deathArms = [rand(-1.2, .3), rand(-1.2, .3)];
   removeZombieParts(z);
-  if (how === 'head') { burst(z.head.getWorldPosition(new V3()), 'blood', 22, 3.5, 1.5); z.neck.visible = false; }
+  if (CHEATS.confetti) confettiBurst(z.pos.clone().setY(1.3));
+  if (how === 'head') { burst(z.head.getWorldPosition(new V3()), CHEATS.confetti ? 'conf1' : 'blood', 22, 3.5, 1.5); z.neck.visible = false; }
   else if (how !== 'nuke' && Math.random() < .6) SFX.zdeath(z.pos.clone().setY(1.3));
   if (z.state !== 'climb' && z.zone !== 'out') decal(z.pos.x + rand(-.3, .3), z.pos.z + rand(-.3, .3), rand(.9, 1.5), .85, 25);
 }
@@ -4631,6 +4889,16 @@ function buildFarm(def) {
   bx(2.4, .9, .9, -1.5, .45, 5.6, mat(0x4a2a24, { roughness: .9 }), { nav: true });              // sofa
   bx(.9, .9, .9, 2, .45, 4.2, mat(0x3a3a2a, { roughness: .9 }), { nav: true });                  // armchair
   bx(.6, 2.2, .45, -3.4, 1.1, -6.6, darkWood, { nav: true });                                    // grandfather clock
+  const clockFace = new THREE.Mesh(new THREE.CircleGeometry(.18, 20), mat(0xe8dcc0, { roughness: .6 })); clockFace.position.set(X(-3.4), 1.75, -6.37); scene.add(clockFace);
+  interactables.push({
+    pos: new V3(X(-3.4), 0, -5.6), r: 1.5, hold: true, t: 0, last: -9,
+    prompt() { if (G.time - this.last > .3) this.t = 0; return def.clockDone ? null : this.t > 0 ? `Winding the clock… ${Math.min(99, Math.round(this.t / 2 * 100))}%` : 'Hold <b>F</b> to wind the clock'; },
+    hold(dt) {
+      if (G.time - this.last > .3) this.t = 0;
+      this.last = G.time; this.t += dt;
+      if (this.t >= 2 && !def.clockDone) { def.clockDone = true; midnightClock(def); }
+    },
+  });
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.6), mat(0x5a2420, { roughness: 1 })); rug.rotation.x = -Math.PI / 2; rug.position.set(X(1), .015, 1.5); scene.add(rug);
   // barn
   const hay = mat(0xb08a42, { map: MT.straw(1, 1), roughness: 1 });
@@ -4750,9 +5018,10 @@ const MAPDEFS = {
       { from: [-26, 1.8, -20], to: [-22, 2.2, -21], look: [0, 2, 0] },
     ],
     update(dt, t) {
-      this.fire.intensity = 1.2 + Math.sin(t * 11) * .2 + Math.random() * .3;
-      if (Math.random() < dt * 8) burst(new V3(this.ox + 4.2 + rand(-.4, .4), .6, 7.1), 'fire', 1, 1, .5);
-      this.lanterns.forEach((l, i) => l.intensity = .85 + Math.sin(t * 7 + i * 2) * .08 + (Math.random() < .02 ? -.5 : 0));
+      const dark = G.time < (this.dark || 0) ? .04 : 1;   // midnight: everything goes out
+      this.fire.intensity = (1.2 + Math.sin(t * 11) * .2 + Math.random() * .3) * dark;
+      if (dark === 1 && Math.random() < dt * 8) burst(new V3(this.ox + 4.2 + rand(-.4, .4), .6, 7.1), 'fire', 1, 1, .5);
+      this.lanterns.forEach((l, i) => l.intensity = (.85 + Math.sin(t * 7 + i * 2) * .08 + (Math.random() < .02 ? -.5 : 0)) * dark);
     },
   },
 };
@@ -4918,7 +5187,11 @@ const Menu = {
   reset(id) { this.stack = []; this.show(id, false); },
 };
 const SCREEN_HOOKS = {
-  scrMain() { $('profName').textContent = SETTINGS.name || 'Survivor'; const r = runs()[0]; $('best').textContent = r ? `Round ${r.round} · ${r.kills} kills` : '—'; },
+  scrMain() {
+    $('profName').textContent = SETTINGS.name || 'Survivor'; const r = runs()[0]; $('best').textContent = r ? `Round ${r.round} · ${r.kills} kills` : '—';
+    $('cheatsOn').textContent = [CHEATS.bighead && 'Big Heads', CHEATS.confetti && 'Confetti'].filter(Boolean).join(' · ');
+  },
+  scrManual() { renderSecrets(); },
   scrSolo() { renderSolo(); },
   scrOnline() { if (Net.active && !Net.inGame) netLeave(); renderOnline(); netCheckServers(); },
   scrLobby() { renderLobby(); },
@@ -5016,6 +5289,7 @@ function launchMatch(cfg) {
   G.mode = cfg.mode; G.diff = cfg.diff;
   enterMap(MODES[cfg.mode].map);
   buildParts();
+  setupEggs(cfg.mode);
   G.round = cfg.start - 1;
   P.points = startPoints(cfg.start); $('points').textContent = P.points;
   renderRound(false);
@@ -5102,6 +5376,7 @@ function gameOver() {
     $('overTable').insertAdjacentHTML('beforeend', `<tbody>${rows}</tbody>`);
   }
   $('btnAgain').hidden = Net.wasOnline;
+  Songs.stop();
   if (Net.active) setTimeout(netLeave, 1200);
   P.down = false; $('downUI').hidden = true;
   G.lastRun = run.id;
@@ -5157,6 +5432,7 @@ function leaveTitle() {
 }
 function menuKey(e) {
   if ($('overlay').hidden) return;
+  if (G.state === 'menu') cheatKey(e);
   wakeAudio();
   if (Menu.cur === 'scrTitle') { leaveTitle(); return; }
   if (Menu.cur === 'scrLoading') { initAudio(); beginPlay(); return; }
@@ -5954,6 +6230,7 @@ function frame(now) {
     if (!Net.isClient) updateRounds(dt);   // the host runs the rounds
     updatePowerups(dt);
     Quotes.update(dt);
+    updateEggs(dt);
     updateBox(dt);
     updateInteract(dt);
     updatePowerHud();
