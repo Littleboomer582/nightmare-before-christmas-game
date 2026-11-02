@@ -1846,8 +1846,8 @@ const G = {
 };
 const door = { meshes: [], collider: null, cost: 750 };
 // Online co-op (see ONLINE CO-OP near the end). Everything below behaves exactly as before while it is off.
-const Net = { active: false, isHost: false, isClient: false, inGame: false, wasOnline: false, me: Math.random().toString(36).slice(2, 10),
-  room: '', code: '', cfg: null, mq: null, peers: new Map(), hostPid: null, hitBy: null, hits: [], takenPu: new Set(), lastShot: 0 };
+const Net = { active: false, isHost: false, isClient: false, inGame: false, wasOnline: false, me: (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/[^a-z0-9]/g, '').slice(0, 8),
+  room: '', code: '', cfg: null, link: null, peers: new Map(), roomAvail: false, cspBlocked: false, lastFail: [], hostPid: null, hitBy: null, hits: [], takenPu: new Set(), lastShot: 0 };
 // Shared things any player can open (doors, power): key -> { is(), open() }. Online, the host's snapshot carries them to everyone.
 const WORLD = Object.create(null);
 function openWorld(key, fromNet) {
@@ -5302,11 +5302,12 @@ function adaptResolution(rawDt) {
    player, guns, perks, box and buildables, and sends their hits to the host, which decides
    who got the kill. Anyone with a room code can join, so nothing received is trusted blindly.
    ===================================================================== */
-const NET_BROKERS = [
-  { url: 'wss://broker.hivemq.com:8884/mqtt' },
-  { url: 'wss://broker.emqx.io:8084/mqtt' },
-  { url: 'wss://test.mosquitto.org:8081/mqtt' },
-  { url: 'wss://public.cloud.shiftr.io', user: 'public', pass: 'public' },
+const NET_BROKERS = [   // the room code's last digit is the position here (0 means a claude.ai room)
+  { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
+  { name: 'EMQX', url: 'wss://broker.emqx.io:8084/mqtt' },
+  { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' },
+  { name: 'shiftr.io', url: 'wss://public.cloud.shiftr.io', user: 'public', pass: 'public' },
+  { name: 'Eclipse', url: 'wss://mqtt.eclipseprojects.io:443/mqtt' },
 ];
 const NET_TOPIC = 'deadenddepot/coop1/';
 const NET_COLORS = ['#ffcf6a', '#6ad0ff', '#8dff7a', '#ff7ab8'];
@@ -5330,14 +5331,15 @@ class MqttLink {
     let i = 1 + len.length; for (const q of parts) { o.set(q, i); i += q.length; }
     return o;
   }
-  connect(timeout = 7000) {
+  connect(timeout = 9000) {
     return new Promise((res, rej) => {
       let ws;
-      try { ws = new WebSocket(this.b.url, ['mqtt']); } catch (e) { rej(e); return; }
+      try { ws = new WebSocket(this.b.url, ['mqtt']); } catch (e) { rej(new Error('blocked by this page')); return; }
       this.ws = ws; ws.binaryType = 'arraybuffer';
-      const tm = setTimeout(() => { rej(new Error('timeout')); try { ws.close(); } catch (e) {} }, timeout);
+      const tm = setTimeout(() => { if (this.pending) { this.pending = null; rej(new Error(this.opened ? 'connected but no reply' : 'no answer')); } try { ws.close(); } catch (e) {} }, timeout);
       this.pending = { res, rej, tm };
       ws.onopen = () => {
+        this.opened = true;
         const u = this.b.user, flags = 0x02 | (u ? 0xC0 : 0);
         const parts = [new Uint8Array([0, 4, 77, 81, 84, 84, 4, flags, 0, 60]), MqttLink.str(this.id)];
         if (u) parts.push(MqttLink.str(u), MqttLink.str(this.b.pass || ''));
@@ -5348,7 +5350,7 @@ class MqttLink {
       ws.onclose = () => {
         clearTimeout(tm); clearInterval(this.ping);
         const was = this.ok; this.ok = false;
-        if (was) this.onLost(this); else if (this.pending) { this.pending.rej(new Error('closed')); this.pending = null; }
+        if (was) this.onLost(this); else if (this.pending) { this.pending.rej(new Error(this.opened ? 'closed the connection' : 'couldn\'t connect')); this.pending = null; }
       };
     });
   }
@@ -5363,7 +5365,7 @@ class MqttLink {
       this.buf = this.buf.slice(i + n);
       if (type === 2 && this.pending) {   // CONNACK
         const { res, rej, tm } = this.pending; this.pending = null; clearTimeout(tm);
-        if (body[1] !== 0) { rej(new Error('refused')); try { this.ws.close(); } catch (e) {} return; }
+        if (body[1] !== 0) { rej(new Error('refused us')); try { this.ws.close(); } catch (e) {} return; }
         this.ok = true; this.ping = setInterval(() => this.send(new Uint8Array([0xC0, 0])), 25000); res();
       } else if (type === 3) {   // PUBLISH
         const tl = (body[0] << 8) | body[1], off = 2 + tl + (qos ? 2 : 0);
@@ -5376,47 +5378,126 @@ class MqttLink {
   sub(topic) { this.send(MqttLink.pack(0x82, new Uint8Array([0, 1]), MqttLink.str(topic), new Uint8Array([0]))); }
   pub(topic, text) { this.send(MqttLink.pack(0x30, MqttLink.str(topic), new TextEncoder().encode(text))); }
   close() { const was = this.ok; this.ok = false; clearInterval(this.ping); try { if (was) this.send(new Uint8Array([0xE0, 0])); this.ws.close(); } catch (e) {} }
+  post(msg) { this.pub(NET_TOPIC + Net.room + '/' + Net.me, JSON.stringify(msg)); }
+  flush() {}
 }
 
-function netSend(msg) { if (Net.mq && Net.mq.ok) Net.mq.pub(NET_TOPIC + Net.room + '/' + Net.me, JSON.stringify(msg)); }
+// On claude.ai the page can't reach outside servers, but it has live rooms of its own: everyone with
+// access to the page can join one. Messages ride in each player's "presence" (a small shared object):
+// the latest state and snapshot in their own fields, everything else in a short numbered outbox.
+const roomCap = window.claude && typeof window.claude.use === 'function' ? Promise.resolve(window.claude.use('room')).catch(() => null) : Promise.resolve(null);
+roomCap.then(r => { Net.roomAvail = !!r; if (Menu.cur === 'scrOnline') renderOnline(); });
+class RoomLink {
+  constructor(r) {
+    this.r = r; this.ok = true; this.seq = 0; this.out = []; this.fields = {}; this.lastF = new Map(); this.lastO = new Map(); this.pidOf = new Map(); this.dirty = false; this.next = 0;
+    this.off = r.onPeers(ch => this.peers(ch), () => this.lost());
+  }
+  post(m) {
+    if (m.t === 'p' || m.t === 's' || m.t === 'hi') this.fields[m.t] = { q: ++this.seq, m };
+    else this.out.push({ q: ++this.seq, at: performance.now(), m });
+    this.dirty = true;
+  }
+  flush(force) {
+    const now = performance.now();
+    if (!this.ok || !this.dirty || (!force && now < this.next)) return;
+    this.next = now + 50; this.dirty = false;
+    this.out = this.out.filter(e => now - e.at < 2500);
+    const enc = new TextEncoder(), size = o => enc.encode(JSON.stringify(o)).length;
+    const build = () => ({ id: Net.me, hi: this.fields.hi || null, p: this.fields.p || null, s: this.fields.s || null, o: this.out.map(e => ({ q: e.q, m: e.m })) });
+    let pres = build();
+    while (size(pres) > 3900 && this.out.length) { this.out.shift(); pres = build(); }   // the platform takes 4 KiB at most
+    if (size(pres) > 3900) pres.s = null;
+    this.r.presence(pres).catch(() => {});
+  }
+  peers(ch) {
+    for (const pr of ch.left) { const pid = this.pidOf.get(pr.peer); if (pid) { this.pidOf.delete(pr.peer); netDispatch(pid, { t: 'bye' }); } }
+    for (const pr of [...ch.joined, ...ch.updated]) {
+      if (pr.sameTab) continue;
+      const v = pr.presence || {}, pid = v.id;
+      if (typeof pid !== 'string' || !/^[a-z0-9]{4,16}$/.test(pid)) continue;
+      this.pidOf.set(pr.peer, pid);
+      const lf = this.lastF.get(pid) || {}; this.lastF.set(pid, lf);
+      for (const f of ['hi', 'p', 's']) { const e = v[f]; if (e && typeof e.q === 'number' && e.q > (lf[f] || 0)) { lf[f] = e.q; netDispatch(pid, e.m); } }
+      if (Array.isArray(v.o)) {
+        let last = this.lastO.get(pid) || 0;
+        for (const e of v.o) if (e && typeof e.q === 'number' && e.q > last) { last = e.q; netDispatch(pid, e.m); }
+        this.lastO.set(pid, last);
+      }
+    }
+  }
+  lost() { if (!this.ok) return; this.ok = false; onNetLost(this); }
+  close() { if (!this.ok) return; this.flush(true); this.ok = false; try { this.off(); } catch (e) {} Promise.resolve(this.r.leave()).catch(() => {}); }
+}
+// A page that isn't allowed to reach outside servers says so: remember it for the error message.
+document.addEventListener('securitypolicyviolation', e => { if (/^wss?:/.test(e.blockedURI || '') || /connect-src/.test(e.violatedDirective || '')) Net.cspBlocked = true; });
+
+function netSend(msg) { if (Net.link && Net.link.ok) Net.link.post(msg); }
 function netPlayers() { let n = 1; if (Net.inGame) for (const p of Net.peers.values()) if (p.ig) n++; return n; }
 function netNote(t) { for (const id of ['onlineNote', 'lobbyNote']) $(id).textContent = t; }
 function setOnlineBusy(b) { for (const id of ['btnHost', 'btnJoin']) $(id).disabled = b; }
 
-// Try the brokers in order (the room code's last digit says which one the host is on).
+// Connect: a claude.ai room where the page has one, otherwise the public servers. Hosting tries
+// every server at once and takes the first to answer; the code's last digit tells joiners which.
 async function netConnect(code, hosting) {
+  const room = await roomCap, digit = code[4];
+  if (room && (hosting || digit === '0' || !digit)) return netConnectRoom(code, room);
+  if (digit === '0') { Net.lastFail = ['that code is for a game hosted on the claude.ai page; join it from there']; return false; }
+  return netConnectMqtt(code, hosting);
+}
+async function netConnectRoom(code, room) {
+  netNote('Connecting through claude.ai…');
+  try {
+    const r = await room.join('ded-' + code.slice(0, 4).toLowerCase());
+    if (!Net.active) { Promise.resolve(r.leave()).catch(() => {}); return false; }
+    Net.link = new RoomLink(r); Net.room = code.slice(0, 4); Net.code = Net.room + '0';
+    return true;
+  } catch (e) { Net.lastFail = ['claude.ai room: ' + (e && (e.code || e.message) || 'unavailable')]; return false; }
+}
+async function netConnectMqtt(code, hosting) {
   const room = code.slice(0, 4), want = +code[4] - 1;
   const order = !hosting && want >= 0 && want < NET_BROKERS.length ? [want] : NET_BROKERS.map((_, i) => i);
-  for (const i of order) {
-    netNote(`Connecting to game server ${i + 1}…`);
-    const mq = new MqttLink(NET_BROKERS[i], 'ded-' + Net.me + Math.random().toString(36).slice(2, 6), onNetMessage, onNetLost);
-    try { await mq.connect(); } catch (e) { continue; }
-    if (!Net.active) { mq.close(); return false; }   // backed out while connecting
-    Net.mq = mq; Net.room = room; Net.code = room + (i + 1);
-    mq.sub(NET_TOPIC + room + '/+');
-    return true;
-  }
-  return false;
+  netNote(order.length > 1 ? 'Connecting to the game servers…' : `Connecting to game server ${order[0] + 1} (${NET_BROKERS[order[0]].name})…`);
+  const fails = [];
+  const won = await new Promise(done => {
+    let left = order.length, taken = false;
+    for (const i of order) {
+      const mq = new MqttLink(NET_BROKERS[i], 'ded-' + Net.me + Math.random().toString(36).slice(2, 6), onNetMessage, onNetLost);
+      mq.connect().then(() => {
+        if (taken || !Net.active) { mq.close(); return; }
+        taken = true; done({ mq, i });
+      }, e => { fails.push(`${NET_BROKERS[i].name}: ${e.message}`); if (--left === 0 && !taken) done(null); });
+    }
+  });
+  if (!won) { Net.lastFail = fails; return false; }
+  if (!Net.active) { won.mq.close(); return false; }
+  Net.link = won.mq; Net.room = room; Net.code = room + (won.i + 1);
+  won.mq.sub(NET_TOPIC + room + '/+');
+  return true;
+}
+function netFailText(joining) {
+  if (Net.cspBlocked) return 'This page isn\'t allowed to connect to outside game servers. Play online from the Android app, or from the claude.ai page with friends who have access to it.';
+  const why = (Net.lastFail || []).join(' · ');
+  return `Couldn't ${joining ? 'reach that game' : 'reach a game server'}${why ? ` (${why})` : ''}. Check that this device is online; on school or work Wi-Fi, try mobile data.`;
 }
 async function netHost() {
   if (Net.active) return;
   const room = Array.from({ length: 4 }, () => CODE_CHARS[Math.random() * CODE_CHARS.length | 0]).join('');
-  Object.assign(Net, { active: true, isHost: true, isClient: false, inGame: false, cfg: { mode: CFG.mode, diff: CFG.diff, start: CFG.start }, hostPid: Net.me });
+  Object.assign(Net, { active: true, isHost: true, isClient: false, inGame: false, cfg: { mode: CFG.mode, diff: CFG.diff, start: CFG.start }, hostPid: Net.me, lastFail: [] });
   setOnlineBusy(true);
   const ok = await netConnect(room, true);
   setOnlineBusy(false);
-  if (!ok) { netReset(); netNote('Couldn\'t reach a game server. Check your internet connection and try again.'); return; }
+  if (!ok) { netReset(); netNote(netFailText(false)); return; }
   netClock.hi = 0; Menu.show('scrLobby');
 }
 async function netJoin() {
   if (Net.active) return;
   const code = ($('joinCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (!/^[A-Z]{4}[1-9]?$/.test(code)) { netNote('Type the 5-character room code from the host, like KXTP1.'); return; }
-  Object.assign(Net, { active: true, isHost: false, isClient: true, inGame: false, hostPid: null, joinT: performance.now() });
+  if (!/^[A-Z]{4}[0-9]?$/.test(code)) { netNote('Type the 5-character room code from the host, like KXTP1.'); return; }
+  Object.assign(Net, { active: true, isHost: false, isClient: true, inGame: false, hostPid: null, joinT: performance.now(), lastFail: [] });
   setOnlineBusy(true);
   const ok = await netConnect(code, false);
   setOnlineBusy(false);
-  if (!ok) { netReset(); netNote('Couldn\'t reach that game\'s server. Check your internet connection and the code.'); return; }
+  if (!ok) { netReset(); netNote(netFailText(true)); return; }
   netClock.hi = 0; Menu.show('scrLobby');
 }
 function netStartAsHost() {
@@ -5431,14 +5512,14 @@ function startOnlineMatch(c) {
   launchMatch(CFG);
 }
 function netReset() {
-  if (Net.mq) Net.mq.close();
+  if (Net.link) Net.link.close();
   for (const p of Net.peers.values()) dropAvatar(p);
   Net.peers.clear();
-  Object.assign(Net, { active: false, isHost: false, isClient: false, inGame: false, mq: null, hostPid: null, room: '', code: '', hits: [] });
+  Object.assign(Net, { active: false, isHost: false, isClient: false, inGame: false, link: null, hostPid: null, room: '', code: '', hits: [] });
 }
-function netLeave() { if (!Net.active) return; netSend({ t: 'bye' }); netReset(); }
-function onNetLost(mq) {
-  if (mq !== Net.mq || !Net.active) return;
+function netLeave() { if (!Net.active) return; netSend({ t: 'bye' }); if (Net.link && Net.link.ok) Net.link.flush(true); netReset(); }
+function onNetLost(link) {
+  if (link !== Net.link || !Net.active) return;
   if (Net.inGame && G.state !== 'over' && G.state !== 'menu') { announce('CONNECTION LOST', '#ff8a6a', 3); setTimeout(() => { if (G.state !== 'over') gameOver(); }, 2500); }
   else { netReset(); netNote('Lost the connection to the game server.'); if (Menu.cur === 'scrLobby') Menu.back(); }
 }
@@ -5467,9 +5548,12 @@ function netHostGone() {
 }
 
 function onNetMessage(topic, text) {
-  const from = topic.slice(topic.lastIndexOf('/') + 1);
-  if (!from || from === Net.me || text.length > 30000) return;
+  if (text.length > 30000) return;
   let m; try { m = JSON.parse(text); } catch (e) { return; }
+  netDispatch(topic.slice(topic.lastIndexOf('/') + 1), m);
+}
+function netDispatch(from, m) {
+  if (!from || from === Net.me || !Net.active) return;
   if (!m || typeof m !== 'object' || typeof m.t !== 'string' || !own(NET_HANDLERS, m.t)) return;
   if (m.to && m.to !== Net.me) return;
   if (m.t === 'bye') { removePeer(from, 'left'); return; }
@@ -5770,7 +5854,9 @@ function renderOnline() {
   $('onlineCard').innerHTML = `<span class="tag">Online Co-op</span><h4>Play with friends</h4>
     <p>Host a game and share the room code, or type a friend's code to join. Up to four players, on phones and computers, as long as everyone has internet.</p>
     <ul><li>The host's map, difficulty and starting round are used</li><li>Doors, power, boards and power-ups are shared; points, guns and perks are your own</li><li>Downed players can be revived; if everyone goes down, it's over</li></ul>
-    <p>Hosting: <span style="color:var(--amber)">${m.name}</span> · ${d.name} · round ${CFG.start}</p>`;
+    <p>Hosting: <span style="color:var(--amber)">${m.name}</span> · ${d.name} · round ${CFG.start}</p>
+    <p style="font-size:13px;color:#a59e8e">${Net.roomAvail ? 'On this claude.ai page, games run through claude.ai: friends need access to the page (Share, then invite them). Games hosted here have codes ending in 0, and players in the Android app can\'t join them.'
+      : 'Connects through free public game servers, so everyone needs internet. Games hosted on the claude.ai page (codes ending in 0) are joined from that page.'}</p>`;
 }
 function renderLobby() {
   $('lobbyCode').textContent = Net.code || '…';
@@ -5788,6 +5874,10 @@ function renderLobby() {
 const netClock = { hi: 0, p: 0, s: 0, h: 0, hud: 0 };
 function netTick(dt) {
   if (!Net.active) return;
+  netTickInner(dt);
+  if (Net.link && Net.link.ok) Net.link.flush();
+}
+function netTickInner(dt) {
   const now = performance.now();
   if ((netClock.hi -= dt) <= 0) {
     netClock.hi = Net.inGame ? 2 : 1;

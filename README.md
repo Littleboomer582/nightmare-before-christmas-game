@@ -70,12 +70,14 @@ F/E interact · V knife · G grenade · T place turret/trap · Q/1/2/3/wheel swi
 
 Up to four players on any mix of phones (the Android app) and browsers. One player picks **Online Co-op → Host a Game** and reads out the 5-character room code; the others type it under **Join Game**. Players can also join a match that has already started.
 
-- **How it connects:** there is no game server of our own. Players exchange small messages through a free public MQTT broker over a secure WebSocket (HiveMQ, EMQX, Eclipse Mosquitto's test server or shiftr.io; the host takes the first one that answers, and the code's last digit tells joiners which). Both sides only make outgoing connections, so it works on mobile data and home Wi-Fi without port forwarding. The brokers are public: anyone who knows a room code could see that room's messages, which only carry game data and player names.
+- **How it connects:** there is no game server of our own.
+  - **Android app and normal browsers:** players exchange small messages through free public MQTT brokers over secure WebSockets (HiveMQ, EMQX, Eclipse Mosquitto's test server, shiftr.io and the Eclipse IoT sandbox on port 443). The host tries them all at once and takes the first to answer; the room code's last digit (1–5) tells joiners which. Both sides only make outgoing connections, so it works on mobile data and home Wi-Fi without port forwarding. If nothing answers, the message names each server and what went wrong. The brokers are public: anyone who knows a room code could see that room's messages, which only carry game data and player names.
+  - **The claude.ai page:** pages on claude.ai can't reach outside servers, so there the game uses claude.ai's own live rooms instead (codes ending in 0). Everyone needs access to the page (Share, then invite them). Players on the page and players in the app can't be in the same game.
 - **Who runs what:** the host's game runs the zombies, rounds, doors, power, boards, power-ups and the bus, and sends a snapshot about 8 times a second. Everyone runs their own player, guns, perks, mystery box and buildables, and sends their hits to the host, which decides kills and credits the points to whoever made them.
 - **Shared:** doors, power, window boards, power-ups (they apply to everyone) and the round. **Your own:** points, guns, perks and buildables.
 - **Downs:** at zero health you go down instead of dying. A teammate holds F (or USE) next to you for 3 seconds to revive you; after 30 seconds you bleed out and come back at the start of the next round. If everyone is down at once, the game is over. Second Wind Soda still revives you on the spot.
 - **Zombies** chase whichever standing player is nearest, and rounds have 50% more zombies for each extra player.
-- The host's game must stay open and on screen: if the host leaves, the game ends for everyone. On the claude.ai page, the page's own security rules may not allow the connection; the Android app and a normal browser tab can make it.
+- The host's game must stay open and on screen: if the host leaves, the game ends for everyone.
 
 ## Android app
 
