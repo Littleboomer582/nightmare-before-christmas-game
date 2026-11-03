@@ -102,6 +102,13 @@
   .code{color:var(--amber);letter-spacing:4px}
   #onlineCard{align-self:flex-start;max-height:calc(100vh - 32px);overflow-y:auto}
   @media (max-height:520px){#scrOnline .panel{max-height:calc(100vh - 16px);overflow-y:auto}}
+  .opCard{display:flex;flex-direction:column;align-items:center;padding:12px 16px}
+  #opCanvas{width:100%;height:min(54vh,430px);display:block;touch-action:none;cursor:grab}
+  #opName{font-family:'Oswald',sans-serif;font-size:24px;letter-spacing:2px;margin-top:2px}
+  .opNote{font-size:12px;color:#9a9384;text-align:center;margin:4px 0 0}
+  .mi em .sw{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:8px;vertical-align:middle;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+  @media (max-height:520px){.scr .panel{max-height:calc(100vh - 16px);overflow-y:auto}
+    #scrOperator .mi{font-size:19px;padding:5px 10px 3px;gap:8px} #scrOperator .mi em{font-size:18px} #scrOperator .opCard{width:min(300px,38vw)} #opCanvas{height:62vh}}
   .netNote{background:rgba(160,40,30,.35);border-left:3px solid #ff7a6a;padding:8px 10px;margin-bottom:10px;font-size:14px;line-height:1.4;color:#f6e8de}
   .netCheck{background:rgba(0,0,0,.35);padding:8px 10px;margin-bottom:12px;font-size:13px;line-height:1.55}
   .netCheck b{display:block;font-weight:600;margin-bottom:2px}
@@ -305,6 +312,7 @@
       <nav class="list" aria-label="Main menu">
         <button class="mi" data-go="scrSolo">Solo <small>Survive the night alone</small></button>
         <button class="mi" data-go="scrOnline">Online Co-op <small>Up to four players, anywhere</small></button>
+        <button class="mi" data-go="scrOperator">Operator <small>Design your survivor</small></button>
         <button class="mi" data-go="scrBoards">Leaderboards <small>Your best runs</small></button>
         <button class="mi" data-go="scrOptions">Options <small>Controls, video, audio</small></button>
         <button class="mi" data-go="scrManual">Field Manual <small>Controls and survival notes</small></button>
@@ -447,6 +455,27 @@
       <div class="hints"><b>←→</b>Change &nbsp; <b>Enter</b>Select &nbsp; <b>Esc</b>Back</div>
     </div>
     <aside class="card" id="onlineCard"></aside>
+  </section>
+
+  <section class="scr" id="scrOperator" hidden>
+    <div class="panel">
+      <div class="hdr"><span class="eyebrow">Your survivor</span><h3>Operator</h3></div>
+      <div class="list">
+        <button class="mi sel" data-opt="top">Jacket <em></em></button>
+        <button class="mi sel" data-opt="pat">Pattern <em></em></button>
+        <button class="mi sel" data-opt="pants">Pants <em></em></button>
+        <button class="mi sel" data-opt="skin">Skin Tone <em></em></button>
+        <button class="mi sel" data-opt="head">Headgear <em></em></button>
+        <button class="mi sel" data-opt="face">Face <em></em></button>
+        <button class="mi sel" data-opt="gloves">Gloves <em></em></button>
+        <button class="mi sel" data-opt="pack">Backpack <em></em></button>
+        <button class="mi sel" data-opt="tag">Name Color <em></em></button>
+        <button class="mi" id="btnOpRandom">Randomize</button>
+        <button class="mi back">Back</button>
+      </div>
+      <div class="hints"><b>←→</b>Change &nbsp; <b>Esc</b>Back</div>
+    </div>
+    <aside class="card opCard"><canvas id="opCanvas"></canvas><div id="opName"></div><p class="opNote">Drag to turn. You'll see your sleeves and gloves in first person, and online your teammates see all of it.</p></aside>
   </section>
 
   <section class="scr" id="scrLobby" hidden>
@@ -854,6 +883,7 @@ const M = {
   fixture: mat(0xd8e6ff, { emissive: 0x334055 }),
   sleeve: mat(0x9a9a90, { map: T.sleeve(), shininess: 6 }),
   glove: mat(0x1f1d1a, { shininess: 25 }),
+  hand: mat(0x1f1d1a, { shininess: 25 }),
   gunMetal: mat(0x1c1d20, { roughness: .35, metalness: .85 }),
 };
 for (const k of ['floor', 'wall', 'wallOut', 'ceiling', 'asphalt', 'dirt', 'wood']) { M[k].bumpMap = M[k].map; M[k].bumpScale = k === 'floor' ? .015 : .035; }
@@ -1812,18 +1842,18 @@ function buildArms(def) {
   const oneHand = def.kind === 'pistol' || def.kind === 'cannon' || def.kind === 'ray';
   const rh = new V3(.012, -.105, -.035);
   g.add(limbBetween(new V3(.2, -.42, .42), rh.clone().add(new V3(.015, -.03, .07)), .062, .048, M.sleeve));
-  g.add(limbBetween(rh.clone().add(new V3(.015, -.03, .07)), rh.clone().add(new V3(.008, -.01, .02)), .048, .042, M.glove));
+  g.add(limbBetween(rh.clone().add(new V3(.015, -.03, .07)), rh.clone().add(new V3(.008, -.01, .02)), .048, .042, M.hand));
   const knuckle = mat(0x2c2a26, { roughness: .5 });
   // a rounded gloved hand: palm, four curled fingers, thumb, knuckle pad
   const glovedHand = (pos, rotX, rotZ, gripR) => {
     const h = new THREE.Group(); h.position.copy(pos); h.rotation.set(rotX, 0, rotZ); g.add(h);
-    const palm = new THREE.Mesh(new THREE.SphereGeometry(.045, 14, 10), M.glove); palm.scale.set(.85, 1, 1.15); palm.position.x = .03; h.add(palm);
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(.045, 14, 10), M.hand); palm.scale.set(.85, 1, 1.15); palm.position.x = .03; h.add(palm);
     for (let i = 0; i < 4; i++) {
-      const f = new THREE.Mesh(new THREE.TorusGeometry(gripR, .0105, 6, 10, Math.PI * 1.1), M.glove);
+      const f = new THREE.Mesh(new THREE.TorusGeometry(gripR, .0105, 6, 10, Math.PI * 1.1), M.hand);
       f.rotation.set(0, Math.PI / 2, -Math.PI * .55); f.position.set(-.005, -.028 + i * .019, -.006); h.add(f);
     }
     const pad = new THREE.Mesh(new THREE.BoxGeometry(.012, .07, .05), knuckle); pad.position.set(.052, -.005, -.01); h.add(pad);
-    const thumb = new THREE.Mesh(new THREE.CylinderGeometry(.011, .013, .055, 8), M.glove); thumb.position.set(-.03, .03, -.02); thumb.rotation.set(-.9, 0, .4); h.add(thumb);
+    const thumb = new THREE.Mesh(new THREE.CylinderGeometry(.011, .013, .055, 8), M.hand); thumb.position.set(-.03, .03, -.02); thumb.rotation.set(-.9, 0, .4); h.add(thumb);
     const cuff = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .03, 14), knuckle); cuff.position.set(.035, -.045, .04); cuff.rotation.set(.9, 0, .3); h.add(cuff);
     return h;
   };
@@ -2476,6 +2506,233 @@ function midnightClock(def) {
     else addPoints(1000);
   }, 7600);
 }
+
+/* =====================================================================
+   OPERATOR: design your survivor. The look goes on your first-person sleeves and gloves,
+   and online it's what your teammates see. A live 3D preview spins on the Operator screen.
+   ===================================================================== */
+const OP = {
+  top: { label: 'Jacket', list: [['Olive', '#5a6a3a'], ['Black', '#26282c'], ['Navy', '#26344f'], ['Desert', '#b09668'], ['Red', '#8c2a22'], ['White', '#d6d6ce'], ['Orange', '#d06a1e'], ['Purple', '#5c3c7c'], ['Teal', '#2a6c6a'], ['Pink', '#c4567c']] },
+  pat: { label: 'Pattern', list: ['Plain', 'Woodland Camo', 'Digital Camo', 'Tiger Stripe', 'Hi-Vis Stripes', 'Plaid'] },
+  pants: { label: 'Pants', list: [['Black', '#232428'], ['Olive', '#4a5232'], ['Denim', '#34465e'], ['Khaki', '#8e7e56'], ['Grey', '#55585c'], ['Brown', '#4e3824']] },
+  skin: { label: 'Skin Tone', list: [['Light', '#f0c8a4'], ['Fair', '#dcaa86'], ['Tan', '#c48a60'], ['Brown', '#9c643e'], ['Dark', '#76482a'], ['Deep', '#4c2e1a']] },
+  head: { label: 'Headgear', list: ['None', 'Beanie', 'Cap', 'Helmet', 'Hood', 'Headband'] },
+  face: { label: 'Face', list: ['None', 'Bandana', 'Gas Mask', 'Goggles', 'Skull Mask', 'War Paint'] },
+  gloves: { label: 'Gloves', list: [['Bare Hands', null], ['Black', '#1f1d1a'], ['Tan', '#94744e'], ['Olive', '#4a5236'], ['Red', '#8a2222'], ['White', '#d0d0c8']] },
+  pack: { label: 'Backpack', list: ['None', 'Field Pack', 'Radio Pack', 'Ammo Bag'] },
+  tag: { label: 'Name Color', list: [['Amber', '#ffcf6a'], ['Blue', '#6ad0ff'], ['Green', '#8dff7a'], ['Pink', '#ff7ab8'], ['White', '#f2f2f2'], ['Red', '#ff6a5a']] },
+};
+const OP_KEYS = Object.keys(OP);
+const OP_DEFAULT = { top: 0, pat: 1, pants: 0, skin: 1, head: 1, face: 0, gloves: 1, pack: 1, tag: 0 };
+function cleanOperator(o) {
+  const r = {};
+  for (const k of OP_KEYS) { const v = o && Number.isInteger(o[k]) ? o[k] : OP_DEFAULT[k]; r[k] = clamp(v, 0, OP[k].list.length - 1); }
+  return r;
+}
+SETTINGS.operator = cleanOperator(SETTINGS.operator);
+const opColor = (k, i) => OP[k].list[i][1];
+const opTagColor = o => opColor('tag', o.tag);
+
+// jacket patterns, in whatever colour the jacket is; every shape is drawn wrapped so the texture tiles
+const opTexCache = new Map();
+function opTex(hex, pat) {
+  const key = hex + '|' + pat;
+  if (opTexCache.has(key)) return opTexCache.get(key);
+  const t = canvasTex(128, 128, (g, w, h) => {
+    const base = new THREE.Color(hex), css = c => '#' + c.getHexString();
+    const dk = css(base.clone().multiplyScalar(.55)), dk2 = css(base.clone().multiplyScalar(.32)), lt = css(base.clone().lerp(new THREE.Color(1, 1, 1), .28));
+    g.fillStyle = css(base); g.fillRect(0, 0, w, h);
+    const wrapped = draw => { for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) { g.save(); g.translate(ox, oy); draw(); g.restore(); } };
+    if (pat === 1) {   // woodland: overlapping organic blobs
+      for (const [c, n, r] of [[lt, 10, 15], [dk, 14, 17], [dk2, 10, 11]]) for (let i = 0; i < n; i++) {
+        const x = rand(0, w), y = rand(0, h), rx = rand(r * .5, r * 1.3), ry = rand(r * .3, r * .8), a = rand(0, 3);
+        g.fillStyle = c; wrapped(() => { g.beginPath(); g.ellipse(x, y, rx, ry, a, 0, 7); g.fill(); });
+      }
+    } else if (pat === 2) {   // digital: clustered square pixels
+      const cell = 8;
+      for (let y = 0; y < h; y += cell) for (let x = 0; x < w; x += cell) {
+        const v = Math.sin(x * .09 + rand(0, .6)) + Math.cos(y * .11 + rand(0, .6)) + rand(-.8, .8);
+        g.fillStyle = v > .9 ? lt : v < -1.1 ? dk2 : v < -.2 ? dk : css(base); g.fillRect(x, y, cell, cell);
+      }
+    } else if (pat === 3) {   // tiger stripe: wavy dark bands
+      g.fillStyle = dk2;
+      for (let i = 0; i < 7; i++) {
+        const y0 = rand(0, h), th = rand(3, 7), ph = rand(0, 6);
+        wrapped(() => { g.beginPath(); g.moveTo(0, y0); for (let x = 0; x <= w; x += 8) g.lineTo(x, y0 + Math.sin(x * .07 + ph) * 5); for (let x = w; x >= 0; x -= 8) g.lineTo(x, y0 + th + Math.sin(x * .07 + ph + .8) * 3); g.closePath(); g.fill(); });
+      }
+    } else if (pat === 4) {   // hi-vis: two reflective bands
+      for (const y of [h * .3, h * .7]) { g.fillStyle = '#c8ccd0'; g.fillRect(0, y - 7, w, 14); g.fillStyle = '#eef2f4'; g.fillRect(0, y - 2, w, 4); }
+    } else if (pat === 5) {   // plaid: crossing bands
+      for (const [c, a, step, wd] of [[dk2, .5, 32, 10], [lt, .35, 32, 4], [dk, .4, 16, 2]]) {
+        g.globalAlpha = a; g.fillStyle = c;
+        for (let i = 0; i < w; i += step) { g.fillRect(i, 0, wd, h); g.fillRect(0, i, w, wd); }
+        g.globalAlpha = 1;
+      }
+    }
+    speckle(g, w, h, 500, .08);
+  }, 2, 2);
+  opTexCache.set(key, t); return t;
+}
+
+// the operator model: faces -z, about 1.8 m tall; returns the parts the online code animates
+function buildOperator(o) {
+  o = cleanOperator(o);
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const skinHex = opColor('skin', o.skin), topHex = opColor('top', o.top);
+  const jacket = mat(0xffffff, { map: opTex(topHex, o.pat), roughness: .85 }), plainTop = mat(new THREE.Color(topHex).multiplyScalar(.8).getHex(), { roughness: .85 });
+  const pants = mat(opColor('pants', o.pants), { roughness: .9 }), skin = mat(skinHex, { roughness: .7 }), boot = mat(0x1c1a18, { roughness: .6 });
+  const gear = mat(0x2c2e28, { roughness: .8 }), hands = mat(opColor('gloves', o.gloves) || skinHex, { roughness: .7 }), dark = mat(0x101010, { roughness: .5 });
+  const add = (geo, m, x, y, z, parent = body) => { const ms = new THREE.Mesh(geo, m); ms.position.set(x, y, z); ms.castShadow = true; parent.add(ms); return ms; };
+  // legs (hip pivots, so they can swing)
+  const legs = [-.11, .11].map(x => {
+    const hip = new THREE.Group(); hip.position.set(x, .9, 0); body.add(hip);
+    add(new THREE.CylinderGeometry(.1, .084, .46, 12), pants, 0, -.23, 0, hip);
+    add(new THREE.BoxGeometry(.05, .14, .12), pants, Math.sign(x) * .1, -.24, 0, hip);   // thigh pocket
+    add(new THREE.CylinderGeometry(.08, .066, .42, 12), pants, 0, -.64, .01, hip);
+    add(new THREE.BoxGeometry(.12, .12, .05), gear, 0, -.45, -.075, hip);                 // knee pad
+    add(new THREE.BoxGeometry(.14, .11, .29), boot, 0, -.86, -.04, hip);
+    return hip;
+  });
+  add(new THREE.BoxGeometry(.42, .22, .26), pants, 0, .95, 0);
+  // jacket, belt, chest rig with pouches
+  const torso = add(new THREE.CylinderGeometry(.23, .2, .56, 14), jacket, 0, 1.24, 0); torso.scale.z = .66;
+  add(new THREE.BoxGeometry(.42, .06, .27), gear, 0, 1.0, 0);
+  add(new THREE.BoxGeometry(.34, .26, .07), gear, 0, 1.26, -.15);
+  for (const x of [-.11, 0, .11]) add(new THREE.BoxGeometry(.09, .1, .05), gear, x, 1.2, -.19);
+  for (const x of [-.25, .25]) add(new THREE.SphereGeometry(.1, 12, 10), jacket, x, 1.44, 0);
+  add(new THREE.CylinderGeometry(.05, .055, .08, 10), skin, 0, 1.54, 0);
+  // head
+  const head = new THREE.Group(); head.position.y = 1.67; body.add(head);
+  add(new THREE.SphereGeometry(.12, 18, 14), skin, 0, 0, 0, head).scale.set(.95, 1.08, 1);
+  if (o.face !== 4 && o.face !== 2) for (const x of [-.042, .042]) add(new THREE.SphereGeometry(.014, 8, 6), dark, x, .02, -.112, head);
+  if (o.face !== 4 && o.face !== 2) add(new THREE.SphereGeometry(.022, 8, 6), skin, 0, -.01, -.12, head);   // nose
+  if (o.head === 0) add(new THREE.SphereGeometry(.124, 16, 10, 0, Math.PI * 2, 0, Math.PI * .45), mat(0x2a1e14, { roughness: .9 }), 0, .015, .008, head);
+  if (o.head === 1) {   // beanie
+    const bm = mat(new THREE.Color(topHex).multiplyScalar(.6).getHex(), { roughness: .95 });
+    add(new THREE.SphereGeometry(.132, 16, 10, 0, Math.PI * 2, 0, Math.PI * .52), bm, 0, .02, 0, head);
+    add(new THREE.TorusGeometry(.124, .022, 8, 20), bm, 0, .03, 0, head).rotation.x = Math.PI / 2;
+  } else if (o.head === 2) {   // cap
+    const cm = mat(new THREE.Color(topHex).multiplyScalar(.7).getHex(), { roughness: .8 });
+    add(new THREE.SphereGeometry(.128, 16, 10, 0, Math.PI * 2, 0, Math.PI * .5), cm, 0, .03, 0, head);
+    add(new THREE.CylinderGeometry(.09, .09, .012, 16, 1, false, Math.PI * .5, Math.PI), cm, 0, .045, -.1, head);
+  } else if (o.head === 3) {   // helmet
+    const hm = mat(new THREE.Color(topHex).lerp(new THREE.Color(0x4a5236), .6).getHex(), { roughness: .6 });
+    add(new THREE.SphereGeometry(.15, 18, 12, 0, Math.PI * 2, 0, Math.PI * .55), hm, 0, .02, .005, head);
+    add(new THREE.CylinderGeometry(.155, .16, .02, 18), hm, 0, -.01, .005, head);
+  } else if (o.head === 4) {   // hood up
+    const hood = add(new THREE.SphereGeometry(.16, 16, 12, Math.PI * .15, Math.PI * 1.7, 0, Math.PI * .72), jacket, 0, .02, .02, head); hood.rotation.y = Math.PI;
+  } else if (o.head === 5) {   // headband
+    add(new THREE.TorusGeometry(.122, .016, 8, 22), mat(0xa82020, { roughness: .8 }), 0, .045, 0, head).rotation.x = Math.PI / 2;
+    add(new THREE.SphereGeometry(.124, 16, 10, 0, Math.PI * 2, 0, Math.PI * .4), mat(0x2a1e14, { roughness: .9 }), 0, .02, .008, head);
+  }
+  if (o.face === 1) {   // bandana over the mouth
+    add(new THREE.CylinderGeometry(.126, .135, .1, 16, 1, true, Math.PI * .5, Math.PI), mat(0x7a1c1c, { roughness: .9, side: THREE.DoubleSide }), 0, -.055, 0, head);
+  } else if (o.face === 2) {   // gas mask
+    add(new THREE.SphereGeometry(.125, 16, 12, Math.PI, Math.PI, Math.PI * .25, Math.PI * .6), mat(0x22241f, { roughness: .6 }), 0, 0, -.005, head);
+    for (const x of [-.045, .045]) add(new THREE.CylinderGeometry(.032, .032, .02, 14), mat(0x8fa8b0, { roughness: .1, metalness: .4 }), x, .025, -.118, head).rotation.x = Math.PI / 2;
+    add(new THREE.CylinderGeometry(.04, .045, .07, 12), mat(0x3a3c36, { roughness: .5 }), 0, -.07, -.13, head).rotation.x = Math.PI / 2.4;
+  } else if (o.face === 3) {   // goggles
+    add(new THREE.TorusGeometry(.124, .012, 6, 22), dark, 0, .02, 0, head).rotation.x = Math.PI / 2;
+    for (const x of [-.045, .045]) add(new THREE.CylinderGeometry(.03, .03, .03, 14), mat(0xffb030, { roughness: .1, metalness: .3, emissive: 0x3a2200 }), x, .02, -.115, head).rotation.x = Math.PI / 2;
+  } else if (o.face === 4) {   // skull mask
+    add(new THREE.SphereGeometry(.127, 16, 12, Math.PI, Math.PI, Math.PI * .1, Math.PI * .75), mat(0xe8e2d4, { roughness: .5 }), 0, 0, -.004, head);
+    for (const x of [-.045, .045]) add(new THREE.SphereGeometry(.026, 10, 8), dark, x, .025, -.11, head);
+    add(new THREE.ConeGeometry(.015, .03, 3), dark, 0, -.02, -.122, head).rotation.x = Math.PI;
+    for (let i = -2; i <= 2; i++) add(new THREE.BoxGeometry(.008, .025, .006), dark, i * .018, -.07, -.112, head);
+  } else if (o.face === 5) {   // war paint
+    for (const [y, w] of [[.02, .2], [-.03, .14]]) add(new THREE.BoxGeometry(w, .016, .02), dark, 0, y, -.108, head);
+  }
+  // arms holding a rifle (pivot at the shoulders so they follow where you aim)
+  const arms = new THREE.Group(); arms.position.set(0, 1.42, 0); body.add(arms);
+  const P3 = (x, y, z) => new V3(x, y, z);
+  for (const [sh, el, hd] of [[P3(.25, 0, 0), P3(.27, -.2, -.2), P3(.07, -.12, -.4)], [P3(-.25, 0, 0), P3(-.22, -.17, -.28), P3(.02, -.08, -.62)]]) {
+    arms.add(limbBetween(sh, el, .065, .058, jacket)); arms.add(limbBetween(el, hd, .056, .048, jacket));
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(.045, 10, 8), hands); hand.position.copy(hd); arms.add(hand);
+  }
+  add(new THREE.BoxGeometry(.07, .12, .66), dark, .04, -.06, -.55, arms);
+  add(new THREE.BoxGeometry(.05, .14, .07), dark, .04, -.15, -.5, arms);
+  add(new THREE.BoxGeometry(.04, .05, .16), mat(0x3a3c40, { roughness: .4, metalness: .6 }), .04, .02, -.45, arms);
+  const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltHalo, color: 0xffcf80, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  flash.scale.setScalar(.45); flash.position.set(.04, -.04, -.92); flash.visible = false; arms.add(flash);
+  // backpack
+  const packM = mat(new THREE.Color(topHex).lerp(new THREE.Color(0x3a3a30), .55).getHex(), { roughness: .9 });
+  if (o.pack === 1) { add(new THREE.BoxGeometry(.34, .42, .17), packM, 0, 1.24, .22); add(new THREE.BoxGeometry(.3, .12, .06), packM, 0, 1.08, .32); }
+  else if (o.pack === 2) { add(new THREE.BoxGeometry(.3, .36, .16), gear, 0, 1.26, .21); add(new THREE.CylinderGeometry(.006, .006, .7, 5), dark, .1, 1.7, .24); add(new THREE.BoxGeometry(.1, .06, .03), mat(0x3aff6a, { emissive: 0x0a4a1a }), -.06, 1.34, .3); }
+  else if (o.pack === 3) { add(new THREE.BoxGeometry(.16, .2, .12), packM, -.24, 1.0, .06); add(new THREE.BoxGeometry(.16, .2, .12), packM, .24, 1.0, .06); }
+  g.traverse(x => { x.userData.dynamic = true; });
+  return { g, body, legs, arms, flash, head };
+}
+
+// your sleeves and gloves in first person
+function applyOperator() {
+  const o = SETTINGS.operator;
+  M.sleeve.map = opTex(opColor('top', o.top), o.pat); M.sleeve.color.set(0xffffff); M.sleeve.needsUpdate = true;
+  M.hand.color.set(opColor('gloves', o.gloves) || opColor('skin', o.skin));
+}
+applyOperator();
+function opAdjust(key, dir) {
+  if (!OP[key]) return;
+  const n = OP[key].list.length;
+  SETTINGS.operator[key] = (SETTINGS.operator[key] + dir + n) % n;
+  saveSettings(); applyOperator(); renderOperator(); OpPreview.rebuild();
+}
+function opRandom() {
+  for (const k of OP_KEYS) SETTINGS.operator[k] = Math.random() * OP[k].list.length | 0;
+  saveSettings(); applyOperator(); renderOperator(); OpPreview.rebuild();
+}
+function renderOperator() {
+  const o = SETTINGS.operator;
+  document.querySelectorAll('#scrOperator .mi[data-opt]').forEach(el => {
+    const k = el.dataset.opt, item = OP[k].list[o[k]], em = el.querySelector('em');
+    const label = Array.isArray(item) ? item[0] : item, sw = Array.isArray(item) && item[1] ? `<i class="sw" style="background:${item[1]}"></i>` : '';
+    em.innerHTML = `${sw}${escapeHtml(label)}`;
+  });
+  $('opName').textContent = SETTINGS.name || 'Survivor'; $('opName').style.color = opTagColor(o);
+}
+// the spinning preview: its own small renderer, running only while the Operator screen is open
+const OpPreview = {
+  r: null, scene: null, cam: null, model: null, yaw: Math.PI * .15, drag: null, on: false,
+  init() {
+    if (this.r) return true;
+    try { this.r = new THREE.WebGLRenderer({ canvas: $('opCanvas'), antialias: true, alpha: true }); } catch (e) { return false; }
+    this.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.r.toneMapping = THREE.ACESFilmicToneMapping; this.r.toneMappingExposure = 1.15;
+    this.scene = new THREE.Scene();
+    this.scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a3020, 1));
+    const key = new THREE.DirectionalLight(0xfff0dc, 1.5); key.position.set(2, 3, -2.5); this.scene.add(key);
+    const rim = new THREE.DirectionalLight(0x8fb4ff, 1); rim.position.set(-2.5, 2.5, 3); this.scene.add(rim);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(.6, 32), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
+    floor.rotation.x = -Math.PI / 2; this.scene.add(floor);
+    this.cam = new THREE.PerspectiveCamera(28, 1, .1, 20); this.cam.position.set(0, 1.15, -4.3); this.cam.lookAt(0, .93, 0);
+    const c = this.r.domElement;
+    c.addEventListener('pointerdown', e => { this.drag = e.clientX; c.setPointerCapture(e.pointerId); });
+    c.addEventListener('pointermove', e => { if (this.drag !== null) { this.yaw += (e.clientX - this.drag) * .012; this.drag = e.clientX; } });
+    const up = () => { this.drag = null; };
+    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+    return true;
+  },
+  rebuild() {
+    if (!this.r) return;
+    if (this.model) { this.scene.remove(this.model); this.model.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material && !x.material.map) x.material.dispose(); }); }
+    this.model = buildOperator(SETTINGS.operator).g; this.scene.add(this.model);
+  },
+  start() {
+    if (!this.init()) return;
+    this.rebuild();
+    if (this.on) return;
+    this.on = true;
+    const loop = () => {
+      if (Menu.cur !== 'scrOperator') { this.on = false; return; }
+      requestAnimationFrame(loop);
+      const c = this.r.domElement, w = c.clientWidth, h = c.clientHeight;
+      if (w && h && (c.width !== Math.round(w * this.r.getPixelRatio()) || c.height !== Math.round(h * this.r.getPixelRatio()))) { this.r.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
+      if (this.drag === null) this.yaw += .006;
+      this.model.rotation.y = this.yaw;
+      this.r.render(this.scene, this.cam);
+    };
+    loop();
+  },
+};
 
 function boxQuote(id) {
   const d = W[id];
@@ -5192,6 +5449,7 @@ const SCREEN_HOOKS = {
     $('cheatsOn').textContent = [CHEATS.bighead && 'Big Heads', CHEATS.confetti && 'Confetti'].filter(Boolean).join(' · ');
   },
   scrManual() { renderSecrets(); },
+  scrOperator() { renderOperator(); OpPreview.start(); },
   scrSolo() { renderSolo(); },
   scrOnline() { if (Net.active && !Net.inGame) netLeave(); renderOnline(); netCheckServers(); },
   scrLobby() { renderLobby(); },
@@ -5247,6 +5505,7 @@ function renderOptions() {
 }
 function adjust(el, dir, wrap = false) {
   const key = el.dataset.opt;
+  if (el.closest('#scrOperator')) { opAdjust(key, dir); uiTick(); return; }
   if (el.closest('#scrSolo, #scrOnline')) {
     if (key === 'mode') CFG.mode = cycle(Object.keys(MODES), CFG.mode, dir);
     if (key === 'diff') CFG.diff = cycle(Object.keys(DIFFS), CFG.diff, dir);
@@ -5402,6 +5661,7 @@ function bootMenus() {
   document.querySelectorAll('#overlay .mi').forEach(b => b.addEventListener('mouseenter', () => { if (document.activeElement !== b) { b.focus({ preventScroll: true }); uiTick(); } }));
   $('btnStart').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); launchMatch(CFG); };
   $('btnHost').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); netHost(); };
+  $('btnOpRandom').onclick = () => { uiPick(); opRandom(); };
   $('btnJoin').onclick = () => { uiPick(); netJoin(); };
   $('btnLobbyStart').onclick = () => { uiPick(); netStartAsHost(); };
   $('joinCode').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); netJoin(); } });
@@ -5854,6 +6114,8 @@ const NET_HANDLERS = {
   bye() {},
   hi(m, p, from) {
     p.name = cleanName(m.n); p.host = !!m.h;
+    const sk = cleanOperator(m.sk);
+    if (!p.skin || OP_KEYS.some(k => p.skin[k] !== sk[k])) { p.skin = sk; p.color = opTagColor(sk); if (p.av) dropAvatar(p); }
     if (p.host && Net.isClient) {
       Net.hostPid = from;
       if (m.g && !Net.inGame) startOnlineMatch(m.cfg);   // the game is already on: jump in
@@ -6053,28 +6315,12 @@ function tagSprite(text, color, w = 256, h = 64) {
   s.scale.set(1.3, .325, 1); s.renderOrder = 10; return s;
 }
 function makeAvatar(p) {
-  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const jacket = mat(new THREE.Color(p.color).multiplyScalar(.6).getHex(), { roughness: .75 }), pants = mat(0x2b2e33, { roughness: .9 }), skin = mat(0xc89a7a, { roughness: .8 });
-  const add = (geo, m, x, y, z, parent = body) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
-  const legs = [-.12, .12].map(x => {
-    const hip = new THREE.Group(); hip.position.set(x, .86, 0); body.add(hip);
-    add(new THREE.BoxGeometry(.17, .82, .2), pants, 0, -.41, 0, hip); add(new THREE.BoxGeometry(.18, .1, .3), M.darkMetal, 0, -.8, -.05, hip);
-    return hip;
-  });
-  add(new THREE.BoxGeometry(.48, .6, .27), jacket, 0, 1.17, 0);
-  add(new THREE.BoxGeometry(.52, .16, .3), jacket, 0, 1.42, 0);
-  add(new THREE.SphereGeometry(.14, 14, 10), skin, 0, 1.65, 0);
-  add(new THREE.SphereGeometry(.148, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x2e2a26, { roughness: .9 }), 0, 1.68, 0);
-  const arms = new THREE.Group(); arms.position.set(0, 1.4, 0); body.add(arms);
-  add(new THREE.BoxGeometry(.12, .12, .5), jacket, -.24, -.06, -.22, arms); add(new THREE.BoxGeometry(.12, .12, .46), jacket, .2, -.06, -.2, arms);
-  add(new THREE.BoxGeometry(.08, .13, .56), M.darkMetal, .02, -.02, -.5, arms);
-  const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltHalo, color: 0xffcf80, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-  flash.scale.setScalar(.45); flash.position.set(.02, -.02, -.84); flash.visible = false; arms.add(flash);
+  const { g, body, legs, arms, flash } = buildOperator(p.skin || OP_DEFAULT);
   const tag = tagSprite(p.name, p.color); tag.position.y = 2.1; g.add(tag);
   const cross = tagSprite('✚ REVIVE', '#ff6a6a'); cross.position.y = 1.0; cross.visible = false; g.add(cross);
   g.traverse(o => { o.userData.dynamic = true; });
   g.position.copy(p.pos); scene.add(g);
-  const a = { g, body, legs, arms, flash, tag, cross, yaw: p.yaw, phase: 0, nextShot: 0, flashT: 0, name: p.name };
+  const a = { g, body, legs, arms, flash, tag, cross, yaw: p.yaw, phase: 0, nextShot: 0, flashT: 0, name: p.name, color: p.color };
   a.it = {   // hold F by a downed teammate to get them up
     pos: p.pos, r: 1.9, hold: true, t: 0, last: -9,
     prompt() {
@@ -6106,7 +6352,7 @@ function updateAvatars(dt) {
     if (!p.ig || !p.seen || p.dn === 2) { if (p.av) p.av.g.visible = false; continue; }
     if (!p.av) p.av = makeAvatar(p);
     const a = p.av; a.g.visible = true;
-    if (a.name !== p.name) { a.g.remove(a.tag); a.tag = tagSprite(p.name, p.color); a.tag.position.y = 2.1; a.g.add(a.tag); a.name = p.name; }
+    if (a.name !== p.name || a.color !== p.color) { a.g.remove(a.tag); a.tag = tagSprite(p.name, p.color); a.tag.position.y = 2.1; a.g.add(a.tag); a.name = p.name; a.color = p.color; }
     const bx = p.pos.x, bz = p.pos.z;
     if (p.pos.distanceTo(p.tpos) > 6) p.pos.copy(p.tpos); else p.pos.lerp(p.tpos, Math.min(1, dt * 12));
     const spd = Math.hypot(p.pos.x - bx, p.pos.z - bz) / Math.max(dt, 1e-3);
@@ -6173,7 +6419,7 @@ function renderOnline() {
 function renderLobby() {
   $('lobbyCode').textContent = Net.code || '…';
   $('lobbyEyebrow').textContent = Net.isHost ? 'Hosting · Online Co-op' : 'Joined · Online Co-op';
-  const rows = [`<li style="--c:${NET_COLORS[0]}"><i></i>${escapeHtml(SETTINGS.name)} <small>${Net.isHost ? 'host · you' : 'you'}</small></li>`]
+  const rows = [`<li style="--c:${opTagColor(SETTINGS.operator)}"><i></i>${escapeHtml(SETTINGS.name)} <small>${Net.isHost ? 'host · you' : 'you'}</small></li>`]
     .concat([...Net.peers.values()].map(p => `<li style="--c:${p.color}"><i></i>${escapeHtml(p.name)}${p.host ? ' <small>host</small>' : ''}</li>`));
   $('lobbyPlayers').innerHTML = `<ul>${rows.join('')}</ul>`;
   $('btnLobbyStart').hidden = !Net.isHost;
@@ -6193,7 +6439,7 @@ function netTickInner(dt) {
   const now = performance.now();
   if ((netClock.hi -= dt) <= 0) {
     netClock.hi = Net.inGame ? 2 : 1;
-    netSend({ t: 'hi', n: SETTINGS.name, h: Net.isHost ? 1 : 0, g: Net.isHost && Net.inGame ? 1 : 0, cfg: Net.isHost ? Net.cfg : undefined });
+    netSend({ t: 'hi', n: SETTINGS.name, sk: SETTINGS.operator, h: Net.isHost ? 1 : 0, g: Net.isHost && Net.inGame ? 1 : 0, cfg: Net.isHost ? Net.cfg : undefined });
   }
   for (const [pid, p] of Net.peers) if (now - p.last > 9000) removePeer(pid, 'lost');
   if (!Net.active) return;

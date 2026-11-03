@@ -23,7 +23,7 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Realism:** screen-space ambient occlusion, rain-slick wet patches that reflect the lamps, large-scale surface variation, sculpted zombies (gaunt faces, ribcage torsos, fingers, ragged clothes) that stagger when hit, fall away from the shot, lose arms and become crawlers when their legs go. Guns climb and kick under recoil, sway as you turn, leave bullet holes and smoke; you'll see a red arc pointing at whatever hit you. Zombie groans and footsteps are positioned in 3D, gunfire echoes indoors, and your footsteps change with the surface.
 
-**Menus:** a title screen over live shots of the map, then a main menu with Solo, Online Co-op, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
+**Menus:** a title screen over live shots of the map, then a main menu with Solo, Online Co-op, Operator, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).
 - **Solo** sets up the match: map, difficulty (Casual, Normal, Hardened) and starting round (1, 5, 10, 15 or 20, with extra starting points). Maps:
   - **Route 9**: the full map, with the depot, bus lot, foggy road and the bus.
   - **Depot Survival**: the depot and bus lot only, with the gate chained shut.
@@ -65,6 +65,8 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Controls:** WASD move · Shift sprint · Space jump · Mouse aim · LMB fire · RMB aim down sights · R reload ·
 F/E interact · V knife · G grenade · T place turret/trap · Q/1/2/3/wheel switch weapon · Esc pause.
+
+**Operator:** design your survivor from the main menu: jacket colour and pattern (plain, woodland camo, digital camo, tiger stripe, hi-vis stripes, plaid), pants, skin tone, headgear (beanie, cap, helmet, hood, headband), face (bandana, gas mask, goggles, skull mask, war paint), gloves, backpack and name colour, with a 3D preview you can drag to turn and a Randomize button. Your sleeves and gloves show in first person, and online your teammates see the whole operator with your name in your colour.
 
 **Secrets:** every map hides three small objects; find them all and an original song starts (four songs, each in its own style, played live by the game's own synthesizer: drums, bass, distorted guitar and a lead). Each map also has a radio with a piece of the story, the farmhouse has a clock you shouldn't wind, and there are two menu cheats (Big Head Mode and Confetti Mode). Objects you're close to give off a faint chime. The Field Manual keeps track of what you've found and gives a hint for each secret you haven't.
 
