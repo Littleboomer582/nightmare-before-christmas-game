@@ -70,6 +70,7 @@ Every recording is cleaned the same way: rumble and hiss reduced, silence trimme
 - Right thumb: drag anywhere on the right half to look. Drag from the FIRE button to aim while shooting.
 - Buttons: FIRE, AIM (toggle), JUMP, RELOAD, USE (tap, or hold to rebuild and build), KNIFE, NADE, SWAP, PLACE (when carrying a turret or trap) and pause.
 - A gentle aim assist eases your view onto a nearby zombie while you fire or aim.
+- In the menus, tap a setting's row to step forward through its choices, or the **‹** in front of the value to step back. On a phone held sideways the list and its info card sit side by side and each scrolls on its own.
 - Phones start on the Low graphics setting.
 
 **Controls:** WASD move · Shift sprint · Space jump · Mouse aim · LMB fire · RMB aim down sights · R reload ·
