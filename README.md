@@ -57,7 +57,7 @@ Uses Three.js (r128). All textures and audio are generated in code. Headphones r
 Copy it to your phone, open it, and allow "install unknown apps" when asked.
 
 On touch screens:
-- Left thumb: joystick. Push it past the ring to run.
+- Left thumb: joystick.
 - Right thumb: drag to look.
 - Buttons: Swing, Use, Crouch, Hold breath, Light, Run (bottom-left; tap to toggle running) and Save (top-right, next to Pause). Android's Back button pauses the game.
 

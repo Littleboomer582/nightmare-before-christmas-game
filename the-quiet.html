@@ -119,7 +119,6 @@
   #tbCrouch{right:calc(26px + env(safe-area-inset-right));bottom:126px}
   #tbBreath{right:calc(112px + env(safe-area-inset-right));bottom:112px}
   #tbLight{right:calc(26px + env(safe-area-inset-right));bottom:204px;width:50px;height:50px}
-  #joyKnob.run{background:rgba(170,40,30,.45);border-color:rgba(255,130,110,.7)}
   .screen{touch-action:pan-y;-webkit-overflow-scrolling:touch}
   #tbPause{right:calc(14px + env(safe-area-inset-right));top:12px;width:42px;height:42px;font-size:12px}
   #tbSave{right:calc(64px + env(safe-area-inset-right));top:12px;width:42px;height:42px;font-size:8px}
@@ -1651,9 +1650,9 @@ let noLock = IS_TOUCH, dragging = false;
 let joyX = 0, joyY = 0;
 if (IS_TOUCH) {
   document.body.classList.add('touch');
-  $('controlsText').innerHTML = 'Left thumb: <kbd>MOVE</kbd> &nbsp; Right thumb: <kbd>LOOK</kbd><br><kbd>SWING</kbd> <kbd>USE</kbd> <kbd>CROUCH</kbd> <kbd>HOLD BREATH</kbd> <kbd>LIGHT</kbd> <kbd>SAVE</kbd><br><kbd>RUN</kbd> toggles running (or push the stick to the edge)';
+  $('controlsText').innerHTML = 'Left thumb: <kbd>MOVE</kbd> &nbsp; Right thumb: <kbd>LOOK</kbd><br><kbd>SWING</kbd> <kbd>USE</kbd> <kbd>CROUCH</kbd> <kbd>HOLD BREATH</kbd> <kbd>LIGHT</kbd> <kbd>SAVE</kbd><br><kbd>RUN</kbd> toggles running';
   document.querySelector('#noteScreen .hint').textContent = 'TAP TO PUT DOWN';
-  $('joyHint').textContent = 'MOVE · PUSH TO EDGE TO RUN';
+  $('joyHint').textContent = 'MOVE';
   $('warnText').textContent = 'Headphones recommended. Turn your phone sideways.';
   $('skipHint').textContent = 'TAP TO SKIP ▸';
   const tui = $('touchUI'), base = $('joyBase'), knob = $('joyKnob');
@@ -1673,7 +1672,6 @@ if (IS_TOUCH) {
     for (const t of e.changedTouches) {
       if (t.identifier === joyId) {
         let dx = t.clientX - jx0, dy = t.clientY - jy0; const d = Math.hypot(dx, dy), R = 55;
-        keys.ShiftLeft = d > R * 1.25; knob.classList.toggle('run', keys.ShiftLeft); // thumb past the ring = run
         if (d > R) { dx *= R / d; dy *= R / d; }
         joyX = dx / R; joyY = dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`;
       } else if (t.identifier === lookId) {
@@ -1684,7 +1682,7 @@ if (IS_TOUCH) {
   }, { passive: false });
   const release = e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; joyX = joyY = 0; keys.ShiftLeft = false; knob.classList.remove('run'); base.style.display = 'none'; }
+      if (t.identifier === joyId) { joyId = null; joyX = joyY = 0; base.style.display = 'none'; }
       if (t.identifier === lookId) lookId = null;
     }
   };
