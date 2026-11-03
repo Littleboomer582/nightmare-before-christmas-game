@@ -348,6 +348,7 @@
         <button class="mi sel" data-opt="fov">Field of View <span class="bar"><i></i></span> <em></em></button>
         <button class="mi sel" data-opt="volume">Master Volume <span class="bar"><i></i></span> <em></em></button>
         <button class="mi sel" data-opt="music">Menu Music <em></em></button>
+        <button class="mi" id="btnPickMusic">Choose Menu Song <small id="musicName">None chosen</small></button>
         <button class="mi sel" data-opt="quotes">Character Quotes <em></em></button>
         <button class="mi sel" data-opt="quality">Graphics <em></em></button>
         <button class="mi sel" data-opt="touch">Touch Controls <em></em></button>
@@ -2069,6 +2070,7 @@ const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k))
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const SETTINGS = Object.assign({ name: 'Survivor', quotes: 'voice', sens: 1.2, invertY: false, fov: 75, volume: .8, music: true, showFps: false, dynRes: true }, loadJSON('ded_settings', {}));
 const saveSettings = () => saveJSON('ded_settings', SETTINGS);
+if (SETTINGS.music === true || !['original', 'custom', 'off'].includes(SETTINGS.music)) SETTINGS.music = SETTINGS.music === false ? 'off' : 'original';   // was on/off
 
 const G = {
   state: 'menu', mode: 'route', diff: 'normal', time: 0, round: 0, toSpawn: 0, spawnT: 0, betweenT: 4, alive: 0,
@@ -5600,11 +5602,72 @@ const TIPS = [
 ];
 
 // ---- menu music: a slow, original music-box line over a low drone ----
+// Your own menu music: a song you pick on this device. It stays on the device (this browser's storage,
+// or the Android app's private files) and is never part of the game files.
+const CustomMusic = {
+  el: null, url: null, name: '', ready: false,
+  native: () => window.AndroidApp && typeof window.AndroidApp.pickMenuMusic === 'function',
+  db() {
+    return new Promise((res, rej) => {
+      try { const r = indexedDB.open('ded-music', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
+      catch (e) { rej(e); }
+    });
+  },
+  async load() {
+    try {
+      if (this.native()) { if (SETTINGS.musicFile) { this.url = SETTINGS.musicFile; this.name = SETTINGS.musicName || 'Your song'; this.ready = true; } return; }
+      const db = await this.db();
+      const rec = await new Promise(res => { const q = db.transaction('files').objectStore('files').get('menu'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+      if (rec && rec.blob) { this.url = URL.createObjectURL(rec.blob); this.name = rec.name || 'Your song'; this.ready = true; }
+    } catch (e) {}
+    if (Menu.cur === 'scrOptions') renderOptions();
+    if (this.ready && SETTINGS.music === 'custom' && G.state === 'menu' && MenuMusic.on && !MenuMusic.custom) { MenuMusic.stop(); MenuMusic.start(); }
+  },
+  async save(file) {
+    if (this.url && this.url.startsWith('blob:')) URL.revokeObjectURL(this.url);
+    this.url = URL.createObjectURL(file); this.name = file.name || 'Your song'; this.ready = true;
+    try { const db = await this.db(); db.transaction('files', 'readwrite').objectStore('files').put({ blob: file, name: this.name }, 'menu'); }
+    catch (e) {}   // no storage here (private window): the song lasts until the page closes
+  },
+  play() {
+    if (!this.ready) return false;
+    if (!this.el) { this.el = new Audio(); this.el.loop = true; }
+    if (this.el.dataset.url !== this.url) { this.el.src = this.url; this.el.dataset.url = this.url; }
+    this.el.volume = clamp(SETTINGS.volume * .7, 0, 1);
+    const pr = this.el.play(); if (pr && pr.catch) pr.catch(() => {});
+    return true;
+  },
+  stop() { if (this.el) this.el.pause(); },
+};
+function pickMenuMusic() {
+  if (CustomMusic.native()) { window.AndroidApp.pickMenuMusic(); return; }
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'audio/*';
+  inp.onchange = async () => { const f = inp.files && inp.files[0]; if (!f) return; await CustomMusic.save(f); menuMusicChosen(); };
+  inp.click();
+}
+// the Android app hands back the copy it made in its own files
+window.onMenuMusicPicked = (url, name) => {
+  if (typeof url !== 'string' || !url.startsWith('file://')) return;
+  SETTINGS.musicFile = url; SETTINGS.musicName = String(name || 'Your song').slice(0, 80);
+  CustomMusic.url = url + '?v=' + Date.now(); CustomMusic.name = SETTINGS.musicName; CustomMusic.ready = true;
+  menuMusicChosen();
+};
+function menuMusicChosen() {
+  SETTINGS.music = 'custom'; saveSettings(); uiPick();
+  MenuMusic.stop(); if (G.state === 'menu') MenuMusic.start();
+  if (Menu.cur === 'scrOptions') renderOptions();
+}
+CustomMusic.load();
 const MenuMusic = {
-  on: false, timer: null, next: 0, step: 0,
+  on: false, custom: false, timer: null, next: 0, step: 0,
   seq: [293.7, 349.2, 440, 349.2, 293.7, 440, 523.3, 466.2, 392, 349.2, 293.7, 0, 261.6, 293.7, 220, 0],
-  start() { if (!AC || this.on || !SETTINGS.music) return; this.on = true; this.next = AC.currentTime + .2; this.timer = setInterval(() => this.tick(), 100); },
-  stop() { this.on = false; clearInterval(this.timer); },
+  start() {
+    if (this.on || SETTINGS.music === 'off') return;
+    if (SETTINGS.music === 'custom' && CustomMusic.ready) { this.on = true; this.custom = true; CustomMusic.play(); return; }
+    if (!AC) return;
+    this.on = true; this.custom = false; this.next = AC.currentTime + .2; this.timer = setInterval(() => this.tick(), 100);
+  },
+  stop() { this.on = false; this.custom = false; clearInterval(this.timer); CustomMusic.stop(); },
   tick() {
     while (this.next < AC.currentTime + .4) {
       const when = this.next - AC.currentTime, f = this.seq[this.step % this.seq.length];
@@ -5669,11 +5732,14 @@ function cycle(list, cur, dir) { const i = list.indexOf(cur); return list[(i + d
 const OPTS = {
   sens:    { get: () => SETTINGS.sens, set: v => SETTINGS.sens = v, min: .4, max: 3, step: .1, fmt: v => v.toFixed(1) },
   fov:     { get: () => SETTINGS.fov, set: v => SETTINGS.fov = v, min: 60, max: 100, step: 5, fmt: v => `${v}°` },
-  volume:  { get: () => SETTINGS.volume, set: v => { SETTINGS.volume = v; if (master) master.gain.value = .55 * v; }, min: 0, max: 1, step: .1, fmt: v => `${Math.round(v * 100)}%` },
+  volume:  { get: () => SETTINGS.volume, set: v => { SETTINGS.volume = v; if (master) master.gain.value = .55 * v; if (CustomMusic.el) CustomMusic.el.volume = clamp(v * .7, 0, 1); }, min: 0, max: 1, step: .1, fmt: v => `${Math.round(v * 100)}%` },
   invertY: { toggle: true, get: () => SETTINGS.invertY, set: v => SETTINGS.invertY = v },
   touch:   { list: ['auto', 'on', 'off'], labels: { auto: 'Auto', on: 'On', off: 'Off' }, get: () => SETTINGS.touch || 'auto', set: v => { SETTINGS.touch = v; TOUCH = v === 'on' || (v === 'auto' && TOUCH_DEVICE); document.documentElement.classList.toggle('touch', TOUCH); $('pressKey').textContent = TOUCH ? 'TAP TO START' : 'PRESS ANY KEY'; } },
   showFps: { toggle: true, get: () => SETTINGS.showFps, set: v => { SETTINGS.showFps = v; $('fps').hidden = !v; } },
-  music:   { toggle: true, get: () => SETTINGS.music, set: v => { SETTINGS.music = v; if (v && G.state === 'menu') MenuMusic.start(); else MenuMusic.stop(); } },
+  music:   { list: ['original', 'custom', 'off'], labels: { original: 'Original', custom: 'Your Song', off: 'Off' }, get: () => SETTINGS.music, set: v => {
+    if (v === 'custom' && !CustomMusic.ready) { pickMenuMusic(); return; }   // nothing chosen yet: choose one
+    SETTINGS.music = v; MenuMusic.stop(); if (G.state === 'menu') MenuMusic.start();
+  } },
   quotes:  { list: ['voice', 'text', 'off'], labels: { voice: 'Voice + Text', text: 'Text Only', off: 'Off' }, get: () => SETTINGS.quotes || 'voice', set: v => {
     SETTINGS.quotes = v; Voice.stop();
     if (v === 'off') Quotes.stop();
@@ -5694,6 +5760,7 @@ function renderOptions() {
     else if (o.list) em.textContent = o.labels[v];
     else { em.textContent = o.fmt(v); el.querySelector('.bar i').style.width = `${(v - o.min) / (o.max - o.min) * 100}%`; }
   });
+  $('musicName').textContent = CustomMusic.ready ? CustomMusic.name : 'None chosen';
 }
 function adjust(el, dir, wrap = false) {
   const key = el.dataset.opt;
@@ -5854,6 +5921,7 @@ function bootMenus() {
   $('btnStart').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); launchMatch(CFG); };
   $('btnHost').onclick = () => { uiPick(); saveJSON('ded_lastcfg', CFG); netHost(); };
   $('btnOpRandom').onclick = () => { uiPick(); opRandom(); };
+  $('btnPickMusic').onclick = () => pickMenuMusic();
   $('btnJoin').onclick = () => { uiPick(); netJoin(); };
   $('btnLobbyStart').onclick = () => { uiPick(); netStartAsHost(); };
   $('joinCode').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); netJoin(); } });
@@ -5909,12 +5977,13 @@ document.querySelectorAll('#scrOptions .back').forEach(b => b.addEventListener('
 
 // Leaving the page or switching apps pauses the match and silences the audio.
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden) CustomMusic.stop(); else if (MenuMusic.on && MenuMusic.custom) CustomMusic.play();
   if (document.hidden) { if (G.state === 'playing') pauseGame(); if (AC && AC.state === 'running') AC.suspend(); }
   else if (AC && AC.state === 'suspended' && G.state !== 'playing') AC.resume();
 });
 // Android app hooks: the system Back button and app pause/resume.
-window.onAppPause = () => { if (G.state === 'playing') pauseGame(); if (AC) AC.suspend(); };
-window.onAppResume = () => { if (AC && G.state !== 'playing') AC.resume(); };
+window.onAppPause = () => { if (G.state === 'playing') pauseGame(); if (AC) AC.suspend(); CustomMusic.stop(); };
+window.onAppResume = () => { if (AC && G.state !== 'playing') AC.resume(); if (MenuMusic.on && MenuMusic.custom) CustomMusic.play(); };
 window.androidBack = () => {
   if (G.state === 'playing') { pauseGame(); return; }
   if (G.state === 'paused' && Menu.cur === 'scrPause') { resumeGame(); return; }

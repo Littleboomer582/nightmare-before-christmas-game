@@ -1,6 +1,10 @@
 package com.deadenddepot.zombies;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
@@ -13,6 +17,10 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Locale;
 
@@ -26,6 +34,7 @@ public class MainActivity extends Activity {
     private WebView web;
     private TextToSpeech tts;           // the phone's speech engine, for the survivor's quotes
     private volatile boolean ttsReady;
+    private static final int PICK_MUSIC = 7;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -97,6 +106,62 @@ public class MainActivity extends Activity {
         web.loadUrl("javascript:window.onAppResume && onAppResume()");
     }
 
+    // The player chose a song for the menu: copy it into the app's private files and hand the game its path.
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_MUSIC || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        final Uri uri = data.getData();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String name = "Your song";
+                    Cursor c = getContentResolver().query(uri, null, null, null, null);
+                    if (c != null) {
+                        int col = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                        if (col >= 0 && c.moveToFirst() && c.getString(col) != null) name = c.getString(col);
+                        c.close();
+                    }
+                    String ext = ".mp3";
+                    int dot = name.lastIndexOf('.');
+                    if (dot > 0 && name.length() - dot <= 5) ext = name.substring(dot).toLowerCase();
+                    File dir = getFilesDir();
+                    File[] old = dir.listFiles();
+                    if (old != null) for (File f : old) if (f.getName().startsWith("menu-music")) f.delete();
+                    File out = new File(dir, "menu-music" + ext);
+                    InputStream in = getContentResolver().openInputStream(uri);
+                    if (in == null) return;
+                    OutputStream os = new FileOutputStream(out);
+                    byte[] buf = new byte[65536];
+                    long total = 0;
+                    int n;
+                    while ((n = in.read(buf)) > 0 && total < 80L * 1024 * 1024) { os.write(buf, 0, n); total += n; }
+                    in.close();
+                    os.close();
+                    final String js = "javascript:window.onMenuMusicPicked && onMenuMusicPicked("
+                        + jsString("file://" + out.getAbsolutePath()) + "," + jsString(name) + ")";
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() { web.loadUrl(js); }
+                    });
+                } catch (Exception ignored) { }
+            }
+        }).start();
+    }
+
+    // A JavaScript string literal for a javascript: URL: anything but plain letters, digits and a few
+    // path characters is written as a backslash-u escape, so names with quotes, % or # can't break out.
+    private static String jsString(String s) {
+        StringBuilder b = new StringBuilder("'");
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '/' || ch == '.' || ch == '-' || ch == '_' || ch == ':') b.append(ch);
+            else b.append(String.format("\\u%04x", (int) ch));
+        }
+        return b.append('\'').toString();
+    }
+
     @Override
     protected void onDestroy() {
         if (tts != null) tts.shutdown();
@@ -123,6 +188,19 @@ public class MainActivity extends Activity {
             HashMap<String, String> params = new HashMap<String, String>();
             params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, String.valueOf(volume));
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, params);
+        }
+
+        @JavascriptInterface
+        public void pickMenuMusic() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                    i.setType("audio/*");
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    try { startActivityForResult(Intent.createChooser(i, "Choose menu music"), PICK_MUSIC); } catch (Exception ignored) { }
+                }
+            });
         }
 
         @JavascriptInterface

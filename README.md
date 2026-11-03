@@ -31,7 +31,7 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
   - **Cold Hollow Mine**: a snowed-in mining camp ringed by cliffs, with log cabins, a bunkhouse, a mess tent, a bonfire and falling snow; the Forge waits at the end of a dead-end mine tunnel.
   - **Ashgrove Farmhouse**: classic survival in a ruined stone farmhouse in the marsh. Start in the kitchen, clear the rubble into the parlor (fireplace and the mystery box) and open the barn door. Zombies only get in through the boarded windows of rooms you've opened. No power, perks or buildables: just the wall guns and the box.
 - A loading screen shows the map, mode and a survival tip; press any key to begin, and the location is typed out as the match starts.
-- **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music, character quotes (voice and subtitles, subtitles only, or off), graphics quality and an FPS counter.
+- **Options** (saved in your browser): survivor name, mouse sensitivity, invert look, field of view, master volume, menu music (the original, a song of your own, or off; **Choose Menu Song** picks any audio file on your device, which stays on the device and is never part of the game files), character quotes (voice and subtitles, subtitles only, or off), graphics quality and an FPS counter.
 - **Pause** (Esc) has Resume, Options, Field Manual, Restart Match and End Game.
 - **Game over** shows a scoreboard (score, kills, headshots, downs, accuracy) and saves the run to the local **Leaderboards** (top 10).
 
