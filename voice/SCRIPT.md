@@ -1,6 +1,7 @@
 # Dead End Depot voice script
 
-170 lines in 10 sections. The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.
+186 lines in 10 sections, 16 recorded so far (marked ✅). The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.
+Your own lines are welcome too: send them and say when each should play.
 Start with section 1: you hear those lines all game long.
 
 ## How to record
@@ -196,35 +197,37 @@ One plays when a match begins, plus one for the map.
    <sub>any map · `start--quiet-too-quiet-i-hate-it.mp3`</sub>
 4. "Nobody's coming to save me. Fine. I'll save me."  
    <sub>any map · `start--nobodys-coming-to-save-me-fine.mp3`</sub>
-5. "Last bus was due at midnight. Guess I'm walking."  
+5. ✅ "Whoa, this place is pretty fugly. That's fuck ugly for all you out there."  
+   <sub>any map · `start--whoa-this-place-is-pretty-fugly.mp3` · recorded</sub>
+6. "Last bus was due at midnight. Guess I'm walking."  
    <sub>Route 9 · `start_route9--last-bus-was-due-at-midnight.mp3`</sub>
-6. "Route 9 depot. Lovely place to die. Not tonight, though."  
+7. "Route 9 depot. Lovely place to die. Not tonight, though."  
    <sub>Route 9 · `start_route9--route-9-depot-lovely-place-to.mp3`</sub>
-7. "Bus schedule says delayed. Yeah, no kidding."  
+8. "Bus schedule says delayed. Yeah, no kidding."  
    <sub>Route 9 · `start_route9--bus-schedule-says-delayed-yeah-no.mp3`</sub>
-8. "Gate's chained. So it's me and the waiting room."  
+9. "Gate's chained. So it's me and the waiting room."  
    <sub>the depot · `start_depot--gates-chained-so-its-me-and.mp3`</sub>
-9. "No way out. Fine. Nobody gets in, either."  
+10. "No way out. Fine. Nobody gets in, either."  
    <sub>the depot · `start_depot--no-way-out-fine-nobody-gets.mp3`</sub>
-10. "Waiting room. Waiting for what, exactly?"  
+11. "Waiting room. Waiting for what, exactly?"  
    <sub>the depot · `start_depot--waiting-room-waiting-for-what-exactly.mp3`</sub>
-11. "Smells like low tide and bad decisions."  
+12. "Smells like low tide and bad decisions."  
    <sub>the pier · `start_pier--smells-like-low-tide-and-bad.mp3`</sub>
-12. "Fog this thick, they could be standing right next to me."  
+13. "Fog this thick, they could be standing right next to me."  
    <sub>the pier · `start_pier--fog-this-thick-they-could-be.mp3`</sub>
-13. "Anything comes out of that water, it gets shot."  
+14. "Anything comes out of that water, it gets shot."  
    <sub>the pier · `start_pier--anything-comes-out-of-that-water.mp3`</sub>
-14. "Cold enough to freeze the dead. Apparently not cold enough."  
+15. "Cold enough to freeze the dead. Apparently not cold enough."  
    <sub>the mine · `start_mine--cold-enough-to-freeze-the-dead.mp3`</sub>
-15. "Snowed in with the walking dead. Great week."  
+16. "Snowed in with the walking dead. Great week."  
    <sub>the mine · `start_mine--snowed-in-with-the-walking-dead.mp3`</sub>
-16. "Keep moving. Keep warm. Keep shooting."  
+17. "Keep moving. Keep warm. Keep shooting."  
    <sub>the mine · `start_mine--keep-moving-keep-warm-keep-shooting.mp3`</sub>
-17. "Nobody's farmed here in fifty years. Something's still growing, though."  
+18. "Nobody's farmed here in fifty years. Something's still growing, though."  
    <sub>Ashgrove Farmhouse · `start_farm--nobodys-farmed-here-in-fifty-years.mp3`</sub>
-18. "Board up the windows. Hold the kitchen. Easy."  
+19. "Board up the windows. Hold the kitchen. Easy."  
    <sub>Ashgrove Farmhouse · `start_farm--board-up-the-windows-hold-the.mp3`</sub>
-19. "Nice place. Needs a roof. And fewer corpses."  
+20. "Nice place. Needs a roof. And fewer corpses."  
    <sub>Ashgrove Farmhouse · `start_farm--nice-place-needs-a-roof-and.mp3`</sub>
 
 ## Section 6: Buying guns and the mystery box
@@ -243,30 +246,34 @@ One plays when a match begins, plus one for the map.
    <sub>spinning the box · `boxSpin--spin-you-magic-box-spin.mp3`</sub>
 7. "Give me something with a big magazine."  
    <sub>spinning the box · `boxSpin--give-me-something-with-a-big.mp3`</sub>
-8. "Heavy. Good. Heavy is good."  
+8. ✅ "Get a gun. Here we go."  
+   <sub>spinning the box · `boxSpin--get-a-gun-here-we-go.mp3` · recorded</sub>
+9. "Heavy. Good. Heavy is good."  
    <sub>a great gun from the box · `boxBig--heavy-good-heavy-is-good.mp3`</sub>
-9. "Now we're cooking."  
+10. "Now we're cooking."  
    <sub>a great gun from the box · `boxBig--now-were-cooking.mp3`</sub>
-10. "Not my first pick. It'll do."  
+11. "Not my first pick. It'll do."  
    <sub>a so-so gun from the box · `boxMeh--not-my-first-pick-itll-do.mp3`</sub>
-11. "Could be worse. Could be a lot worse."  
+12. "Could be worse. Could be a lot worse."  
    <sub>a so-so gun from the box · `boxMeh--could-be-worse-could-be-a.mp3`</sub>
-12. "A ray pistol. Sure. Nothing makes sense anymore."  
+13. "A ray pistol. Sure. Nothing makes sense anymore."  
    <sub>the ray gun from the box · `box_ray--a-ray-pistol-sure-nothing-makes.mp3`</sub>
-13. "Oh, that's beautiful. Pew pew."  
+14. "Oh, that's beautiful. Pew pew."  
    <sub>the ray gun from the box · `box_ray--oh-thats-beautiful-pew-pew.mp3`</sub>
-14. "Somebody built this to end the world. Good."  
+15. "Somebody built this to end the world. Good."  
    <sub>the ray gun from the box · `box_ray--somebody-built-this-to-end-the.mp3`</sub>
-15. "Lightning in a box. I'll take it."  
+16. "Lightning in a box. I'll take it."  
    <sub>the arc gun from the box · `box_arc--lightning-in-a-box-ill-take.mp3`</sub>
-16. "This thing hums. I like things that hum."  
+17. "This thing hums. I like things that hum."  
    <sub>the arc gun from the box · `box_arc--this-thing-hums-i-like-things.mp3`</sub>
-17. "Now that's a weapon."  
+18. "Now that's a weapon."  
    <sub>the arc gun from the box · `box_arc--now-thats-a-weapon.mp3`</sub>
-18. "Forged. Shiny. Deadly."  
+19. "Forged. Shiny. Deadly."  
    <sub>upgrading a gun · `forge--forged-shiny-deadly.mp3`</sub>
-19. "That machine just made my gun angry."  
+20. "That machine just made my gun angry."  
    <sub>upgrading a gun · `forge--that-machine-just-made-my-gun.mp3`</sub>
+21. ✅ "I wonder, if I can put guns in there, can I put my knife in there?"  
+   <sub>upgrading a gun · `forge--i-wonder-if-i-can-put.mp3` · recorded</sub>
 
 ## Section 7: Perks
 
@@ -274,38 +281,56 @@ One plays when a match begins, plus one for the map.
    <sub>Ironhide Ale · `perk_iron--tastes-like-rust-and-courage.mp3`</sub>
 2. "I feel tougher already. Also a little sick."  
    <sub>Ironhide Ale · `perk_iron--i-feel-tougher-already-also-a.mp3`</sub>
-3. "Whoa. My hands are buzzing."  
+3. ✅ "Mmm. Makes me stronger, and tastes better."  
+   <sub>Ironhide Ale · `perk_iron--mmm-makes-me-stronger-and-tastes.mp3` · recorded</sub>
+4. "Whoa. My hands are buzzing."  
    <sub>Quickhand Cola · `perk_quick--whoa-my-hands-are-buzzing.mp3`</sub>
-4. "Fast hands. Fast reloads. Fast everything."  
+5. "Fast hands. Fast reloads. Fast everything."  
    <sub>Quickhand Cola · `perk_quick--fast-hands-fast-reloads-fast-everything.mp3`</sub>
-5. "Double the fire. Double the fun."  
+6. ✅ "My hands feel twitchy after drinking that."  
+   <sub>Quickhand Cola · `perk_quick--my-hands-feel-twitchy-after-drinking.mp3` · recorded</sub>
+7. "Double the fire. Double the fun."  
    <sub>Double Barrel Brew · `perk_dbl--double-the-fire-double-the-fun.mp3`</sub>
-6. "Tastes like gunpowder. Is that normal?"  
+8. "Tastes like gunpowder. Is that normal?"  
    <sub>Double Barrel Brew · `perk_dbl--tastes-like-gunpowder-is-that-normal.mp3`</sub>
-7. "Second chances, bottled. Nice."  
+9. ✅ "So I can be able to tap two times?"  
+   <sub>Double Barrel Brew · `perk_dbl--so-i-can-be-able-to.mp3` · recorded</sub>
+10. "Second chances, bottled. Nice."  
    <sub>Second Wind Soda · `perk_wind--second-chances-bottled-nice.mp3`</sub>
-8. "Insurance in a can."  
+11. "Insurance in a can."  
    <sub>Second Wind Soda · `perk_wind--insurance-in-a-can.mp3`</sub>
-9. "My legs feel like they've had three coffees."  
+12. ✅ "Ugh, that tastes like fish."  
+   <sub>Second Wind Soda · `perk_wind--ugh-that-tastes-like-fish.mp3` · recorded</sub>
+13. "My legs feel like they've had three coffees."  
    <sub>Fleetfoot Fizz · `perk_fleet--my-legs-feel-like-theyve-had.mp3`</sub>
-10. "Run now. Ask questions later."  
+14. "Run now. Ask questions later."  
    <sub>Fleetfoot Fizz · `perk_fleet--run-now-ask-questions-later.mp3`</sub>
-11. "Room for one more gun. Always room for one more gun."  
+15. ✅ "I'm running now."  
+   <sub>Fleetfoot Fizz · `perk_fleet--im-running-now.mp3` · recorded</sub>
+16. "Room for one more gun. Always room for one more gun."  
    <sub>Third Holster Tonic · `perk_holster--room-for-one-more-gun-always.mp3`</sub>
-12. "Three guns. That's a lot of guns. Good."  
+17. "Three guns. That's a lot of guns. Good."  
    <sub>Third Holster Tonic · `perk_holster--three-guns-thats-a-lot-of.mp3`</sub>
-13. "Hands steady. Eyes sharp."  
+18. ✅ "What does that mean? Oh, I get to carry more weapons?"  
+   <sub>Third Holster Tonic · `perk_holster--what-does-that-mean-oh-i.mp3` · recorded</sub>
+19. "Hands steady. Eyes sharp."  
    <sub>Steady Hand Stout · `perk_steady--hands-steady-eyes-sharp.mp3`</sub>
-14. "Tastes like focus. And a little like pennies."  
+20. "Tastes like focus. And a little like pennies."  
    <sub>Steady Hand Stout · `perk_steady--tastes-like-focus-and-a-little.mp3`</sub>
-15. "My fingers are crackling. That's new."  
+21. ✅ "I don't think this dude does much. I mean, how is it supposed to help me aim better?"  
+   <sub>Steady Hand Stout · `perk_steady--i-dont-think-this-dude-does.mp3` · recorded</sub>
+22. "My fingers are crackling. That's new."  
    <sub>Spark Cider · `perk_spark--my-fingers-are-crackling-thats-new.mp3`</sub>
-16. "Static in a bottle. Let's light 'em up."  
+23. "Static in a bottle. Let's light 'em up."  
    <sub>Spark Cider · `perk_spark--static-in-a-bottle-lets-light.mp3`</sub>
-17. "Explosions don't scare me anymore. Well. Less."  
+24. ✅ "I get to shock people?"  
+   <sub>Spark Cider · `perk_spark--i-get-to-shock-people.mp3` · recorded</sub>
+25. "Explosions don't scare me anymore. Well. Less."  
    <sub>Blastproof Bitters · `perk_blast--explosions-dont-scare-me-anymore-well.mp3`</sub>
-18. "Tastes like smoke. Feels like armor."  
+26. "Tastes like smoke. Feels like armor."  
    <sub>Blastproof Bitters · `perk_blast--tastes-like-smoke-feels-like-armor.mp3`</sub>
+27. ✅ "Explosive."  
+   <sub>Blastproof Bitters · `perk_blast--explosive.mp3` · recorded</sub>
 
 ## Section 8: Power-ups
 
@@ -317,18 +342,26 @@ One plays when a match begins, plus one for the map.
    <sub>Insta-Kill · `pu_insta--one-hit-one-kill-lets-go.mp3`</sub>
 4. "Everything dies in one hit? Perfect."  
    <sub>Insta-Kill · `pu_insta--everything-dies-in-one-hit-perfect.mp3`</sub>
-5. "Double points! Cash in!"  
+5. ✅ "One kill."  
+   <sub>Insta-Kill · `pu_insta--one-kill.mp3` · recorded</sub>
+6. "Double points! Cash in!"  
    <sub>Double Points · `pu_dbl--double-points-cash-in.mp3`</sub>
-6. "Every kill pays double. I like this math."  
+7. "Every kill pays double. I like this math."  
    <sub>Double Points · `pu_dbl--every-kill-pays-double-i-like.mp3`</sub>
-7. "Kaboom! Clean sweep!"  
+8. "Kaboom! Clean sweep!"  
    <sub>the nuke · `pu_nuke--kaboom-clean-sweep.mp3`</sub>
-8. "Well. That cleared the room."  
+9. "Well. That cleared the room."  
    <sub>the nuke · `pu_nuke--well-that-cleared-the-room.mp3`</sub>
-9. "Windows fixed. Free labor!"  
+10. ✅ "Hey now, bitches."  
+   <sub>the nuke · `pu_nuke--hey-now-bitches.mp3` · recorded</sub>
+11. ✅ "What's that bright light?"  
+   <sub>the nuke · `pu_nuke--whats-that-bright-light.mp3` · recorded</sub>
+12. "Windows fixed. Free labor!"  
    <sub>Carpenter · `pu_carp--windows-fixed-free-labor.mp3`</sub>
-10. "Boards are back up. Thanks, mystery hammer."  
+13. "Boards are back up. Thanks, mystery hammer."  
    <sub>Carpenter · `pu_carp--boards-are-back-up-thanks-mystery.mp3`</sub>
+14. ✅ "Back up and boarded."  
+   <sub>Carpenter · `pu_carp--back-up-and-boarded.mp3` · recorded</sub>
 
 ## Section 9: Doors, power, building and the bus
 

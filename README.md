@@ -27,6 +27,9 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 - `node tools/voice.js split <recording> <section>` cuts one long take of a script section (lines read top to bottom, two seconds of silence between them) into a file per line. `--order=1,2,2,3` handles a re-read line: the later take wins.
 - `node tools/voice.js clean <recording> <file name>` cleans up one single-line recording.
 - `node tools/voice.js index` rewrites `voice/voice.json`, the list the game loads (split and clean do this for you).
+- `node tools/voice.js lines` prints every recordable line with its file name, for matching recordings that came in without names.
+
+Own lines are welcome too: add the text to the situation's list in `QUOTE_LINES`, then `clean` the recording under the file name `lines` gives it. The script marks recorded lines with ✅.
 
 Every recording is cleaned the same way: rumble and hiss reduced, silence trimmed from both ends, loudness evened out, saved as a small mono MP3. The Android build copies `voice/` into the app.
 

@@ -4,6 +4,7 @@
 //   node tools/voice.js script                    writes voice/SCRIPT.md (every line to record, with its file name)
 //   node tools/voice.js split <take> <section>    cuts one long take of a section into a file per line
 //   node tools/voice.js index                     writes voice/voice.json from the files in voice/ (the game reads it)
+//   node tools/voice.js lines                     prints every recordable line as JSON (for matching unnamed takes)
 //
 // A long take is the section's lines read top to bottom with about two seconds of silence between them.
 // File names come from the game's own key function, so a line keeps its file when lines are added or reordered.
@@ -74,8 +75,10 @@ function lines() {
 
 function script() {
   const all = lines(), md = [];
+  const recorded = new Set((fs.existsSync(DIR) ? fs.readdirSync(DIR) : []).filter(f => /\.(mp3|m4a|ogg|wav)$/i.test(f)).map(f => f.replace(/\.\w+$/, '')));
   md.push('# Dead End Depot voice script', '',
-    `${all.length} lines in ${SECTIONS.length + 1} sections. The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.`,
+    `${all.length} lines in ${SECTIONS.length + 1} sections, ${all.filter(l => recorded.has(l.file)).length} recorded so far (marked ✅). The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.`,
+    'Your own lines are welcome too: send them and say when each should play.',
     'Start with section 1: you hear those lines all game long.', '',
     '## How to record', '',
     '- Find a quiet room with soft things around (a closet full of clothes is great). Turn off fans and the TV.',
@@ -95,8 +98,8 @@ function script() {
       if (sec && sec[1]) md.push(sec[1], '');
       if (!sec) md.push('Radio messages you find hidden on each map, read by other characters. Use a different voice, or ask a friend. Skip these if you like.', '');
     }
-    const when = l.ev ? WHEN[l.ev] : l.who;
-    md.push(`${++n}. "${l.text}"  `, `   <sub>${when} · \`${l.file}.mp3\`</sub>`);
+    const when = l.ev ? WHEN[l.ev] : l.who, done = recorded.has(l.file);
+    md.push(`${++n}. ${done ? '✅ ' : ''}"${l.text}"  `, `   <sub>${when} · \`${l.file}.mp3\`${done ? ' · recorded' : ''}</sub>`);
   }
   md.push('', '---', '', 'Made by `node tools/voice.js script` from the lines in zombies.html.', '');
   fs.mkdirSync(DIR, { recursive: true });
@@ -155,4 +158,5 @@ if (cmd === 'script') script();
 else if (cmd === 'split') { split(args[0], args[1], opts); index(); }
 else if (cmd === 'clean') { const [src, file] = args; clean(src, path.join(DIR, file.replace(/\.\w+$/, '') + '.mp3')); index(); }
 else if (cmd === 'index') index();
+else if (cmd === 'lines') console.log(JSON.stringify(lines(), null, 1));
 else console.log('usage: node tools/voice.js script | split <take> <section> [--gap=1.2] [--noise=-38dB] [--order=1,2,2,3] | clean <file> <name> | index');
