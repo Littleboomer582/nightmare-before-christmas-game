@@ -108,7 +108,7 @@
     background:rgba(0,0,0,.18);display:none;pointer-events:none}
   #joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(220,220,200,.22);
     border:1px solid rgba(220,220,200,.4)}
-  #joyHint{position:absolute;left:8%;bottom:16%;font-size:10px;letter-spacing:3px;color:rgba(220,220,200,.25);pointer-events:none}
+  #joyHint{position:absolute;left:calc(96px + env(safe-area-inset-left));bottom:38px;font-size:10px;letter-spacing:3px;color:rgba(220,220,200,.25);pointer-events:none}
   .tb{position:absolute;width:62px;height:62px;border-radius:50%;background:rgba(15,15,15,.38);border:1px solid rgba(220,220,200,.32);
     color:rgba(230,230,220,.85);font:bold 9px "Courier New",monospace;letter-spacing:1px;padding:0;margin:0;text-transform:uppercase;
     -webkit-tap-highlight-color:transparent;touch-action:none}
@@ -122,9 +122,12 @@
   #joyKnob.run{background:rgba(170,40,30,.45);border-color:rgba(255,130,110,.7)}
   .screen{touch-action:pan-y;-webkit-overflow-scrolling:touch}
   #tbPause{right:calc(14px + env(safe-area-inset-right));top:12px;width:42px;height:42px;font-size:12px}
+  #tbSave{right:calc(64px + env(safe-area-inset-right));top:12px;width:42px;height:42px;font-size:8px}
+  #tbRun{left:calc(18px + env(safe-area-inset-left));bottom:18px;width:58px;height:58px}
   body.touch .bars{bottom:auto;top:70px;width:150px}
   body.touch .bar{font-size:9px;margin-top:5px}
   body.touch #weapon{bottom:auto;top:62px;right:calc(70px + env(safe-area-inset-right));width:150px}
+  body.touch #timer{right:calc(120px + env(safe-area-inset-right))!important}
   body.touch #weapon b{font-size:14px}
   body.touch #timer{right:calc(70px + env(safe-area-inset-right))}
   body.touch #objective{top:46px;font-size:10px;letter-spacing:2px}
@@ -186,6 +189,8 @@
   <button class="tb" id="tbBreath">Hold<br>breath</button>
   <button class="tb" id="tbLight">Light</button>
   <button class="tb" id="tbPause">II</button>
+  <button class="tb" id="tbSave">Save</button>
+  <button class="tb" id="tbRun">Run</button>
 </div>
 
 <div id="titleScreen" class="screen show">
@@ -200,9 +205,9 @@
   </div>
   <div class="controls" id="controlsText">
     <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint &nbsp; <kbd>C</kbd> crouch / hide &nbsp; <kbd>SPACE</kbd> hold breath<br>
-    <kbd>CLICK</kbd> swing weapon &nbsp; <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use / pick up &nbsp; <kbd>ESC</kbd> pause &nbsp; <kbd>SPACE</kbd> skip cutscene
+    <kbd>CLICK</kbd> swing weapon &nbsp; <kbd>R</kbd> toggle run &nbsp; <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use / pick up &nbsp; <kbd>F5</kbd> quick save &nbsp; <kbd>F9</kbd> load &nbsp; <kbd>ESC</kbd> pause &nbsp; <kbd>SPACE</kbd> skip cutscene
   </div>
-  <button id="startBtn">Wake up</button>
+  <div><button id="continueBtn" style="display:none">Continue</button><button id="startBtn">Wake up</button></div>
   <div class="warn" id="warnText">Headphones recommended. Play on a computer with keyboard and mouse, or a phone or tablet in landscape.</div>
 </div>
 
@@ -210,6 +215,8 @@
   <h1 style="font-size:48px">PAUSED</h1>
   <div class="sub" style="margin-bottom:30px">THEY ARE STILL OUT THERE</div>
   <button id="resumeBtn">Resume</button>
+  <div><button id="pauseSaveBtn">Quick save</button><button id="pauseLoadBtn">Load save</button></div>
+  <div class="warn" id="saveInfo"></div>
 </div>
 
 <div id="noteScreen" class="screen">
@@ -225,7 +232,7 @@
   <div id="endTitle"></div>
   <div id="endText"></div>
   <div id="endStats"></div>
-  <div><button id="retryBtn">Retry area</button><button id="againBtn">Start over</button></div>
+  <div><button id="loadBtn">Load save</button><button id="retryBtn">Retry area</button><button id="againBtn">Start over</button></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1084,7 +1091,7 @@ function loadArea(i) {
 // ---- Player ----------------------------------------------------------------
 let prevYaw = 0, prevPitch = 0;
 let eyeH = 1.6, breathT = 2, holding = false, gasping = 0, sniffT = 0, hideTipShown = false;
-const P = { crouch: false, hidden: false, breath: 100, x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [], weapon: null, kills: 0 };
+const P = { runToggle: false, crouch: false, hidden: false, breath: 100, x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [], weapon: null, kills: 0 };
 let yaw = -Math.PI / 2, pitch = 0;
 
 // ---- Audio ---------------------------------------------------------------
@@ -1297,6 +1304,7 @@ let msgTimer = 0;
 function msg(text, dur = 2.6) { $('msg').innerHTML = text; $('msg').style.opacity = 1; msgTimer = dur; }
 function setObjective(t) { $('objective').textContent = t; }
 function showScreen(id) {
+  if ((id === 'pauseScreen' || id === 'endScreen' || id === 'titleScreen') && typeof refreshSaveInfo === 'function') refreshSaveInfo();
   for (const s of ['titleScreen', 'pauseScreen', 'noteScreen', 'endScreen']) $(s).classList.toggle('show', s === id);
   $('hud').style.display = (id === 'titleScreen' || id === 'endScreen') ? 'none' : 'block';
   $('crosshair').style.display = !id ? 'block' : 'none';
@@ -1522,7 +1530,7 @@ async function cutRowe() {
   if (alarmGain) alarmGain.gain.value = .035;
   await say('<b>&ldquo;VERIDIAN STERILIZATION SEQUENCE INITIATED. ALL PERSONNEL EVACUATE.&rdquo;</b>', 2.6);
   exitCutscene();
-  c.state = 'chase'; c.lastSeen = playTime; c.attackCd = 1.5; zombies.push(c);
+  c.state = 'chase'; c.lastSeen = playTime; c.attackCd = 1.5; c.isRowe = true; zombies.push(c);
   progress = 1; $('keyIcon').textContent = '▮ ' + AR.keyName; $('keyIcon').style.display = 'inline';
   setObjective('Get to the AMBULANCE BAY — next to the lift');
   timer = 150; $('timer').style.display = 'block';
@@ -1643,7 +1651,7 @@ let noLock = IS_TOUCH, dragging = false;
 let joyX = 0, joyY = 0;
 if (IS_TOUCH) {
   document.body.classList.add('touch');
-  $('controlsText').innerHTML = 'Left thumb: <kbd>MOVE</kbd> &nbsp; Right thumb: <kbd>LOOK</kbd><br><kbd>SWING</kbd> <kbd>USE</kbd> <kbd>CROUCH</kbd> <kbd>HOLD BREATH</kbd> <kbd>LIGHT</kbd><br>Push the stick to the edge to run';
+  $('controlsText').innerHTML = 'Left thumb: <kbd>MOVE</kbd> &nbsp; Right thumb: <kbd>LOOK</kbd><br><kbd>SWING</kbd> <kbd>USE</kbd> <kbd>CROUCH</kbd> <kbd>HOLD BREATH</kbd> <kbd>LIGHT</kbd> <kbd>SAVE</kbd><br><kbd>RUN</kbd> toggles running (or push the stick to the edge)';
   document.querySelector('#noteScreen .hint').textContent = 'TAP TO PUT DOWN';
   $('joyHint').textContent = 'MOVE · PUSH TO EDGE TO RUN';
   $('warnText').textContent = 'Headphones recommended. Turn your phone sideways.';
@@ -1689,7 +1697,9 @@ if (IS_TOUCH) {
   };
   btn('tbSwing', () => { if (state === 'playing') swing(); });
   btn('tbUse', () => { if (state === 'playing') interact(); });
-  btn('tbCrouch', () => { if (state === 'playing') { P.crouch = !P.crouch; sfxCloth(); } });
+  btn('tbCrouch', () => { if (state === 'playing') { P.crouch = !P.crouch; if (P.crouch) P.runToggle = false; sfxCloth(); } });
+  btn('tbRun', () => { if (state === 'playing') toggleRun(); });
+  btn('tbSave', () => { if (state === 'playing') quickSave(); });
   btn('tbBreath', () => { keys.Space = true; }, () => { keys.Space = false; });
   btn('tbLight', () => { if (state === 'playing' && P.bat > 0) { flashOn = !flashOn; sfxClick(900, .15); } });
   btn('tbPause', () => { if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); } });
@@ -1702,6 +1712,7 @@ function updateTouchUI() {
   $('touchUI').style.display = show ? 'block' : 'none';
   if (!show) return;
   $('tbCrouch').classList.toggle('on', P.crouch);
+  $('tbRun').classList.toggle('on', P.runToggle);
   $('tbLight').classList.toggle('on', !flashOn);
   $('tbSwing').style.opacity = P.weapon ? 1 : .35;
   $('tbUse').classList.toggle('hot', $('prompt').style.display === 'block');
@@ -1748,7 +1759,8 @@ document.addEventListener('keydown', e => {
     if (state === 'paused' && noLock && e.code === 'Escape') resume();
     return;
   }
-  if (e.code === 'KeyC') { P.crouch = !P.crouch; sfxCloth(); }
+  if (e.code === 'KeyC') { P.crouch = !P.crouch; if (P.crouch) P.runToggle = false; sfxCloth(); }
+  if (e.code === 'KeyR') toggleRun();
   if (e.code === 'KeyF') { if (P.bat > 0) { flashOn = !flashOn; sfxClick(900, .15); } }
   if (e.code === 'KeyE') interact();
   if (e.code === 'Escape' && noLock) { state = 'paused'; showScreen('pauseScreen'); }
@@ -1760,6 +1772,101 @@ $('startBtn').onclick = () => {
   if (IS_TOUCH) { try { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }
   playTime = 0; initAudio(); showScreen(null); requestLock(); cutIntro(); };
 $('resumeBtn').onclick = resume;
+$('pauseSaveBtn').onclick = () => { quickSave(); refreshSaveInfo(); };
+$('pauseLoadBtn').onclick = () => loadGame();
+$('loadBtn').onclick = () => loadGame();
+$('continueBtn').onclick = () => {
+  if (IS_TOUCH) { try { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }
+  loadGame();
+};
+document.addEventListener('keydown', e => { // F5 / F9 (and stop the browser reloading the page on F5)
+  if (e.code === 'F5') { e.preventDefault(); if (state === 'playing' || state === 'paused') { quickSave(); refreshSaveInfo(); } }
+  if (e.code === 'F9') { e.preventDefault(); if (['playing', 'paused', 'title'].includes(state) || $('endScreen').classList.contains('show')) loadGame(); }
+});
+
+function toggleRun() {
+  P.runToggle = !P.runToggle;
+  if (P.runToggle && P.crouch) P.crouch = false;
+  sfxClick(P.runToggle ? 1300 : 800, .1);
+}
+
+// ---- Quick save ----------------------------------------------------------
+const SAVE_KEY = 'theQuiet.quicksave.v1';
+function readSave() { try { const j = localStorage.getItem(SAVE_KEY); return j ? JSON.parse(j) : null; } catch (e) { return null; } }
+function refreshSaveInfo() {
+  const d = readSave();
+  $('continueBtn').style.display = d ? '' : 'none';
+  $('loadBtn').style.display = d ? '' : 'none';
+  $('pauseLoadBtn').style.display = d ? '' : 'none';
+  $('saveInfo').textContent = d ? `Last save: ${AREAS[d.area].card[0]} · ${new Date(d.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+}
+function quickSave() {
+  if (!AR) return;
+  const near = zombies.filter(z => !z.dormant).reduce((m, z) => Math.min(m, Math.hypot(z.x - P.x, z.z - P.z)), 99);
+  if (near < 4) { sfxBeep(false); msg("Can't save. They're too close.", 2.2); return false; }
+  const d = {
+    v: 1, savedAt: Date.now(), area: areaIdx, playTime,
+    P: { x: P.x, z: P.z, hp: P.hp, inf: P.inf, bat: P.bat, st: P.st, found: [...P.found], weapon: P.weapon ? { ...P.weapon } : null, kills: P.kills },
+    yaw, pitch, flashOn,
+    progress, areaNoteIdx, alarm, alarmT, timer, triggerFired: !!(trigger && trigger.fired),
+    objective: $('objective').textContent, keyText: $('keyIcon').textContent, keyShown: $('keyIcon').style.display !== 'none',
+    switches: switches.map(sw => sw.thrown),
+    rowe: rowe ? { searched: rowe.searched } : null,
+    pickups: pickups.filter(q => !q.taken).map(q => ({ type: q.type, wtype: q.wtype, x: q.x, z: q.z, dur: q.dur })),
+    zombies: zombies.map(z => ({ x: z.x, z: z.z, yaw: z.yaw, hp: z.hp, gait: z.gait, runner: z.runner, speed: z.speed,
+      chase: z.state === 'chase', dormant: !!z.dormant, rowe: !!z.isRowe })),
+    snapshot,
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { msg('Could not save on this device.', 2.5); return false; }
+  sfxPickup(); msg('Game saved', 1.8); refreshSaveInfo();
+  return true;
+}
+async function loadGame() {
+  const d = readSave();
+  if (!d) { msg('No saved game.', 2); return; }
+  initAudio(); showScreen(null); requestLock();
+  state = 'cutscene'; csSkip = false; tweens.length = 0; sub('');
+  document.body.classList.remove('cine');
+  setFade(1, '#000'); $('hurt').style.opacity = 0; camera.fov = 72; camera.updateProjectionMatrix();
+  Object.assign(P, { hp: d.P.hp, inf: d.P.inf, bat: d.P.bat, st: d.P.st, exhausted: false, found: [...d.P.found], kills: d.P.kills, runToggle: false });
+  setWeapon(d.P.weapon ? { ...d.P.weapon } : null);
+  playTime = d.playTime;
+  loadArea(d.area);
+  snapshot = d.snapshot || snapshot;
+  // world state
+  progress = d.progress; areaNoteIdx = d.areaNoteIdx; timer = d.timer;
+  if (trigger) trigger.fired = d.triggerFired;
+  d.switches.forEach((on, i) => { const sw = switches[i]; if (sw && on) { sw.thrown = true; sw.pivot.rotation.z = -.5; sw.lampMat.color.setHex(0x30ff50); } });
+  if (areaIdx === 1 && progress >= 3) { doorMat.emissiveIntensity = .9; exitGlow.intensity = .8; }
+  if (rowe && d.rowe && d.rowe.searched) { rowe.searched = true; level.remove(rowe.paper); level.remove(rowe.corpse.group); }
+  pickups.forEach(q => level.remove(q.mesh)); pickups = [];
+  for (const q of d.pickups) {
+    if (q.type === 'W') addWeaponPickup(q.wtype, q.x, q.z, q.dur);
+    else addPickup(q.type, Math.floor(q.x / CELL), Math.floor(q.z / CELL));
+  }
+  zombies.forEach(z => level.remove(z.group)); zombies = [];
+  for (const z of d.zombies) {
+    const o = { gait: z.gait, runner: z.runner, hp: z.hp, chase: z.chase, dormant: z.dormant };
+    if (z.rowe) Object.assign(o, { cloth: 0xdedbd0, skin: 0xa3ab96, coat: true, hair: 0x1a1210 });
+    const zb = makeZombie(z.x, z.z, o);
+    zb.yaw = z.yaw; zb.speed = z.speed; zb.isRowe = z.rowe; zb.lastSeen = playTime; zb.lastX = d.P.x; zb.lastZ = d.P.z;
+    if (!zb.dormant) animZombie(zb, 0, 0);
+  }
+  if (d.alarm) { alarm = true; alarmT = Math.max(d.alarmT, 14); for (const l of pool) l.l.color.setHex(areaIdx === 1 ? 0xff5010 : 0xff2010); }
+  setObjective(d.objective);
+  if (d.keyShown) { $('keyIcon').textContent = d.keyText; $('keyIcon').style.display = 'inline'; }
+  if (timer > 0) $('timer').style.display = 'block';
+  // player
+  P.x = d.P.x; P.z = d.P.z; yaw = d.yaw; pitch = d.pitch; flashOn = d.flashOn; eyeH = EYE;
+  camera.position.set(P.x, EYE, P.z); camera.rotation.set(pitch, yaw, 0);
+  $('cardTitle').textContent = AR.card[0]; $('cardSub').textContent = 'SAVE LOADED';
+  $('card').style.opacity = 1;
+  await wait(.6);
+  await Promise.all([fadeTo(0, 1), tween(1, k => $('card').style.opacity = 1 - k)]);
+  state = 'playing'; showScreen(null);
+  if (!document.pointerLockElement && !noLock) { state = 'paused'; showScreen('pauseScreen'); }
+}
+refreshSaveInfo();
 $('againBtn').onclick = () => location.reload();
 $('retryBtn').onclick = retryArea;
 function resume() { initAudio(); state = 'playing'; showScreen(null); requestLock(); }
@@ -1992,7 +2099,7 @@ function updatePlayer(dt) {
   const ml = Math.hypot(mx, mz), moving = ml > .12;
   const analog = Math.min(1, ml);
   if (moving) { mx /= ml; mz /= ml; } else { mx = mz = 0; }
-  const sprint = !P.crouch && (keys.ShiftLeft || keys.ShiftRight) && f > .3 && !P.exhausted && P.st > 0 && moving;
+  const sprint = !P.crouch && (keys.ShiftLeft || keys.ShiftRight || P.runToggle) && f > .3 && !P.exhausted && P.st > 0 && moving;
   if (sprint) { P.st -= 24 * dt; if (P.st <= 0) { P.st = 0; P.exhausted = true; } }
   else { P.st = Math.min(100, P.st + 14 * dt); if (P.exhausted && P.st > 35) P.exhausted = false; }
   let speed = sprint ? 5.6 : P.crouch ? 1.5 : 3.1;
@@ -2272,6 +2379,7 @@ function updateHUD(dt) {
       st.textContent = holding ? 'HOLDING BREATH' : 'HIDDEN'; st.className = (near < 3.6 && hunting) ? 'danger' : '';
       hint.innerHTML = near < 6 && !holding ? (IS_TOUCH ? 'hold <kbd>HOLD BREATH</kbd>' : 'hold <kbd>SPACE</kbd> to hold your breath') : '';
     } else if (P.crouch) { st.textContent = 'CROUCHED'; st.className = ''; hint.textContent = ''; }
+    else if (P.runToggle) { st.textContent = P.exhausted ? 'RUN · OUT OF BREATH' : 'RUN'; st.className = ''; hint.textContent = ''; }
     else { st.textContent = ''; hint.textContent = ''; }
     $('breathBar').style.display = (holding || P.breath < 100) ? 'block' : 'none';
     $('breathFill').style.width = P.breath + '%';

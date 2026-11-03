@@ -24,9 +24,14 @@ of the truth you uncover.
 **Cutscenes:** waking up on the gurney, leaving the ward, a lift ride with something on the roof,
 the Dr. Rowe reveal, the escape at dawn, and death. If a zombie kills you, you're pulled to the floor:
 it bends over you and bites while the others close in, and your heartbeat fades out. Press Space to skip any of them.
-If you die, you can retry from the start of the current area.
+If you die, you can retry from the start of the current area, or load your quick save.
 
-**Controls:** WASD move · mouse look · Shift sprint · C crouch/hide · Space hold breath · click swing weapon · F flashlight · E read/use/pick up · Esc pause · Space skip cutscene
+**Quick save:** press F5, or tap SAVE on a phone, or use the pause menu.
+- The save stores everything: your position, health, items and weapon, documents read, objectives, thrown breakers, and every zombie's position and state.
+- You can't save while a zombie is within a few steps of you.
+- To get back in, use **Continue** on the title screen, **Load save** on the pause or death screen, or press F9.
+
+**Controls:** WASD move · mouse look · Shift sprint (or R to toggle running) · C crouch/hide · Space hold breath · click swing weapon · F flashlight · E read/use/pick up · F5 quick save · F9 load · Esc pause · Space skip cutscene
 
 - Bars for health, **infection** (bites raise it; your immune system slowly clears it, and above 75% it drains your health), flashlight battery and stamina
 - **Melee weapons** are hidden in every area: lead pipe, crowbar, pipe wrench and fire axe. Hits stagger zombies and knock them back, and enough hits kill them.
@@ -54,7 +59,7 @@ Copy it to your phone, open it, and allow "install unknown apps" when asked.
 On touch screens:
 - Left thumb: joystick. Push it past the ring to run.
 - Right thumb: drag to look.
-- Buttons: Swing, Use, Crouch, Hold breath, Light. Android's Back button pauses the game.
+- Buttons: Swing, Use, Crouch, Hold breath, Light, Run (bottom-left; tap to toggle running) and Save (top-right, next to Pause). Android's Back button pauses the game.
 
 The same touch controls also work if you open `the-quiet.html` in a mobile browser.
 
