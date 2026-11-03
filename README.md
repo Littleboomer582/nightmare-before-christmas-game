@@ -22,7 +22,8 @@ of the truth you uncover.
 3. **Ground Floor: Main Lobby.** Find Dr. Rowe, then reach the ambulance bay before the building is sterilized.
 
 **Cutscenes:** waking up on the gurney, leaving the ward, a lift ride with something on the roof,
-the Dr. Rowe reveal, a death scene, and the escape at dawn. Press Space to skip any of them.
+the Dr. Rowe reveal, the escape at dawn, and death. If a zombie kills you, you're pulled to the floor:
+it bends over you and bites while the others close in, and your heartbeat fades out. Press Space to skip any of them.
 If you die, you can retry from the start of the current area.
 
 **Controls:** WASD move · mouse look · Shift sprint · C crouch/hide · Space hold breath · click swing weapon · F flashlight · E read/use/pick up · Esc pause · Space skip cutscene

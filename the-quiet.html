@@ -1152,6 +1152,20 @@ function sfxSob() { // someone crying, somewhere you can't reach
   if (!AC) return; let t = AC.currentTime; const p = rand(-1, 1), f0 = rand(260, 330);
   for (let i = 0; i < 5; i++) { const d = rand(.25, .5); voice(t, d, f0 * rand(1, 1.15), f0 * .8, VOWELS[2], VOWELS[4], .05, p); t += d + rand(.1, .35); }
 }
+function sfxBite(v = 1) {
+  if (!AC) return; const t = AC.currentTime;
+  const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 1.2; // crunch
+  n.connect(bp).connect(env(t, .002, .75 * v, .12)).connect(master); n.start(t, rand(0, 1)); n.stop(t + .2);
+  const n2 = noiseSrc(); const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; // wet tearing
+  n2.connect(lp).connect(env(t + .05, .02, .6 * v, .35)).connect(master); n2.start(t + .05, rand(0, 1)); n2.stop(t + .5);
+  const o = AC.createOscillator(); o.frequency.setValueAtTime(85, t); o.frequency.exponentialRampToValueAtTime(38, t + .2);
+  o.connect(env(t, .002, .6 * v, .22)).connect(master); o.start(t); o.stop(t + .3);
+  voice(t, .55, rand(80, 100), 65, VOWELS[0], VOWELS[1], .55 * v, rand(-.3, .3)); // its growl, right in your ear
+}
+function sfxCry(f0 = 190, dur = .5, g = .3) { // the player, in pain
+  if (!AC) return; const t = AC.currentTime;
+  voice(t, dur, f0, f0 * .7, VOWELS[0], VOWELS[3], g, 0);
+}
 function sfxKnock() {
   if (!AC) return; let t = AC.currentTime; const p = rand(-1, 1);
   for (let i = 0; i < 3; i++) { const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 180; bp.Q.value = 5;
@@ -1515,20 +1529,111 @@ async function cutRowe() {
   triggerAlarm(4, 2);
 }
 
-async function cutDeath(title, text, color = 'rgba(90,0,0,1)') {
-  state = 'dead'; document.body.classList.add('cine'); sub('');
-  const y0 = camera.position.y, r0 = camera.rotation.clone();
-  await Promise.all([
-    tween(1.3, k => { const e = ease(k); camera.position.y = lerp(y0, .3, e); camera.rotation.set(lerp(r0.x, .5, e), r0.y, lerp(0, 1.1, e)); }),
-    fadeTo(.85, 1.6, color),
-  ]);
-  await wait(.6);
+async function cutDeath(title, text, color = 'rgba(90,0,0,1)', killer) {
+  state = 'dead'; csSkip = false; document.body.classList.add('cine'); sub('');
+  $('prompt').style.display = 'none';
+  if (killer && killer.group) await cutBitten(killer);
+  else {
+    const y0 = camera.position.y, r0 = camera.rotation.clone();
+    await Promise.all([
+      tween(1.3, k => { const e = ease(k); camera.position.y = lerp(y0, .3, e); camera.rotation.set(lerp(r0.x, .5, e), r0.y, lerp(0, 1.1, e)); }),
+      fadeTo(.85, 1.6, color),
+    ]);
+    await wait(.6);
+  }
+  csSkip = false;
   document.body.classList.remove('cine');
   document.exitPointerLock && document.exitPointerLock();
   $('endTitle').textContent = title; $('endTitle').style.color = '#a3150f';
   $('endText').innerHTML = text; $('endStats').innerHTML = stats();
   $('retryBtn').style.display = ''; $('againBtn').textContent = 'Start over';
   showScreen('endScreen');
+}
+
+// Pulled to the floor: the one that caught you leans over you and bites, and the others come in.
+async function cutBitten(killer) {
+  const px = P.x, pz = P.z, hv = new THREE.Vector3();
+  const hurtEl = $('hurt');
+  const fx = killer.x - px, fz = killer.z - pz, fl = Math.hypot(fx, fz) || 1, ux = fx / fl, uz = fz / fl; // toward the killer
+  let roll = 0, jit = 0;
+  const frame = () => { // camera on the floor, staring up at the killer's face
+    killer.head.getWorldPosition(hv);
+    camera.position.set(px - ux * .15, .42, pz - uz * .15);
+    camera.lookAt(hv.x + rand(-1, 1) * jit, hv.y + rand(-1, 1) * jit, hv.z + rand(-1, 1) * jit);
+    camera.rotateZ(roll);
+  };
+  const flashRed = (v = 1) => { hurtEl.style.opacity = v; tween(.6, k => hurtEl.style.opacity = v * (1 - k) * .7 + .3 * k); };
+  const crawl = killer.gait === 'crawl';
+  // who joins in: up to two more of the closest ones
+  const others = zombies.filter(z => z !== killer && !z.dormant && !z.rising && Math.hypot(z.x - px, z.z - pz) < 12)
+    .sort((a, b) => Math.hypot(a.x - px, a.z - pz) - Math.hypot(b.x - px, b.z - pz)).slice(0, 2);
+  const slots = [1.25, -1.25].map(a => { const c = Math.cos(a), sn = Math.sin(a); return [px + (ux * c - uz * sn) * 1.05, pz + (ux * sn + uz * c) * 1.05]; });
+  const killerTo = [px + ux * (crawl ? .45 : .62), pz + uz * (crawl ? .45 : .62)];
+  const kFrom = [killer.x, killer.z], oFrom = others.map(o => [o.x, o.z]);
+  const face = z => { z.yaw = Math.atan2(px - z.x, pz - z.z); };
+  sfxCry(210, .6, .35);
+
+  // 1. you go down, it comes down on top of you
+  const y0 = camera.position.y, look0 = camLookPoint();
+  await tween(.9, k => {
+    const e = ease(k);
+    killer.x = lerp(kFrom[0], killerTo[0], e); killer.z = lerp(kFrom[1], killerTo[1], e); face(killer);
+    animZombie(killer, .016, killer.speed * (1 - e)); killer.state = 'chase';
+    if (!crawl) { // bends right down over you, hands grabbing at you
+      killer.spine.rotation.x = lerp(.2, 1.2, e); killer.neck.rotation.x = lerp(0, -.35, e);
+      killer.arms.forEach((a, i) => { a.rotation.x = lerp(a.rotation.x, -.75, e); a.rotation.z = lerp(0, i ? -.35 : .35, e); });
+      killer.elbows.forEach(el => el.rotation.x = lerp(el.rotation.x, -.9, e));
+      killer.knees.forEach(n => n.rotation.x = lerp(n.rotation.x, .5, e)); killer.legs.forEach(l => l.rotation.x = lerp(l.rotation.x, -.3, e));
+    }
+    camera.fov = lerp(72, 58, e); camera.updateProjectionMatrix();
+    killer.jaw.rotation.x = lerp(.2, .8, e);
+    others.forEach((o, i) => { if (!blocked(slots[i][0], slots[i][1], .3)) { o.x = lerp(oFrom[i][0], slots[i][0], e * .6); o.z = lerp(oFrom[i][1], slots[i][1], e * .6); } face(o); animZombie(o, .016, o.speed); });
+    roll = lerp(0, .45, e);
+    killer.head.getWorldPosition(hv);
+    camera.position.set(lerp(px, px - ux * .15, e), lerp(y0, .42, e), lerp(pz, pz - uz * .15, e));
+    camera.lookAt(lerp(look0[0], hv.x, e), lerp(look0[1], hv.y, e), lerp(look0[2], hv.z, e)); camera.rotateZ(roll);
+  });
+  sfxBang(.5, 90); // you hit the floor
+  sfxBeat(.9);
+
+  // 2. the bites
+  const lean0 = killer.spine.rotation.x;
+  for (let i = 0; i < 4; i++) {
+    let bit = false;
+    await tween(i === 0 ? .55 : .42, k => {
+      const lunge = Math.sin(k * Math.PI);
+      if (!crawl) { killer.spine.rotation.x = lean0 + lunge * .28; killer.neck.rotation.x = -.35 - lunge * .3; killer.elbows.forEach(el => el.rotation.x = -.9 + lunge * .4); }
+      else killer.neck.rotation.x = -1.15 + lunge * .5;
+      killer.jaw.rotation.x = .25 + (k < .5 ? k * 1.6 : (1 - k) * .4);
+      killer.neck.rotation.z = Math.sin(k * 9) * .25 * lunge;
+      killer.x = killerTo[0] - ux * lunge * .2; killer.z = killerTo[1] - uz * lunge * .2; killer.group.position.set(killer.x, 0, killer.z);
+      jit = lunge * .06;
+      others.forEach((o, j) => { if (!o.gait || o.gait !== 'crawl') o.spine.rotation.x = .5 + Math.sin(k * Math.PI + j * 1.7) * .35; o.jaw.rotation.x = .3 + lunge * .4; animZombie(o, .016, .6); o.spine.rotation.x = .5 + Math.sin(k * Math.PI + j * 1.7) * .35; });
+      if (!bit && k >= .5) {
+        bit = true; sfxBite(1 - i * .12); flashRed(1); shake = 1;
+        roll += rand(-.15, .15);
+        if (i === 0) sfxCry(240, .7, .4); else if (i === 2) sfxCry(170, .9, .25);
+        if (i === 1 && others[0]) setTimeout(() => { sfxBite(.6); flashRed(.8); }, 180);
+        if (i === 2 && others[1]) setTimeout(() => { sfxBite(.5); flashRed(.7); }, 220);
+      }
+      frame();
+    });
+    sfxBeat(.8 - i * .15);
+    if (i === 1) sub('<i>&mdash;no, no, NO&mdash;</i>');
+    if (i === 3) sub('');
+  }
+
+  // 3. your heartbeat slows, the world goes dark
+  jit = 0;
+  const darkness = fadeTo(.96, 3.2, 'rgba(40,0,0,1)');
+  for (let i = 0; i < 3; i++) {
+    await tween(.9 + i * .45, k => { roll = lerp(roll, .9, .01); killer.jaw.rotation.x = .3 + Math.sin(k * 6) * .1; frame(); });
+    sfxBeat(.5 - i * .14);
+  }
+  await darkness;
+  await wait(.8);
+  hurtEl.style.opacity = 0;
+  camera.fov = 72; camera.updateProjectionMatrix();
 }
 
 // ---- Input ---------------------------------------------------------------
@@ -1588,7 +1693,7 @@ if (IS_TOUCH) {
   btn('tbBreath', () => { keys.Space = true; }, () => { keys.Space = false; });
   btn('tbLight', () => { if (state === 'playing' && P.bat > 0) { flashOn = !flashOn; sfxClick(900, .15); } });
   btn('tbPause', () => { if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); } });
-  $('skipHint').addEventListener('touchstart', e => { e.preventDefault(); if (state === 'cutscene') csSkip = true; }, { passive: false });
+  $('skipHint').addEventListener('touchstart', e => { e.preventDefault(); if (state === 'cutscene' || state === 'dead') csSkip = true; }, { passive: false });
   document.addEventListener('touchstart', e => { if (state === 'note') { e.preventDefault(); closeNote(); } }, { passive: false });
 }
 function updateTouchUI() {
@@ -1607,7 +1712,7 @@ window.onAndroidBack = () => {
   if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); }
   else if (state === 'paused') resume();
   else if (state === 'note') closeNote();
-  else if (state === 'cutscene') csSkip = true;
+  else if (state === 'cutscene' || state === 'dead') csSkip = true;
 };
 window.onAndroidPause = () => { if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); } if (AC) AC.suspend(); for (const k in keys) keys[k] = false; };
 window.onAndroidResume = () => { if (AC && state !== 'paused') AC.resume(); };
@@ -1637,7 +1742,7 @@ document.addEventListener('mouseup', () => { dragging = false; });
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
-  if (state === 'cutscene' && (e.code === 'Space' || e.code === 'Enter')) { csSkip = true; return; }
+  if ((state === 'cutscene' || state === 'dead') && (e.code === 'Space' || e.code === 'Enter')) { csSkip = true; return; }
   if (state === 'note' && (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape')) { closeNote(); return; }
   if (state !== 'playing') {
     if (state === 'paused' && noLock && e.code === 'Escape') resume();
@@ -1832,14 +1937,14 @@ function burst(x, y, z, n) {
   }
 }
 
-function hurt(dmg, inf) {
+function hurt(dmg, inf, by) {
   P.hp -= dmg; P.inf = Math.min(100, P.inf + inf); hurtT = 1; shake = 0.6; sfxHurt();
-  if (P.hp <= 0) die('OVERRUN', 'They pulled you down in the dark, and the hallway went quiet again.<br><br>Somewhere in your veins was the only cure. Now it walks with them.');
+  if (P.hp <= 0) die('OVERRUN', 'They pulled you down in the dark, and the hallway went quiet again.<br><br>Somewhere in your veins was the only cure. Now it walks with them.', undefined, by);
 }
-function die(title, text, color) {
+function die(title, text, color, killer) {
   if (state !== 'playing') return;
   if (alarmGain) alarmGain.gain.value = 0;
-  cutDeath(title, text, color);
+  cutDeath(title, text, color, killer);
 }
 function win() {
   state = 'won'; document.exitPointerLock && document.exitPointerLock();
@@ -2026,7 +2131,7 @@ function updateZombies(dt) {
       if (d < 1.3 && zb.attackCd <= 0 && sees) {
         zb.attackCd = 1.3; zb.lunge = 1; sfxGroan(zb.x, zb.z, true);
         if (P.hidden) { P.crouch = false; P.hidden = false; sfxStinger(); msg('<b>IT FOUND YOU</b>', 2); shake = 1; } // dragged out
-        hurt(zb.runner ? 10 : 15, zb.runner ? 9 : 13);
+        hurt(zb.runner ? 10 : 15, zb.runner ? 9 : 13, zb);
         if (state !== 'playing') return;
       }
       if (d < 1.05) spd = 0;
