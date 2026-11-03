@@ -37,4 +37,30 @@ If you die, you can retry from the start of the current area.
 - Sometimes a shadow figure with red eyes stands at the far end of a hall. It's never there when you get close.
 - Zombies hunt by sight, flashlight and running footsteps. Break line of sight to lose them, and sprint to outrun the fast ones.
 
-Uses Three.js (r128) from cdnjs. All textures and audio are generated in code. Headphones recommended.
+**What makes it feel real**
+- Zombies have human anatomy: knees, elbows, fingers and a hanging jaw. Skin is mottled and veined, faces have sunken eyes and a bloody mouth, and clothes are torn and blood-soaked.
+- They move in different ways: shambling, limping, sprinting and crawling. Crawlers can see you under furniture. Some of the corpses on the floor get up when you walk past.
+- Moans are made by shaping a throat-like tone into vowel sounds, so they sound human. You'll also hear distant sobbing and knocking.
+- Your flashlight casts real shadows, lags and trembles like a hand holding it, and lights up dust in the beam.
+
+Uses Three.js (r128). All textures and audio are generated in code. Headphones recommended.
+
+## Android app
+
+`dist/the-quiet.apk` is a ready-to-install Android build: offline, fullscreen and landscape, for Android 7.0 and newer.
+Copy it to your phone, open it, and allow "install unknown apps" when asked.
+
+On touch screens:
+- Left thumb: joystick. Push it past the ring to run.
+- Right thumb: drag to look.
+- Buttons: Swing, Use, Crouch, Hold breath, Light. Android's Back button pauses the game.
+
+The same touch controls also work if you open `the-quiet.html` in a mobile browser.
+
+To rebuild the APK (needs a JDK, curl and zip; the Android build tools download automatically on first run):
+
+```bash
+./android/build-apk.sh
+```
+
+The script signs the APK with `android/debug.keystore`, creating it if it's missing. The keystore is not committed to git, so keep a copy if you want later builds to install over an earlier one.

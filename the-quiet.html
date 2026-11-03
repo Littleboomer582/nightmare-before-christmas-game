@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>The Quiet: Patient 0-12</title>
 <style>
   :root{
@@ -101,6 +101,44 @@
   #endTitle{font-family:Georgia,serif;font-size:clamp(32px,6vw,58px);letter-spacing:.15em;margin:0 0 16px}
   #endText{max-width:600px;line-height:1.7;color:#aaa79a;font-size:14px}
   #endStats{margin:20px 0 26px;font-size:12px;letter-spacing:2px;color:var(--dim)}
+  /* touch controls */
+  body.touch{touch-action:none;-webkit-touch-callout:none}
+  #touchUI{position:fixed;inset:0;display:none;z-index:4}
+  #joyBase{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:1px solid rgba(220,220,200,.25);
+    background:rgba(0,0,0,.18);display:none;pointer-events:none}
+  #joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(220,220,200,.22);
+    border:1px solid rgba(220,220,200,.4)}
+  #joyHint{position:absolute;left:8%;bottom:16%;font-size:10px;letter-spacing:3px;color:rgba(220,220,200,.25);pointer-events:none}
+  .tb{position:absolute;width:62px;height:62px;border-radius:50%;background:rgba(15,15,15,.38);border:1px solid rgba(220,220,200,.32);
+    color:rgba(230,230,220,.85);font:bold 9px "Courier New",monospace;letter-spacing:1px;padding:0;margin:0;text-transform:uppercase;
+    -webkit-tap-highlight-color:transparent;touch-action:none}
+  .tb.on{background:rgba(150,25,18,.5);border-color:rgba(255,120,100,.6)}
+  .tb.hot{border-color:rgba(255,255,255,.85);box-shadow:0 0 12px rgba(255,255,255,.35)}
+  #tbSwing{right:calc(22px + env(safe-area-inset-right));bottom:26px;width:84px;height:84px;font-size:11px}
+  #tbUse{right:calc(122px + env(safe-area-inset-right));bottom:30px}
+  #tbCrouch{right:calc(26px + env(safe-area-inset-right));bottom:126px}
+  #tbBreath{right:calc(112px + env(safe-area-inset-right));bottom:112px}
+  #tbLight{right:calc(26px + env(safe-area-inset-right));bottom:204px;width:50px;height:50px}
+  #joyKnob.run{background:rgba(170,40,30,.45);border-color:rgba(255,130,110,.7)}
+  .screen{touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  #tbPause{right:calc(14px + env(safe-area-inset-right));top:12px;width:42px;height:42px;font-size:12px}
+  body.touch .bars{bottom:auto;top:70px;width:150px}
+  body.touch .bar{font-size:9px;margin-top:5px}
+  body.touch #weapon{bottom:auto;top:62px;right:calc(70px + env(safe-area-inset-right));width:150px}
+  body.touch #weapon b{font-size:14px}
+  body.touch #timer{right:calc(70px + env(safe-area-inset-right))}
+  body.touch #objective{top:46px;font-size:10px;letter-spacing:2px}
+  body.touch #topleft{font-size:10px}
+  body.touch #skipHint{pointer-events:auto;font-size:13px;padding:10px 16px;border:1px solid #555;color:#aaa;bottom:2vh}
+  body.touch #crosshair{width:3px;height:3px}
+  @media (max-height:520px){
+    h1{font-size:34px} h1 + .sub{margin-bottom:8px;font-size:11px}
+    .intro{font-size:11px;line-height:1.45} .intro .more{display:none} .controls{margin:12px 0;font-size:11px} .warn{margin-top:8px}
+    .screen{justify-content:flex-start;overflow-y:auto;padding-top:14px}
+    #noteScreen .paper{padding:16px 20px;font-size:12px;line-height:1.5}
+    #subtitle{font-size:14px}
+  }
+  @media (max-height:400px){ #controlsText,.warn{display:none} .intro{margin-bottom:12px} }
 </style>
 </head>
 <body>
@@ -139,6 +177,17 @@
 <div id="skipHint">[ SPACE ] SKIP</div>
 <div id="card"><div id="cardTitle"></div><div id="cardSub"></div></div>
 
+<div id="touchUI">
+  <div id="joyHint">MOVE</div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <button class="tb" id="tbSwing">Swing</button>
+  <button class="tb" id="tbUse">Use</button>
+  <button class="tb" id="tbCrouch">Crouch</button>
+  <button class="tb" id="tbBreath">Hold<br>breath</button>
+  <button class="tb" id="tbLight">Light</button>
+  <button class="tb" id="tbPause">II</button>
+</div>
+
 <div id="titleScreen" class="screen show">
   <h1>THE QUIET</h1>
   <div class="sub">PATIENT 0-12</div>
@@ -146,15 +195,15 @@
     You wake up strapped to a gurney in the sealed sub-level of St. Ambrose Memorial.
     The power is failing. The bite on your arm has scabbed over. Someone has crossed your name off the patient list.<br><br>
     The hallways are full of the <i>quiet ones</i>: patients who stopped talking, then stopped sleeping, then got back up.
-    You have no gun. Improvised weapons are scattered around: pipes, crowbars, an axe. They help, but they break, and every swing makes noise. Often the best fight is the one you run from, or the one you hide from: crawl under a gurney or desk, and hold your breath when they come looking.<br><br>
-    Climb out through the ward, the maintenance tunnels and the ground floor. Find out what happened here.
+    You have no gun. <span class="more">Improvised weapons are scattered around: pipes, crowbars, an axe. They help, but they break, and every swing makes noise. </span>Often the best fight is the one you run from, or the one you hide from: crawl under a gurney or desk, and hold your breath when they come looking.<br><br>
+    <span class="more">Climb out through the ward, the maintenance tunnels and the ground floor. </span>Find out what happened here.
   </div>
-  <div class="controls">
+  <div class="controls" id="controlsText">
     <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint &nbsp; <kbd>C</kbd> crouch / hide &nbsp; <kbd>SPACE</kbd> hold breath<br>
     <kbd>CLICK</kbd> swing weapon &nbsp; <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use / pick up &nbsp; <kbd>ESC</kbd> pause &nbsp; <kbd>SPACE</kbd> skip cutscene
   </div>
   <button id="startBtn">Wake up</button>
-  <div class="warn">Headphones recommended. Desktop browser with keyboard &amp; mouse required.</div>
+  <div class="warn" id="warnText">Headphones recommended. Play on a computer with keyboard and mouse, or a phone or tablet in landscape.</div>
 </div>
 
 <div id="pauseScreen" class="screen">
@@ -320,8 +369,13 @@ const lerp = (a, b, k) => a + (b - a) * k;
 const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
 
 // ---- Renderer / scene ----------------------------------------------------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches;
+const renderer = new THREE.WebGLRenderer({ antialias: !IS_TOUCH, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1 : 1.5));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = IS_TOUCH ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.4;
 renderer.setSize(innerWidth, innerHeight);
 document.getElementById('game').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
@@ -344,7 +398,7 @@ function makeTex(w, h, draw, rep) {
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (rep) t.repeat.set(rep[0], rep[1]);
-  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  t.anisotropy = Math.min(IS_TOUCH ? 4 : 16, renderer.capabilities.getMaxAnisotropy());
   return t;
 }
 function grime(g, w, h, n, alpha) {
@@ -539,9 +593,37 @@ for (let i = 0; i < POOL; i++) {
 }
 const exitGlow = new THREE.PointLight(0x2bff6a, 0.8, 7, 2); scene.add(exitGlow);
 const flash = new THREE.SpotLight(0xfff2d6, 2.4, 30, 0.44, 0.55, 1.4);
-flash.position.set(0.15, -0.1, 0); camera.add(flash);
+flash.position.set(0.32, -0.28, 0.05); camera.add(flash);
+flash.castShadow = true;
+flash.shadow.mapSize.set(IS_TOUCH ? 512 : 1024, IS_TOUCH ? 512 : 1024);
+flash.shadow.camera.near = 0.2; flash.shadow.camera.far = 30; flash.shadow.bias = -0.0015;
 const flashTarget = new THREE.Object3D(); flashTarget.position.set(0, -0.05, -1); camera.add(flashTarget); flash.target = flashTarget;
 let flashOn = true;
+const DUST = IS_TOUCH ? 140 : 260;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUST * 3), dustCol = new Float32Array(DUST * 3), dustVel = new Float32Array(DUST * 3);
+for (let i = 0; i < DUST; i++) { dustVel[i * 3] = rand(-.03, .03); dustVel[i * 3 + 1] = rand(-.02, .015); dustVel[i * 3 + 2] = rand(-.03, .03); }
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+dustGeo.setAttribute('color', new THREE.BufferAttribute(dustCol, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: .022, vertexColors: true, transparent: true, opacity: .9,
+  blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+dust.frustumCulled = false; scene.add(dust);
+let dustInit = false;
+function updateDust(dt) {
+  const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+  const f = new THREE.Vector3(); camera.getWorldDirection(f);
+  for (let i = 0; i < DUST; i++) {
+    const k = i * 3;
+    let x = dustPos[k] + dustVel[k] * dt, y = dustPos[k + 1] + dustVel[k + 1] * dt, z = dustPos[k + 2] + dustVel[k + 2] * dt;
+    if (!dustInit || Math.abs(x - cx) > 4 || Math.abs(z - cz) > 4 || y < 0 || y > WALL_H) { x = cx + rand(-4, 4); y = rand(.1, WALL_H - .1); z = cz + rand(-4, 4); }
+    dustPos[k] = x; dustPos[k + 1] = y; dustPos[k + 2] = z;
+    const dx = x - cx, dy = y - cy, dz = z - cz, d = Math.hypot(dx, dy, dz) || 1;
+    const inBeam = flashOn ? clamp(((dx * f.x + dy * f.y + dz * f.z) / d - .9) / .08, 0, 1) * clamp(1 - d / 4, 0, 1) * (flash.intensity / 2.4) : 0;
+    dustCol[k] = dustCol[k + 1] = dustCol[k + 2] = inBeam * .55;
+  }
+  dustInit = true;
+  dustGeo.attributes.position.needsUpdate = true; dustGeo.attributes.color.needsUpdate = true;
+}
 
 // ---- Melee weapons -------------------------------------------------------
 const WEAPONS = {
@@ -589,37 +671,175 @@ function setWeapon(w) {
 let level = null, lamps = [], pickups = [], zombies = [], switches = [], obstacles = [], ambush = [];
 let floorCells = [], start = [1, 1], exitCell = null, exitDir = [0, -1], door = null, exitPos = [0, 0], doorMat = null;
 let rowe = null, trigger = null, theme = null;
-const eyeMat = new THREE.MeshBasicMaterial({ color: 0xd8e070 });
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0xe8ecc0 });
 const woundMat = new THREE.MeshStandardMaterial({ color: 0x4a0505, roughness: .4 });
 const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2b2d30, roughness: 1 });
 
+// ---- procedural skin / face / cloth textures (cached by colour + variant) ----
+const texCache = {};
+function hexCss(h) { return '#' + h.toString(16).padStart(6, '0'); }
+function shade(h, f) { const r = (h >> 16) & 255, g = (h >> 8) & 255, b = h & 255; return `rgb(${clamp(r * f, 0, 255) | 0},${clamp(g * f, 0, 255) | 0},${clamp(b * f, 0, 255) | 0})`; }
+function paintSkin(g, w, h, base) {
+  g.fillStyle = hexCss(base); g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 260; i++) { g.fillStyle = shade(base, rand(.7, 1.15)); g.globalAlpha = rand(.08, .25); g.beginPath(); g.arc(rand(0, w), rand(0, h), rand(2, 9), 0, 7); g.fill(); }
+  g.globalAlpha = 1;
+  for (let i = 0; i < 5; i++) { // bruises
+    const x = rand(0, w), y = rand(0, h), r = rand(8, 20), gr = g.createRadialGradient(x, y, 1, x, y, r);
+    gr.addColorStop(0, 'rgba(70,30,70,.55)'); gr.addColorStop(.6, 'rgba(90,90,40,.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  g.strokeStyle = 'rgba(55,40,85,.55)'; // veins
+  for (let i = 0; i < 10; i++) {
+    g.lineWidth = rand(.6, 1.6); g.beginPath(); let x = rand(0, w), y = rand(0, h); g.moveTo(x, y);
+    for (let k = 0; k < 7; k++) { x += rand(-9, 9); y += rand(-9, 9); g.lineTo(x, y); if (Math.random() < .3) { g.moveTo(x, y); } }
+    g.stroke();
+  }
+  for (let i = 0; i < 3; i++) { // open wounds
+    const x = rand(0, w), y = rand(0, h), r = rand(3, 8), gr = g.createRadialGradient(x, y, .5, x, y, r * 1.8);
+    gr.addColorStop(0, '#1a0202'); gr.addColorStop(.4, '#5a0806'); gr.addColorStop(1, 'rgba(90,10,6,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.8, r, rand(0, 3), 0, 7); g.fill();
+  }
+}
+function skinTex(base) {
+  const key = 's' + base + (Math.random() * 2 | 0);
+  return texCache[key] || (texCache[key] = makeTex(128, 128, (g, w, h) => paintSkin(g, w, h, base)));
+}
+function faceTex(base) {
+  const key = 'f' + base + (Math.random() * 3 | 0);
+  return texCache[key] || (texCache[key] = makeTex(256, 128, (g, w, h) => {
+    paintSkin(g, w, h, base);
+    g.fillStyle = 'rgba(20,25,15,.28)'; g.fillRect(0, 0, w, h); // greyer, deader than the body
+    const cx = w * .25, cy = h * .52; // the face sits at u = 0.25 (sphere's +z side)
+    for (const ex of [-17, 17]) { // sunken, bruised eye sockets
+      const gr = g.createRadialGradient(cx + ex, cy - 6, 1, cx + ex, cy - 6, 15);
+      gr.addColorStop(0, '#000'); gr.addColorStop(.55, 'rgba(15,5,10,.95)'); gr.addColorStop(1, 'rgba(50,20,40,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(cx + ex, cy - 6, 16, 12, ex < 0 ? .2 : -.2, 0, 7); g.fill();
+      g.fillStyle = 'rgba(190,195,170,.75)'; g.beginPath(); g.arc(cx + ex + rand(-2, 2), cy - 5 + rand(-1, 2), 1.6, 0, 7); g.fill(); // clouded pupil
+      g.fillStyle = 'rgba(90,6,4,.8)'; g.fillRect(cx + ex + rand(-3, 3), cy, 1.6, rand(10, 24)); // bloody tears
+    }
+    g.strokeStyle = 'rgba(40,25,25,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy - 4); g.lineTo(cx - 2, cy + 8); g.stroke(); // nose shadow
+    const mg = g.createRadialGradient(cx, cy + 22, 1, cx, cy + 22, 16); // gaping mouth
+    mg.addColorStop(0, '#000'); mg.addColorStop(.7, '#1a0303'); mg.addColorStop(1, 'rgba(60,8,6,0)');
+    g.fillStyle = mg; g.beginPath(); g.ellipse(cx + rand(-2, 2), cy + 25, 10, 14, rand(-.15, .15), 0, 7); g.fill(); // slack, open mouth
+    g.fillStyle = 'rgba(170,160,120,.85)'; for (let i = -2; i <= 2; i++) if (Math.random() < .55) g.fillRect(cx + i * 3.4 - 1, cy + 12 + Math.abs(i) * 1.2, 2.2, rand(2, 4.5)); // broken teeth
+    g.fillStyle = 'rgba(85,5,3,.9)'; // blood running from the mouth corners and chin
+    for (const mx of [-9, 9, rand(-4, 4)]) g.fillRect(cx + mx, cy + 30, rand(2, 4), rand(14, 40));
+    for (let i = 0; i < 18; i++) { g.beginPath(); g.arc(cx + rand(-30, 30), cy + rand(-30, 30), rand(.8, 2.6), 0, 7); g.fill(); }
+  }));
+}
+function clothTex(base) {
+  const key = 'c' + base + (Math.random() * 3 | 0);
+  return texCache[key] || (texCache[key] = makeTex(128, 128, (g, w, h) => {
+    g.fillStyle = hexCss(base); g.fillRect(0, 0, w, h);
+    g.globalAlpha = .08; g.fillStyle = '#000'; for (let y = 0; y < h; y += 2) g.fillRect(0, y, w, 1); g.globalAlpha = 1; // weave
+    for (let i = 0; i < 120; i++) { g.fillStyle = shade(base, rand(.6, 1.1)); g.globalAlpha = rand(.1, .3); g.fillRect(rand(0, w), rand(0, h), rand(2, 10), rand(2, 10)); }
+    g.globalAlpha = 1;
+    for (let i = 0; i < 5; i++) { // tears showing skin underneath
+      g.fillStyle = '#7c8470'; g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y);
+      for (let k = 0; k < 6; k++) g.lineTo(x + rand(-12, 12), y + rand(-12, 12)); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(30,20,15,.6)'; g.stroke();
+    }
+    for (let i = 0; i < 4; i++) { // soaked-in blood
+      const x = rand(0, w), y = i === 0 ? 0 : rand(0, h), r = rand(14, 38), gr = g.createRadialGradient(x, y, 2, x, y, r);
+      gr.addColorStop(0, 'rgba(60,4,3,.95)'); gr.addColorStop(.7, 'rgba(80,6,4,.5)'); gr.addColorStop(1, 'rgba(80,6,4,0)');
+      g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    g.fillStyle = 'rgba(70,5,3,.8)'; for (let i = 0; i < 8; i++) g.fillRect(rand(0, w), rand(0, h), rand(1, 3), rand(8, 30)); // drips
+  }));
+}
+const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1816, roughness: .8 });
+const hairMats = [0x1a1210, 0x3a2a1a, 0x5a5048, 0x0e0c0c].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: .95 }));
+const goreMat = new THREE.MeshStandardMaterial({ color: 0x3a0302, roughness: .35, metalness: .1 });
+const SEG = IS_TOUCH ? 8 : 12;
+
 function makeZombie(x, z, opts = {}) {
-  const runner = opts.runner ?? Math.random() < 0.22;
-  const zb = { x, z, runner, hp: opts.hp ?? (runner ? 3 : 4.5), stun: 0, flash: 0, state: opts.chase ? 'chase' : 'idle',
-    speed: runner ? rand(3.3, 3.8) : rand(1.6, 2.1), dir: rand(0, 6), wanderT: 0, lastSeen: 0, attackCd: 0,
-    groanT: rand(2, 8), phase: rand(0, 6), lunge: 0, twitch: 0, yaw: rand(0, 6) };
+  const runner = opts.runner ?? Math.random() < 0.2;
+  const gait = opts.gait ?? (runner ? 'run' : Math.random() < .14 ? 'crawl' : Math.random() < .4 ? 'limp' : 'walk');
+  const crawl = gait === 'crawl';
+  const zb = { x, z, runner, gait, hp: opts.hp ?? (runner ? 3 : crawl ? 2.5 : 4.5), stun: 0, flash: 0, state: opts.chase ? 'chase' : 'idle',
+    speed: runner ? rand(3.3, 3.8) : crawl ? rand(.9, 1.2) : gait === 'limp' ? rand(1.3, 1.7) : rand(1.6, 2.1),
+    dir: rand(0, 6), wanderT: 0, lastSeen: 0, attackCd: 0, armsUp: runner || Math.random() < .55, jawT: 0,
+    groanT: rand(2, 8), phase: rand(0, 6), lunge: 0, twitch: 0, twitchDir: 0, yaw: rand(0, 6), tilt: rand(-.35, .35) };
+  const skinCol = opts.skin ?? pick(theme.skins), clothCol = opts.cloth ?? pick(theme.clothes);
+  const skin = new THREE.MeshStandardMaterial({ map: skinTex(skinCol), bumpMap: null, roughness: .62, metalness: 0 });
+  const face = new THREE.MeshStandardMaterial({ map: faceTex(skinCol), roughness: .55 });
+  const cloth = new THREE.MeshStandardMaterial({ map: clothTex(clothCol), roughness: .95, side: THREE.DoubleSide });
+  const bareLegs = !opts.coat && Math.random() < .35; // hospital gowns
+  const legMat = bareLegs ? skin : (opts.coat ? cloth : new THREE.MeshStandardMaterial({ map: clothTex(pick([0x2b2d30, 0x2a3040, 0x3a3428])), roughness: 1 }));
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const skin = new THREE.MeshStandardMaterial({ color: opts.skin ?? pick(theme.skins), roughness: .9 });
-  const cloth = new THREE.MeshStandardMaterial({ color: opts.cloth ?? pick(theme.clothes), roughness: 1 });
-  const part = (geo, mat, px, py, pz, parent = body) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); parent.add(m); return m; };
-  part(new THREE.BoxGeometry(.56, .78, .3), cloth, 0, 1.16, 0);
-  for (let i = 0; i < 3; i++) part(new THREE.BoxGeometry(rand(.08, .18), rand(.08, .2), .02), woundMat, rand(-.2, .2), rand(.9, 1.4), .16);
-  const legs = [-0.14, 0.14].map(lx => { const p = new THREE.Group(); p.position.set(lx, .78, 0); body.add(p);
-    part(new THREE.BoxGeometry(.2, .78, .22), opts.coat ? cloth : pantsMat, 0, -.39, 0, p); return p; });
-  const arms = [-0.37, 0.37].map(ax => { const p = new THREE.Group(); p.position.set(ax, 1.48, 0); body.add(p);
-    part(new THREE.BoxGeometry(.14, .68, .14), opts.coat ? cloth : skin, 0, -.32, 0, p);
-    part(new THREE.BoxGeometry(.12, .14, .16), skin, 0, -.7, .02, p);
-    p.rotation.x = -1.35; return p; });
-  const neck = new THREE.Group(); neck.position.y = 1.56; body.add(neck);
-  part(new THREE.BoxGeometry(.32, .36, .32), skin, 0, .19, 0, neck);
-  if (opts.hair) part(new THREE.BoxGeometry(.34, .14, .34), new THREE.MeshStandardMaterial({ color: opts.hair, roughness: 1 }), 0, .38, -.01, neck);
-  part(new THREE.BoxGeometry(.2, .08, .04), woundMat, 0, .06, .16, neck);
-  const eyes = [-.075, .075].map(ex => part(new THREE.BoxGeometry(.055, .035, .02), eyeMat, ex, .22, .165, neck));
-  const s = runner ? rand(.9, .98) : rand(.98, 1.1); g.scale.set(s, s, s);
+  const cyl = (rt, rb, h) => new THREE.CylinderGeometry(rt, rb, h, SEG, 1);
+  const mesh = (geo, mat, parent, px = 0, py = 0, pz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = true; parent.add(m); return m; };
+  const joint = (parent, px, py, pz) => { const j = new THREE.Group(); j.position.set(px, py, pz); parent.add(j); return j; };
+
+  const hips = joint(body, 0, .9, 0);
+  mesh(cyl(.15, .14, .2), legMat, hips).scale.set(1.3, 1, .8);
+  const spine = joint(hips, 0, .06, 0);
+  const torso = mesh(cyl(.19, .15, .54), cloth, spine, 0, .27, 0); torso.scale.set(1.3, 1, .72);
+  mesh(new THREE.SphereGeometry(.12, SEG, 6), skin, spine, 0, .5, .02).scale.set(1.4, .5, .9); // collar / shoulders
+  if (opts.coat) { const tail = mesh(cyl(.24, .27, .55, true), cloth, hips, 0, -.25, 0); tail.scale.set(1.15, 1, .8); }
+
+  const arms = [], elbows = [];
+  for (const sx of [-1, 1]) {
+    const sh = joint(spine, .25 * sx, .47, 0);
+    mesh(cyl(.056, .047, .3), (opts.coat || Math.random() < .5) ? cloth : skin, sh, 0, -.15, 0);
+    const el = joint(sh, 0, -.3, 0);
+    mesh(cyl(.046, .036, .27), skin, el, 0, -.135, 0);
+    const hand = joint(el, 0, -.29, 0);
+    mesh(new THREE.SphereGeometry(.048, 8, 6), skin, hand).scale.set(.9, 1.3, .55);
+    for (let f = -1; f <= 1; f++) { const fg = mesh(cyl(.011, .008, .09), skin, hand, f * .025, -.07, .01); fg.rotation.x = .35 + rand(0, .4); }
+    arms.push(sh); elbows.push(el);
+  }
+  const neck = joint(spine, 0, .54, 0);
+  mesh(cyl(.048, .056, .12), skin, neck, 0, .05, 0);
+  const head = joint(neck, 0, .2, 0);
+  mesh(new THREE.SphereGeometry(.118, SEG + 4, SEG), face, head).scale.set(.9, 1.06, .98);
+  if (!opts.bald && Math.random() < .8) { // hair, often patchy
+    const hm = opts.hair ? new THREE.MeshStandardMaterial({ color: opts.hair, roughness: .95 }) : pick(hairMats);
+    const hair = mesh(new THREE.SphereGeometry(.124, SEG + 4, 8, rand(0, .8), Math.PI * 2 - rand(0, 1.6), 0, Math.PI * rand(.32, .5)), hm, head, 0, .012, -.008);
+    hair.scale.set(.92, 1.07, 1); hair.rotation.y = rand(0, 6);
+  }
+  const jaw = joint(head, 0, -.06, .02);
+  mesh(new THREE.SphereGeometry(.072, 10, 6, 0, Math.PI * 2, Math.PI * .45, Math.PI * .55), face, jaw, 0, .03, .02).scale.set(1, .9, 1.1);
+  const eyes = [-.042, .042].map(ex => { const e = mesh(new THREE.SphereGeometry(.011, 6, 4), eyeMat, head, ex, .012, .118); e.castShadow = false; return e; });
+
+  const legs = [], knees = [];
+  for (const sx of [-1, 1]) {
+    const hp = joint(hips, .09 * sx, -.03, 0);
+    mesh(cyl(.075, .058, .43), legMat, hp, 0, -.215, 0);
+    const kn = joint(hp, 0, -.43, 0);
+    const shin = mesh(cyl(.058, .044, .42), legMat, kn, 0, -.21, 0);
+    const foot = mesh(new THREE.BoxGeometry(.09, .06, .22), bareLegs ? skin : shoeMat, kn, 0, -.43, .05);
+    if (crawl && (sx < 0 || Math.random() < .6)) { shin.visible = foot.visible = false; mesh(new THREE.SphereGeometry(.06, 8, 6), goreMat, kn, 0, 0, 0); } // missing legs
+    legs.push(hp); knees.push(kn);
+  }
+  const s = (runner ? rand(.92, .98) : rand(.94, 1.04)) * (opts.scale || 1); g.scale.set(s, s, s);
   g.position.set(x, 0, z); level.add(g);
-  Object.assign(zb, { group: g, body, legs, arms, neck, eyes, skinMat: skin });
+  Object.assign(zb, { group: g, body, hips, spine, legs, knees, arms, elbows, neck, head, jaw, eyes, flashMats: [skin, face] });
+  animZombie(zb, 0, 0);
+  if (opts.dormant) makeDormant(zb);
   if (opts.register !== false) zombies.push(zb);
   return zb;
+}
+// a "corpse" on the floor that is not quite dead
+function makeDormant(zb) {
+  zb.dormant = true; zb.eyes.forEach(e => e.visible = false);
+  zb.body.rotation.x = -Math.PI / 2; zb.body.position.set(0, .12, 0);
+  zb.arms.forEach((a, i) => { a.rotation.x = -.3; a.rotation.z = (i ? 1 : -1) * rand(.2, .9); });
+  zb.neck.rotation.z = rand(-.8, .8);
+}
+function wakeDormant(zb) {
+  zb.dormant = false; zb.rising = true; zb.state = 'chase'; zb.lastSeen = playTime; zb.lastX = P.x; zb.lastZ = P.z;
+  zb.yaw = Math.atan2(P.x - zb.x, P.z - zb.z); zb.group.rotation.y = zb.yaw; // feet toward you, then it sits up
+  sfxGroan(zb.x, zb.z, true);
+  if (Math.hypot(zb.x - P.x, zb.z - P.z) < 6) sfxStinger();
+  const crawl = zb.gait === 'crawl';
+  tween(.25, k => { zb.neck.rotation.z = Math.sin(k * 30) * .4; zb.arms[0].rotation.x = -.3 + Math.sin(k * 25) * .5; }).then(() => {
+    zb.eyes.forEach(e => e.visible = true);
+    return tween(crawl ? .7 : 1.3, k => { const e = ease(k);
+      zb.body.rotation.x = lerp(-Math.PI / 2, crawl ? 1.42 : 0, e); zb.body.position.y = lerp(.12, crawl ? .16 : 0, e);
+      if (crawl) zb.body.position.z = lerp(0, -1.1, e);
+      zb.arms.forEach(a => a.rotation.z = lerp(a.rotation.z, 0, e * .5)); });
+  }).then(() => { zb.rising = false; zb.attackCd = .4; zb.arms.forEach(a => a.rotation.z = 0); });
 }
 
 function addPickup(type, c, r) {
@@ -702,12 +922,13 @@ function addHideSpot(kind, x, z) {
     box(.35, .25, .03, new THREE.MeshStandardMaterial({ color: 0x15181a, emissive: 0x0a1410 }), .4, .97, -.2); // dead monitor
   }
   g.position.set(x, 0, z); g.rotation.y = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]) + rand(-.1, .1);
+  g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   level.add(g);
   obstacles.push({ x, z, r: .8, hide: true, name });
 }
 
 function addDebris(kind, x, z) {
-  const g = new THREE.Group();
+  const g = new THREE.Group(); setTimeout(() => g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }));
   const metal = new THREE.MeshStandardMaterial({ color: 0x6b6e70, roughness: 0.6, metalness: 0.4 });
   if (kind === 'gurney') {
     const top = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 2), metal); top.position.y = 0.85; g.add(top);
@@ -740,11 +961,12 @@ function addDebris(kind, x, z) {
 
 function disposeLevel() {
   if (!level) return;
-  const keep = [eyeMat, woundMat, pantsMat, pMat, shadowMat, phantomEyeMat], keepTex = [bloodTex, paperTex, medTex];
+  const cached = Object.values(texCache);
+  const keep = [eyeMat, woundMat, pantsMat, pMat, shadowMat, phantomEyeMat, shoeMat, goreMat, ...hairMats], keepTex = [bloodTex, paperTex, medTex];
   level.traverse(o => {
     if (o.geometry && o.geometry !== pGeo) o.geometry.dispose();
     if (o.material && !keep.includes(o.material)) {
-      for (const k of ['map', 'emissiveMap']) if (o.material[k] && !keepTex.includes(o.material[k])) o.material[k].dispose();
+      for (const k of ['map', 'emissiveMap']) if (o.material[k] && !keepTex.includes(o.material[k]) && !cached.includes(o.material[k])) o.material[k].dispose();
       o.material.dispose();
     }
   });
@@ -778,13 +1000,13 @@ function loadArea(i) {
   }
   const wallGeo = new THREE.BoxGeometry(CELL, WALL_H, CELL), m4 = new THREE.Matrix4();
   lists.forEach((list, k) => {
-    const im = new THREE.InstancedMesh(wallGeo, new THREE.MeshStandardMaterial({ map: wallTex[k], roughness: .92 }), Math.max(1, list.length));
+    const im = new THREE.InstancedMesh(wallGeo, new THREE.MeshStandardMaterial({ map: wallTex[k], bumpMap: wallTex[k], bumpScale: .025, roughness: .92 }), Math.max(1, list.length));
     list.forEach(([c, r], j) => { const [x, z] = center(c, r); m4.makeTranslation(x, WALL_H / 2, z); im.setMatrixAt(j, m4); });
-    im.count = list.length; level.add(im);
+    im.count = list.length; im.receiveShadow = true; level.add(im);
   });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W * CELL, H * CELL),
-    new THREE.MeshStandardMaterial({ map: makeTex(128, 128, theme.floor, [W, H]), roughness: theme.floorRough, metalness: .05 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.set(W * CELL / 2, 0, H * CELL / 2); level.add(floor);
+    (() => { const ft = makeTex(128, 128, theme.floor, [W, H]); return new THREE.MeshStandardMaterial({ map: ft, bumpMap: ft, bumpScale: .02, roughness: theme.floorRough, metalness: .05 }); })());
+  floor.rotation.x = -Math.PI / 2; floor.position.set(W * CELL / 2, 0, H * CELL / 2); floor.receiveShadow = true; level.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W * CELL, H * CELL), new THREE.MeshStandardMaterial({ map: makeTex(128, 128, theme.ceil, [W, H]), roughness: 1 }));
   ceil.rotation.x = Math.PI / 2; ceil.position.set(W * CELL / 2, WALL_H, H * CELL / 2); level.add(ceil);
 
@@ -804,13 +1026,13 @@ function loadArea(i) {
     else if ('NBMK'.includes(ch)) addPickup(ch, c, r);
     else if (ch === 'U') addHideSpot(AR.theme, x, z);
     else if (ch === 'W') { const t = AR.weapons[areaWeaponIdx++ % AR.weapons.length]; addWeaponPickup(t, x, z, WEAPONS[t].dur); }
-    else if (ch === 'Z') makeZombie(x + rand(-1, 1), z + rand(-1, 1));
+    else if (ch === 'Z') makeZombie(x + rand(-1, 1), z + rand(-1, 1), { dormant: Math.random() < .3 });
     else if (ch === 'S') addSwitch(c, r);
     else if (ch === 'T') trigger = { x, z, fired: false };
     else if (ch === 'H') ambush.push([x, z]);
     else if (ch === 'D') {
-      const corpse = makeZombie(x + 1.1, z, { register: false, runner: false, cloth: 0xdedbd0, skin: 0xa3ab96, coat: true, hair: 0x1a1210 });
-      corpse.body.rotation.x = -Math.PI / 2; corpse.body.position.y = .15; corpse.arms.forEach(a => a.rotation.x = -.2);
+      const corpse = makeZombie(x + 1.1, z, { register: false, runner: false, gait: 'walk', bald: false, cloth: 0xdedbd0, skin: 0xa3ab96, coat: true, hair: 0x1a1210 });
+      corpse.body.rotation.x = -Math.PI / 2; corpse.body.position.y = .12; corpse.arms.forEach(a => a.rotation.x = -.2);
       corpse.yaw = Math.PI / 2; corpse.group.rotation.y = corpse.yaw; corpse.eyes.forEach(e => e.visible = false);
       corpse.speed = 2.5; corpse.hp = 7;
       const paper = new THREE.Mesh(new THREE.BoxGeometry(.3, .01, .38), new THREE.MeshStandardMaterial({ map: paperTex, emissive: 0x6a6450, emissiveIntensity: .35 }));
@@ -824,6 +1046,7 @@ function loadArea(i) {
       lamps.push({ x, z, mat, broken: Math.random() < 0.4, phase: rand(0, 100), level: 1 });
     }
   }
+  level.traverse(o => { if (o.isMesh && !o.isInstancedMesh && o !== floor && o !== ceil) { o.castShadow = true; } });
   // debris on plain floor cells
   for (let k = 0; k < 16; k++) {
     const [c, r] = pick(floorCells); if (grid[r][c] !== '.') continue;
@@ -859,6 +1082,7 @@ function loadArea(i) {
 }
 
 // ---- Player ----------------------------------------------------------------
+let prevYaw = 0, prevPitch = 0;
 let eyeH = 1.6, breathT = 2, holding = false, gasping = 0, sniffT = 0, hideTipShown = false;
 const P = { crouch: false, hidden: false, breath: 100, x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [], weapon: null, kills: 0 };
 let yaw = -Math.PI / 2, pitch = 0;
@@ -898,16 +1122,40 @@ function spatial(x, z) {
   const rx = Math.cos(camera.rotation.y), rz = -Math.sin(camera.rotation.y);
   return { g, p: (dx * rx + dz * rz) / d };
 }
+// a glottal buzz shaped by vowel formants sounds like a throat, not a synth
+const VOWELS = [[700, 1100, 2400], [500, 850, 2500], [400, 800, 2300], [600, 1000, 2500], [300, 870, 2240]];
+function voice(t, dur, f0, f0end, vowel, vowelEnd, gain, pan) {
+  const o = AC.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0end, t + dur);
+  const jit = AC.createOscillator(); jit.type = 'sine'; jit.frequency.value = rand(4, 9); const jg = AC.createGain(); jg.gain.value = f0 * .05;
+  jit.connect(jg).connect(o.frequency);
+  const n = noiseSrc(); const ng = AC.createGain(); ng.gain.value = .25; n.connect(ng); // breathiness
+  const out = AC.createGain(); out.gain.setValueAtTime(.0001, t); out.gain.linearRampToValueAtTime(gain, t + Math.min(.25, dur * .3));
+  out.gain.setValueAtTime(gain, t + dur * .6); out.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  vowel.forEach((f, i) => {
+    const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = [6, 8, 10][i];
+    bp.frequency.setValueAtTime(f, t); bp.frequency.linearRampToValueAtTime(vowelEnd[i], t + dur);
+    const fg = AC.createGain(); fg.gain.value = [1, .6, .25][i];
+    o.connect(bp); ng.connect(bp); bp.connect(fg).connect(out);
+  });
+  const ws = AC.createWaveShaper(); const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.5); } ws.curve = curve;
+  out.connect(ws).connect(panner(pan)).connect(master);
+  o.start(t); jit.start(t); n.start(t, rand(0, 1)); o.stop(t + dur + .1); jit.stop(t + dur + .1); n.stop(t + dur + .1);
+}
 function sfxGroan(x, z, loud) {
   if (!AC) return; const sp = spatial(x, z); if (sp.g < 0.01) return;
-  const t = AC.currentTime, f = rand(65, 130), dur = rand(1, 1.8);
-  const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * rand(.6, .85), t + dur);
-  const lfo = AC.createOscillator(); lfo.frequency.value = rand(5, 11); const lg = AC.createGain(); lg.gain.value = f * .1; lfo.connect(lg).connect(o.frequency);
-  const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rand(350, 700); bp.Q.value = 2.5;
-  const n = noiseSrc(); const nb = AC.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = 900; const ng = AC.createGain(); ng.gain.value = .35;
-  n.connect(nb).connect(ng).connect(bp); o.connect(bp);
-  const g = env(t, .2, .55 * sp.g * (loud ? 1.6 : 1), dur); bp.connect(g).connect(panner(sp.p)).connect(master);
-  o.start(t); lfo.start(t); n.start(t, rand(0, 1)); o.stop(t + dur + .3); lfo.stop(t + dur + .3); n.stop(t + dur + .3);
+  const t = AC.currentTime, dur = rand(1, 2), f0 = rand(70, 120);
+  voice(t, dur, f0, f0 * rand(.6, .85), pick(VOWELS), pick(VOWELS), .9 * sp.g * (loud ? 1.6 : 1), sp.p);
+  if (loud && Math.random() < .5) voice(t + dur * .7, .5, f0 * 1.6, f0 * .8, VOWELS[0], VOWELS[4], .5 * sp.g, sp.p); // a rattling gasp after
+}
+function sfxSob() { // someone crying, somewhere you can't reach
+  if (!AC) return; let t = AC.currentTime; const p = rand(-1, 1), f0 = rand(260, 330);
+  for (let i = 0; i < 5; i++) { const d = rand(.25, .5); voice(t, d, f0 * rand(1, 1.15), f0 * .8, VOWELS[2], VOWELS[4], .05, p); t += d + rand(.1, .35); }
+}
+function sfxKnock() {
+  if (!AC) return; let t = AC.currentTime; const p = rand(-1, 1);
+  for (let i = 0; i < 3; i++) { const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 180; bp.Q.value = 5;
+    n.connect(bp).connect(env(t, .002, .4, .18)).connect(panner(p)).connect(master); n.start(t, rand(0, 1)); n.stop(t + .25); t += i === 1 ? .5 : .28; }
 }
 function sfxClick(f = 1800, v = .2) {
   if (!AC) return; const t = AC.currentTime; const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = f;
@@ -1016,7 +1264,9 @@ function sfxDrip() {
   o.connect(env(t, .002, .04, .12)).connect(panner(p)).connect(master); o.start(t); o.stop(t + .2);
 }
 function sfxDistant() {
-  if (!AC) return; const t = AC.currentTime, p = rand(-1, 1);
+  if (!AC) return; const t = AC.currentTime, p = rand(-1, 1), roll = Math.random();
+  if (roll < .2) return sfxSob();
+  if (roll < .35) return sfxKnock();
   if (Math.random() < .55) {
     const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rand(150, 400); bp.Q.value = 12;
     n.connect(bp).connect(env(t, .003, .5, 1.6)).connect(panner(p)).connect(master); n.start(t); n.stop(t + 1.8);
@@ -1086,13 +1336,40 @@ function exitCutscene() {
   if (!document.pointerLockElement && !noLock) { state = 'paused'; showScreen('pauseScreen'); }
   else { state = 'playing'; showScreen(null); }
 }
-function animZombie(zb, dt, spd) {
-  zb.phase += dt * spd * 3.2;
-  const sw = Math.sin(zb.phase);
-  zb.legs[0].rotation.x = sw * .55; zb.legs[1].rotation.x = -sw * .55;
-  zb.arms[0].rotation.x = -1.35 + Math.sin(zb.phase * .5) * .15 - zb.lunge * .5;
-  zb.arms[1].rotation.x = -1.35 - Math.sin(zb.phase * .5 + 1) * .15 - zb.lunge * .5;
-  zb.body.rotation.z = Math.sin(zb.phase) * (zb.runner ? .12 : .06);
+function animZombie(zb, dt, spd, stunned) {
+  zb.phase += dt * spd * (zb.gait === 'crawl' ? 3.6 : 3.2);
+  const ph = zb.phase, sw = Math.sin(ph), chase = zb.state === 'chase';
+  zb.twitch -= dt;
+  if (zb.twitch < -rand(.6, 5)) { zb.twitch = rand(.08, .2); zb.twitchDir = rand(-1, 1); }
+  const jerk = zb.twitch > 0 ? zb.twitchDir : 0;
+  zb.jawT = Math.max(0, zb.jawT - dt);
+  zb.jaw.rotation.x = .12 + Math.min(1, zb.jawT) * .45 + (chase ? .1 : 0) + Math.abs(jerk) * .2;
+  const reach = (zb.armsUp || chase) ? -1.3 : -.12;
+  if (zb.gait === 'crawl') { // dragging itself across the floor
+    zb.body.rotation.x = 1.42; zb.body.position.set(0, .16, -1.1); zb.body.rotation.z = sw * .06; // centred on its position, head forward
+    zb.arms[0].rotation.x = -2.6 + Math.sin(ph) * .6; zb.arms[1].rotation.x = -2.6 - Math.sin(ph) * .6;
+    zb.elbows[0].rotation.x = -.4 - Math.max(0, Math.cos(ph)) * .9; zb.elbows[1].rotation.x = -.4 - Math.max(0, -Math.cos(ph)) * .9;
+    zb.legs.forEach((l, i) => { l.rotation.x = .1 + Math.sin(ph + i) * .08; }); zb.knees.forEach(k => k.rotation.x = .3);
+    zb.neck.rotation.x = -1.15 + jerk * .3; zb.neck.rotation.z = Math.sin(T * .9 + ph) * .2 + jerk * .4;
+  } else {
+    const run = zb.gait === 'run' && spd > 0, limp = zb.gait === 'limp';
+    const amp = run ? .75 : .45;
+    zb.legs[0].rotation.x = sw * amp; zb.legs[1].rotation.x = -sw * (limp ? amp * .3 : amp);
+    zb.knees[0].rotation.x = .08 + Math.max(0, Math.sin(ph + 1.2)) * (run ? 1.1 : .6);
+    zb.knees[1].rotation.x = limp ? .05 : .08 + Math.max(0, Math.sin(ph + 1.2 + Math.PI)) * (run ? 1.1 : .6);
+    zb.body.position.set(0, -Math.abs(Math.sin(ph)) * (limp ? .07 : .035), 0);
+    zb.body.rotation.z = Math.sin(ph) * (run ? .1 : limp ? .12 : .05) + (limp ? .06 : 0);
+    zb.body.rotation.x = 0;
+    zb.spine.rotation.x = (run && chase ? .45 : chase ? .18 : .08) + (stunned ? -.35 : 0);
+    zb.spine.rotation.z = limp ? -.08 : 0;
+    const flail = run ? Math.sin(ph * 1.1) * .5 : Math.sin(ph * .5) * .14;
+    zb.arms[0].rotation.x = reach + flail - zb.lunge * .6 + (stunned ? .9 : 0);
+    zb.arms[1].rotation.x = reach - flail * (run ? 1 : .8) - zb.lunge * .6 + (stunned ? .9 : 0);
+    zb.arms[0].rotation.z = -.08; zb.arms[1].rotation.z = .08;
+    zb.elbows.forEach((e, i) => e.rotation.x = -.15 - (run ? .5 : .2) - (i ? Math.sin(ph) : -Math.sin(ph)) * .12 + zb.lunge * .3);
+    zb.neck.rotation.x = (chase ? -.1 : .45) + (stunned ? -.6 : 0) + jerk * .25;
+    zb.neck.rotation.z = zb.tilt + Math.sin(T * .7 + ph) * .18 + jerk * .55; // lolling, broken-necked
+  }
   zb.group.position.set(zb.x, 0, zb.z); zb.group.rotation.y = zb.yaw;
 }
 
@@ -1102,7 +1379,7 @@ async function cutIntro() {
   const [sx, sz] = center(...start);
   camera.position.set(sx, 1.15, sz); camera.rotation.set(1.5, -Math.PI / 2, 0);
   // a quiet one shambles past the doorway of the next room
-  const walker = makeZombie(30, 4.5, { runner: false });
+  const walker = makeZombie(30, 4.5, { runner: false, gait: 'limp' });
   walker.yaw = 0; animZombie(walker, 0, 0);
   await wait(1);
   await say('<i>&ldquo;...is 0-12 still under?&rdquo;</i>', 2.6);
@@ -1126,7 +1403,7 @@ async function cutIntro() {
   });
   await say('Something is out there.', 2.4);
   exitCutscene();
-  msg('WASD move · Shift sprint · F flashlight · E read / use', 5);
+  msg(IS_TOUCH ? 'Left thumb moves · right thumb looks' : 'WASD move · Shift sprint · C crouch · F flashlight · E read / use', 5);
 }
 
 async function cutExit() {
@@ -1223,8 +1500,8 @@ async function cutRowe() {
   sfxStinger(); sfxGroan(bx, bz, true);
   await Promise.all([
     camFromTo(here, back, [bx, .5, bz], [c.x, 1.5, c.z], 1.6),
-    tween(1.6, k => { const e = ease(k); c.body.rotation.x = -Math.PI / 2 * (1 - e); c.body.position.y = .15 * (1 - e);
-      c.arms.forEach(a => a.rotation.x = lerp(-.2, -1.35, e)); }),
+    tween(1.6, k => { const e = ease(k); c.body.rotation.x = -Math.PI / 2 * (1 - e);
+      c.arms.forEach(a => a.rotation.x = lerp(-.2, -1.25, e)); c.body.position.y = .12 * (1 - e); }),
   ]);
   c.yaw = Math.atan2(back[0] - c.x, back[2] - c.z); c.group.rotation.y = c.yaw;
   await wait(.5);
@@ -1257,7 +1534,83 @@ async function cutDeath(title, text, color = 'rgba(90,0,0,1)') {
 // ---- Input ---------------------------------------------------------------
 let state = 'title';
 const keys = {};
-let noLock = false, dragging = false;
+let noLock = IS_TOUCH, dragging = false;
+let joyX = 0, joyY = 0;
+if (IS_TOUCH) {
+  document.body.classList.add('touch');
+  $('controlsText').innerHTML = 'Left thumb: <kbd>MOVE</kbd> &nbsp; Right thumb: <kbd>LOOK</kbd><br><kbd>SWING</kbd> <kbd>USE</kbd> <kbd>CROUCH</kbd> <kbd>HOLD BREATH</kbd> <kbd>LIGHT</kbd><br>Push the stick to the edge to run';
+  document.querySelector('#noteScreen .hint').textContent = 'TAP TO PUT DOWN';
+  $('joyHint').textContent = 'MOVE · PUSH TO EDGE TO RUN';
+  $('warnText').textContent = 'Headphones recommended. Turn your phone sideways.';
+  $('skipHint').textContent = 'TAP TO SKIP ▸';
+  const tui = $('touchUI'), base = $('joyBase'), knob = $('joyKnob');
+  let joyId = null, jx0 = 0, jy0 = 0, lookId = null, lx = 0, ly = 0;
+  tui.addEventListener('touchstart', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.target.closest && t.target.closest('.tb')) continue;
+      if (t.clientX < innerWidth * .45 && joyId === null) {
+        joyId = t.identifier; jx0 = t.clientX; jy0 = t.clientY;
+        base.style.left = jx0 + 'px'; base.style.top = jy0 + 'px'; base.style.display = 'block'; knob.style.transform = '';
+      } else if (lookId === null) { lookId = t.identifier; lx = t.clientX; ly = t.clientY; }
+    }
+  }, { passive: false });
+  tui.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyId) {
+        let dx = t.clientX - jx0, dy = t.clientY - jy0; const d = Math.hypot(dx, dy), R = 55;
+        keys.ShiftLeft = d > R * 1.25; knob.classList.toggle('run', keys.ShiftLeft); // thumb past the ring = run
+        if (d > R) { dx *= R / d; dy *= R / d; }
+        joyX = dx / R; joyY = dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`;
+      } else if (t.identifier === lookId) {
+        if (state === 'playing') look((t.clientX - lx) * 1.7, (t.clientY - ly) * 1.7);
+        lx = t.clientX; ly = t.clientY;
+      }
+    }
+  }, { passive: false });
+  const release = e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyId) { joyId = null; joyX = joyY = 0; keys.ShiftLeft = false; knob.classList.remove('run'); base.style.display = 'none'; }
+      if (t.identifier === lookId) lookId = null;
+    }
+  };
+  tui.addEventListener('touchend', release); tui.addEventListener('touchcancel', release);
+  const btn = (id, down, up) => {
+    const b = $(id);
+    b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); b.classList.add('on'); down(); }, { passive: false });
+    const end = e => { e.preventDefault(); e.stopPropagation(); b.classList.remove('on'); if (up) up(); };
+    b.addEventListener('touchend', end); b.addEventListener('touchcancel', end);
+  };
+  btn('tbSwing', () => { if (state === 'playing') swing(); });
+  btn('tbUse', () => { if (state === 'playing') interact(); });
+  btn('tbCrouch', () => { if (state === 'playing') { P.crouch = !P.crouch; sfxCloth(); } });
+  btn('tbBreath', () => { keys.Space = true; }, () => { keys.Space = false; });
+  btn('tbLight', () => { if (state === 'playing' && P.bat > 0) { flashOn = !flashOn; sfxClick(900, .15); } });
+  btn('tbPause', () => { if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); } });
+  $('skipHint').addEventListener('touchstart', e => { e.preventDefault(); if (state === 'cutscene') csSkip = true; }, { passive: false });
+  document.addEventListener('touchstart', e => { if (state === 'note') { e.preventDefault(); closeNote(); } }, { passive: false });
+}
+function updateTouchUI() {
+  if (!IS_TOUCH) return;
+  const show = state === 'playing';
+  $('touchUI').style.display = show ? 'block' : 'none';
+  if (!show) return;
+  $('tbCrouch').classList.toggle('on', P.crouch);
+  $('tbLight').classList.toggle('on', !flashOn);
+  $('tbSwing').style.opacity = P.weapon ? 1 : .35;
+  $('tbUse').classList.toggle('hot', $('prompt').style.display === 'block');
+  $('tbBreath').style.display = P.crouch || P.breath < 100 ? 'block' : 'none';
+}
+// Android wrapper hooks
+window.onAndroidBack = () => {
+  if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); }
+  else if (state === 'paused') resume();
+  else if (state === 'note') closeNote();
+  else if (state === 'cutscene') csSkip = true;
+};
+window.onAndroidPause = () => { if (state === 'playing') { state = 'paused'; showScreen('pauseScreen'); } if (AC) AC.suspend(); for (const k in keys) keys[k] = false; };
+window.onAndroidResume = () => { if (AC && state !== 'paused') AC.resume(); };
 function requestLock() {
   if (noLock) return;
   try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => { noLock = true; }); }
@@ -1298,7 +1651,9 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-$('startBtn').onclick = () => { playTime = 0; initAudio(); showScreen(null); requestLock(); cutIntro(); };
+$('startBtn').onclick = () => {
+  if (IS_TOUCH) { try { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }
+  playTime = 0; initAudio(); showScreen(null); requestLock(); cutIntro(); };
 $('resumeBtn').onclick = resume;
 $('againBtn').onclick = () => location.reload();
 $('retryBtn').onclick = retryArea;
@@ -1317,6 +1672,9 @@ function alertNoise(x, z, radius) {
   for (const zb of zombies) if (Math.hypot(zb.x - x, zb.z - z) < radius && zb.state !== 'chase') spotted(zb);
 }
 function spotted(zb) {
+  if (zb.dormant) { wakeDormant(zb); return; }
+  if (zb.rising) return;
+  zb.jawT = 1.6;
   zb.state = 'chase'; zb.lastSeen = playTime; zb.lastX = P.x; zb.lastZ = P.z;
   sfxGroan(zb.x, zb.z, true);
   if (playTime - lastStinger > 12 && Math.hypot(zb.x - P.x, zb.z - P.z) < 16) { sfxStinger(); lastStinger = playTime; }
@@ -1409,7 +1767,7 @@ function triggerAlarm(n, runners) {
     const [c, r] = far.splice((Math.random() * far.length) | 0, 1)[0]; const [x, z] = center(c, r);
     makeZombie(x, z, { chase: true, runner: i < runners });
   }
-  for (const zb of zombies) { zb.state = 'chase'; zb.lastSeen = playTime; }
+  for (const zb of zombies) { if (zb.dormant) wakeDormant(zb); zb.state = 'chase'; zb.lastSeen = playTime; }
   sfxStinger();
 }
 function fireTrigger() {
@@ -1424,7 +1782,7 @@ function takeWeapon(p) {
   setWeapon({ type: p.wtype, dur: p.dur });
   if (old) addWeaponPickup(old.type, P.x, P.z, old.dur); // swap: drop what you were holding
   const w = WEAPONS[p.wtype];
-  msg(`<b>${w.name}</b><br>${old ? 'Dropped ' + WEAPONS[old.type].name.toLowerCase() + ' · ' : ''}Click to swing`, 3);
+  msg(`<b>${w.name}</b><br>${old ? 'Dropped ' + WEAPONS[old.type].name.toLowerCase() + ' · ' : ''}${IS_TOUCH ? 'Tap SWING' : 'Click to swing'}`, 3);
 }
 function swing() {
   if (!P.weapon || swingCd > 0) return;
@@ -1437,7 +1795,7 @@ function resolveHit() {
   hitPending = false;
   if (!P.weapon) return;
   const w = WEAPONS[P.weapon.type], fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-  const targets = zombies.map(z => { const dx = z.x - P.x, dz = z.z - P.z, d = Math.hypot(dx, dz) || .001; return { z, d, dot: (dx * fx + dz * fz) / d }; })
+  const targets = zombies.filter(z => !z.rising).map(z => { const dx = z.x - P.x, dz = z.z - P.z, d = Math.hypot(dx, dz) || .001; return { z, d, dot: (dx * fx + dz * fz) / d }; })
     .filter(t => t.d < w.range + .35 && t.dot > .5 && los(P.x, P.z, t.z.x, t.z.z))
     .sort((a, b) => a.d - b.d).slice(0, w.cleave);
   if (!targets.length) return;
@@ -1448,6 +1806,7 @@ function resolveHit() {
   if (P.weapon.dur <= 0) { sfxBreak(); msg(`Your <b>${w.name.toLowerCase()}</b> breaks.`, 2.5); setWeapon(null); }
 }
 function hitZombie(zb, dmg, fx, fz) {
+  if (zb.dormant) { zb.dormant = false; zb.body.rotation.x = 0; zb.body.position.y = 0; zb.eyes.forEach(e => e.visible = true); }
   zb.hp -= dmg; zb.stun = .65; zb.flash = .12;
   moveEntity(zb, fx * .7, fz * .7, .35);
   burst(zb.x, 1.4, zb.z, 10);
@@ -1456,11 +1815,14 @@ function hitZombie(zb, dmg, fx, fz) {
 }
 function killZombie(zb) {
   zombies.splice(zombies.indexOf(zb), 1); P.kills++;
-  zb.skinMat.emissive.setHex(0); zb.eyes.forEach(e => e.visible = false);
+  zb.flashMats.forEach(m => m.emissive.setHex(0)); zb.eyes.forEach(e => e.visible = false);
   sfxGroan(zb.x, zb.z, false);
   const a0 = zb.arms.map(a => a.rotation.x);
-  tween(.75, k => { const e = k * k; zb.body.rotation.x = -Math.PI / 2 * e; zb.body.position.y = .15 * e;
-    zb.arms.forEach((a, i) => a.rotation.x = lerp(a0[i], -.3, e)); zb.legs.forEach(l => l.rotation.x *= .8); });
+  const crawl = zb.gait === 'crawl', bx = zb.body.rotation.x;
+  tween(.75, k => { const e = k * k;
+    if (crawl) { zb.neck.rotation.x = lerp(-1.15, .4, e); zb.body.position.y = lerp(.16, .1, e); }
+    else { zb.body.rotation.x = lerp(bx, -Math.PI / 2, e); zb.body.position.y = .12 * e; zb.knees.forEach(n => n.rotation.x = lerp(n.rotation.x, .9, e * .3)); }
+    zb.arms.forEach((a, i) => a.rotation.x = lerp(a0[i], crawl ? -2.9 : -.3, e)); zb.jaw.rotation.x = .5; });
 }
 const pGeo = new THREE.BoxGeometry(.05, .05, .05), pMat = new THREE.MeshBasicMaterial({ color: 0x5a0504 });
 function burst(x, y, z, n) {
@@ -1519,23 +1881,25 @@ function computeFlow() {
 let T = 0, playTime = 0, bob = 0, lastStepPhase = 0, flowT = 0, poolT = 0, beatT = 0, ambT = rand(15, 30), fxT = 0, dripT = 1;
 
 function updatePlayer(dt) {
-  const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-  const s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+  const f = clamp((keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joyY, -1, 1);
+  const s = clamp((keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joyX, -1, 1);
   let mx = -Math.sin(yaw) * f + Math.cos(yaw) * s, mz = -Math.cos(yaw) * f - Math.sin(yaw) * s;
-  const ml = Math.hypot(mx, mz), moving = ml > 0;
-  if (moving) { mx /= ml; mz /= ml; }
-  const sprint = !P.crouch && (keys.ShiftLeft || keys.ShiftRight) && f > 0 && !P.exhausted && P.st > 0 && moving;
+  const ml = Math.hypot(mx, mz), moving = ml > .12;
+  const analog = Math.min(1, ml);
+  if (moving) { mx /= ml; mz /= ml; } else { mx = mz = 0; }
+  const sprint = !P.crouch && (keys.ShiftLeft || keys.ShiftRight) && f > .3 && !P.exhausted && P.st > 0 && moving;
   if (sprint) { P.st -= 24 * dt; if (P.st <= 0) { P.st = 0; P.exhausted = true; } }
   else { P.st = Math.min(100, P.st + 14 * dt); if (P.exhausted && P.st > 35) P.exhausted = false; }
   let speed = sprint ? 5.6 : P.crouch ? 1.5 : 3.1;
   if (P.inf > 60) speed *= 0.85;
   if (moving) {
-    moveEntity(P, mx * speed * dt, mz * speed * dt, 0.32);
+    moveEntity(P, mx * speed * analog * dt, mz * speed * analog * dt, 0.32);
     bob += dt * (sprint ? 13 : 9);
     const ph = Math.floor(bob / Math.PI);
     if (ph !== lastStepPhase) { lastStepPhase = ph; if (!P.crouch) sfxStep(sprint); if (sprint) alertNoise(P.x, P.z, 9); }
   }
   for (const zb of zombies) {
+    if (zb.dormant) continue;
     const dx = P.x - zb.x, dz = P.z - zb.z, d = Math.hypot(dx, dz);
     if (d < 0.7 && d > 0.001) moveEntity(P, dx / d * (0.7 - d), dz / d * (0.7 - d), 0.32);
   }
@@ -1562,9 +1926,15 @@ function updatePlayer(dt) {
   const spot = obstacles.find(o => o.hide && Math.hypot(P.x - o.x, P.z - o.z) < o.r);
   P.hidden = P.crouch && !!spot;
   updateBreath(dt);
-  camera.position.set(P.x, eyeH + by * (P.crouch ? .4 : 1), P.z);
+  const bx = moving ? Math.cos(bob * .5) * (sprint ? .05 : .03) : 0;
+  camera.position.set(P.x + Math.cos(yaw) * bx, eyeH + by * (P.crouch ? .4 : 1), P.z - Math.sin(yaw) * bx);
+  // the flashlight lags behind your view and trembles a little, like a real hand
+  const yv = (yaw - prevYaw) / Math.max(dt, 1e-3), pv = (pitch - prevPitch) / Math.max(dt, 1e-3); prevYaw = yaw; prevPitch = pitch;
+  const fear = P.hp < 40 || zombies.some(z => z.state === 'chase' && Math.hypot(z.x - P.x, z.z - P.z) < 6) ? 1 : 0;
+  flashTarget.position.x = lerp(flashTarget.position.x, clamp(yv * .06, -.25, .25) + Math.sin(T * 1.7) * .012 + rand(-1, 1) * .006 * fear, Math.min(1, dt * 6));
+  flashTarget.position.y = lerp(flashTarget.position.y, -.05 + clamp(-pv * .06, -.2, .2) + Math.sin(T * 1.3) * .01 + by * .3, Math.min(1, dt * 6));
   const sx = shake * rand(-.04, .04), sy = shake * rand(-.04, .04);
-  const sway = P.inf > 50 ? Math.sin(T * 0.9) * (P.inf - 50) / 50 * 0.05 : 0;
+  const sway = (P.inf > 50 ? Math.sin(T * 0.9) * (P.inf - 50) / 50 * 0.05 : 0) - s * .015;
   camera.rotation.set(pitch + sy, yaw + sx, sway);
   // weapon viewmodel
   swingCd = Math.max(0, swingCd - dt);
@@ -1612,14 +1982,19 @@ function updateZombies(dt) {
   let nearest = 99;
   for (const zb of zombies) {
     const dx = P.x - zb.x, dz = P.z - zb.z, d = Math.hypot(dx, dz);
-    zb.flash -= dt; zb.skinMat.emissive.setHex(zb.flash > 0 ? 0x550000 : 0x000000);
+    if (zb.dormant) { // lying among the dead, waiting
+      if (d < 3.4 && !(P.hidden && d > 1.5)) wakeDormant(zb);
+      continue;
+    }
+    if (zb.rising) continue;
+    zb.flash -= dt; zb.flashMats.forEach(m => m.emissive.setHex(zb.flash > 0 ? 0x550000 : 0x000000));
     if (zb.stun > 0) { // staggered by a hit
       zb.stun -= dt; zb.attackCd = Math.max(zb.attackCd, .3);
-      zb.neck.rotation.x = -.5; zb.body.rotation.x = -.18; animZombie(zb, dt, 0);
+      animZombie(zb, dt, 0, true);
       continue;
     }
     let sees = d < 20 && los(zb.x, zb.z, P.x, P.z);
-    if (P.hidden && d > 1.0 && !(zb.heard && d < 1.6)) sees = false; // under cover: only found by bumping into you or hearing you
+    if (P.hidden && d > 1.0 && !(zb.heard && d < 1.6) && !(zb.gait === 'crawl' && d < 3)) sees = false; // crawlers see under things // under cover: only found by bumping into you or hearing you
     if (sees) { zb.lastX = P.x; zb.lastZ = P.z; }
     if (zb.state !== 'chase') {
       const range = ((flashOn && blackout <= 0) ? 15 : 7) * (P.crouch ? .55 : 1);
@@ -1657,7 +2032,8 @@ function updateZombies(dt) {
       if (d < 1.05) spd = 0;
     } else {
       zb.wanderT -= dt;
-      if (zb.state === 'idle') { if (zb.wanderT <= 0) { zb.state = Math.random() < .5 ? 'wander' : 'idle'; zb.wanderT = rand(2, 5); zb.dir = rand(0, 6.28); } }
+      if (zb.state === 'idle') { if (zb.faceWall !== undefined) zb.yaw += (zb.faceWall - zb.yaw) * Math.min(1, dt * 2);
+        if (zb.wanderT <= 0) { zb.faceWall = Math.random() < .35 ? pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]) : undefined; zb.state = Math.random() < .5 ? 'wander' : 'idle'; zb.wanderT = rand(2, 5); zb.dir = rand(0, 6.28); } }
       else { spd = 0.55; vx = Math.sin(zb.dir); vz = Math.cos(zb.dir); if (zb.wanderT <= 0) { zb.state = Math.random() < .4 ? 'idle' : 'wander'; zb.wanderT = rand(2, 5); zb.dir = rand(0, 6.28); } }
     }
     for (const o of zombies) {
@@ -1681,12 +2057,8 @@ function updateZombies(dt) {
     }
     zb.lunge = Math.max(0, zb.lunge - dt * 3);
     animZombie(zb, dt, moveSpd);
-    zb.twitch -= dt; if (zb.twitch < -rand(0.5, 4)) zb.twitch = 0.15;
-    zb.neck.rotation.z = Math.sin(T * .7 + zb.phase) * .25 + (zb.twitch > 0 ? rand(-.5, .5) : 0);
-    zb.neck.rotation.x = zb.state === 'chase' ? -.15 : .3;
-    zb.body.rotation.x = zb.runner && zb.state === 'chase' ? .25 : 0;
     zb.groanT -= dt;
-    if (zb.groanT <= 0) { zb.groanT = zb.state === 'chase' ? rand(2, 4.5) : rand(6, 14); sfxGroan(zb.x, zb.z, false); }
+    if (zb.groanT <= 0) { zb.groanT = zb.state === 'chase' ? rand(2, 4.5) : rand(6, 14); zb.jawT = 1.4; sfxGroan(zb.x, zb.z, false); }
     if (zb.state === 'chase') nearest = Math.min(nearest, d);
   }
   beatT -= dt;
@@ -1741,6 +2113,7 @@ function updateWorld(dt) {
     if (h) { prompt = `<kbd>C</kbd>Crouch to hide under the ${h.name}`; if (!hideTipShown) { hideTipShown = true; msg('You could hide under that.', 2.5); } } }
   updatePhantom(dt);
   if (!prompt && nearExit()) prompt = (progress >= (AR.needed || 1)) ? `<kbd>E</kbd>${['Swipe keycard', 'Take the lift', 'Open the bay doors'][areaIdx]}` : `<kbd>E</kbd>Try the ${AR.exitLabel.toLowerCase()}`;
+  if (IS_TOUCH && prompt) prompt = prompt.replace('<kbd>E</kbd>', '<kbd>USE</kbd>').replace('<kbd>C</kbd>', '<kbd>CROUCH</kbd>');
   $('prompt').style.display = prompt ? 'block' : 'none'; if (prompt) $('prompt').innerHTML = prompt;
   for (let i = particles.length - 1; i >= 0; i--) {
     const q = particles[i]; q.life -= dt; q.v.y -= 9 * dt; q.m.position.addScaledVector(q.v, dt);
@@ -1768,11 +2141,11 @@ function updatePhantom(dt) {
   for (let t = 11; t >= 7; t--) {
     const x = P.x + fx * t, z = P.z + fz * t;
     if (solidAt(x, z) || !los(P.x, P.z, x, z)) continue;
-    const zb = makeZombie(x, z, { register: false, runner: false });
+    const zb = makeZombie(x, z, { register: false, runner: false, gait: 'walk', scale: 1.12 });
     zb.group.traverse(o => { if (o.isMesh) o.material = o.material === eyeMat ? phantomEyeMat : shadowMat; });
     zb.eyes.forEach(e => e.scale.set(1.4, 1.2, 1));
     zb.yaw = Math.atan2(P.x - x, P.z - z); animZombie(zb, 0, 0);
-    zb.arms.forEach(a => a.rotation.x = 0); zb.neck.rotation.z = .4;
+    zb.arms.forEach(a => a.rotation.x = 0); zb.elbows.forEach(e => e.rotation.x = 0); zb.neck.rotation.z = .5; zb.spine.rotation.x = 0;
     phantom = { group: zb.group, x, z, t: 0 };
     return;
   }
@@ -1792,7 +2165,7 @@ function updateHUD(dt) {
     $('hideFx').style.opacity = P.hidden ? 1 : P.crouch ? .35 : 0;
     if (P.hidden) {
       st.textContent = holding ? 'HOLDING BREATH' : 'HIDDEN'; st.className = (near < 3.6 && hunting) ? 'danger' : '';
-      hint.innerHTML = near < 6 && !holding ? 'hold <kbd>SPACE</kbd> to hold your breath' : '';
+      hint.innerHTML = near < 6 && !holding ? (IS_TOUCH ? 'hold <kbd>HOLD BREATH</kbd>' : 'hold <kbd>SPACE</kbd> to hold your breath') : '';
     } else if (P.crouch) { st.textContent = 'CROUCHED'; st.className = ''; hint.textContent = ''; }
     else { st.textContent = ''; hint.textContent = ''; }
     $('breathBar').style.display = (holding || P.breath < 100) ? 'block' : 'none';
@@ -1841,6 +2214,8 @@ function frame() {
     updateLights(dt);
   }
   vm.visible = state === 'playing' || state === 'note' || state === 'paused';
+  updateDust(dt);
+  updateTouchUI();
   drawGrain();
   renderer.render(scene, camera);
 }
