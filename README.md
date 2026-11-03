@@ -16,10 +16,10 @@ Explore the dark ward, find the 5 documents that reveal what H-12 really is (and
 still alive), grab the Director's keycard, and reach the exit. The ending depends on how much
 of the truth you uncover.
 
-**Controls:** WASD move · mouse look · Shift sprint · click shoot · R reload · F flashlight · E read/use · Esc pause
+**Controls:** WASD move · mouse look · Shift sprint · F flashlight · E read/use · Esc pause
 
 - Health, **infection** (bites raise it; your immune system slowly clears it — above 75% it drains your health), flashlight battery, stamina
-- Zombies hunt by sight, flashlight, gunshots and running footsteps; some are runners
+- You're unarmed — zombies hunt by sight, flashlight and running footsteps, so evade, break line of sight, and outrun the runners
 - Taking the keycard sets off the containment alarm…
 
 Uses Three.js (r128) from cdnjs; all textures and audio are generated in code. Headphones recommended.

@@ -35,8 +35,6 @@
   #batFill{background:linear-gradient(90deg,#6b5a1a,#e8cf68)}
   #stFill{background:rgba(220,220,210,.6)}
   #stBar .track{height:3px}
-  #ammo{position:absolute;right:26px;bottom:22px;text-align:right;font-size:13px;letter-spacing:2px;color:var(--dim)}
-  #ammo b{font-size:34px;color:var(--ink);font-weight:normal}
   #topleft{position:absolute;left:22px;top:18px;font-size:12px;letter-spacing:2px;color:var(--dim);line-height:1.8}
   #topleft .val{color:var(--ink)}
   #keyIcon{color:#5b84ff;display:none}
@@ -94,7 +92,6 @@
     <div class="bar">FLASHLIGHT<div class="track"><div class="fill" id="batFill"></div></div></div>
     <div class="bar" id="stBar"><div class="track"><div class="fill" id="stFill"></div></div></div>
   </div>
-  <div id="ammo"><b id="mag">8</b> / <span id="reserve">16</span><br><span id="reloadTxt"></span></div>
 </div>
 <div id="msg"></div>
 <div id="prompt"></div>
@@ -106,11 +103,12 @@
     You wake up strapped to a gurney in the sealed sub-level of St. Ambrose Memorial.
     The power is failing. The bite on your arm has scabbed over. Someone has crossed your name off the patient list.<br><br>
     The hallways are full of the <i>quiet ones</i> &mdash; patients who stopped talking, then stopped sleeping, then got back up.<br>
+    You have no weapon. Stay out of their sight, keep moving, and don't let them corner you.<br>
     Find out what happened here. Find a way out.
   </div>
   <div class="controls">
-    <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint &nbsp; <kbd>CLICK</kbd> shoot<br>
-    <kbd>R</kbd> reload &nbsp; <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use &nbsp; <kbd>ESC</kbd> pause
+    <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint<br>
+    <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use &nbsp; <kbd>ESC</kbd> pause
   </div>
   <button id="startBtn">Wake up</button>
   <div class="warn">Headphones recommended. Desktop browser with keyboard &amp; mouse required.</div>
@@ -146,11 +144,11 @@
    ========================================================================= */
 
 // ---- Level ---------------------------------------------------------------
-// # wall  . floor  + doorway  P start  Z zombie  N note  A ammo  B battery
+// # wall  . floor  + doorway  P start  Z zombie  N note  B battery
 // M medkit  K keycard  L ceiling lamp  X exit door
 const MAP = [
   "###############################",
-  "#P..L.#....N....#......#..A...#",
+  "#P..L.#....N....#......#......#",
   "#.....#.........#..Z...#......#",
   "#..B..+....L....+..L...+..L...#",
   "#.....#.........#......#......#",
@@ -161,14 +159,14 @@ const MAP = [
   "#.Z...#....L....#.....#..N....#",
   "###+###.........###+###....Z..#",
   "#.....##+########.....#####+###",
-  "#..A..#.........#..Z..#.......#",
+  "#.....#.........#..Z..#.......#",
   "#..L..+....N....+..L..+...L.Z.#",
   "#.....#..Z......#.....#.......#",
   "###+#######+#####..B..#..M....#",
   "#.....#.........###+###########",
   "#..M..+....L....#.......Z.....#",
-  "#..Z..#.......Z.+...L....N..A.#",
-  "#.....#..A......#.........L...#",
+  "#..Z..#.......Z.+...L....N....#",
+  "#.....#.........#.........L...#",
   "#######################X#######",
 ];
 const H = MAP.length, W = Math.max(...MAP.map(r => r.length));
@@ -424,8 +422,6 @@ function addPickup(type, c, r) {
   if (type === 'N') {
     m = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.02, 0.52),
       new THREE.MeshStandardMaterial({ map: paperTex, emissive: 0x6a6450, emissiveIntensity: .35 }));
-  } else if (type === 'A') {
-    m = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.24), new THREE.MeshStandardMaterial({ color: 0x5d6633, emissive: 0x1d2208 }));
   } else if (type === 'B') {
     m = new THREE.Group();
     const b1 = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, .28, 12), new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0x111111 }));
@@ -442,7 +438,6 @@ function addPickup(type, c, r) {
 
 // ---- Zombies -------------------------------------------------------------
 const zombies = [];
-const raycaster = new THREE.Raycaster();
 const SKINS = [0x8a9a78, 0x7c8a70, 0x9aa088, 0x6f7d66, 0x8f8a76];
 const CLOTHES = [0x56708a, 0xbdbdb2, 0x4c7560, 0x6a5a4a, 0x8a8fa0];
 const eyeMat = new THREE.MeshBasicMaterial({ color: 0xd8e070 });
@@ -450,13 +445,12 @@ const woundMat = new THREE.MeshStandardMaterial({ color: 0x4a0505, roughness: .4
 const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2b2d30, roughness: 1 });
 function makeZombie(x, z, opts = {}) {
   const runner = opts.runner ?? Math.random() < 0.22;
-  const zb = { x, z, hp: runner ? 3 : 4.5, runner, dead: false, deathT: 0, state: opts.chase ? 'chase' : 'idle',
+  const zb = { x, z, runner, state: opts.chase ? 'chase' : 'idle',
     speed: runner ? rand(3.3, 3.8) : rand(1.6, 2.1), dir: rand(0, 6), wanderT: 0, lastSeen: 0, attackCd: 0,
-    groanT: rand(2, 8), phase: rand(0, 6), flash: 0, lunge: 0, twitch: 0, yaw: rand(0, 6) };
+    groanT: rand(2, 8), phase: rand(0, 6), lunge: 0, twitch: 0, yaw: rand(0, 6) };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const skin = new THREE.MeshStandardMaterial({ color: pick(SKINS), roughness: .9 });
   const cloth = new THREE.MeshStandardMaterial({ color: pick(CLOTHES), roughness: 1 });
-  zb.mats = [skin, cloth];
   const part = (geo, mat, px, py, pz, name, parent = body) => {
     const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.userData = { zombie: zb, part: name }; parent.add(m); return m;
   };
@@ -481,40 +475,18 @@ function makeZombie(x, z, opts = {}) {
 
 for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
   const ch = grid[r][c];
-  if ('NABMK'.includes(ch)) addPickup(ch, c, r);
+  if ('NBMK'.includes(ch)) addPickup(ch, c, r);
   if (ch === 'Z') { const [x, z] = center(c, r); makeZombie(x + rand(-1, 1), z + rand(-1, 1)); }
-}
-
-// ---- Particles -----------------------------------------------------------
-const particles = [];
-const pGeo = new THREE.BoxGeometry(.05, .05, .05);
-const pBlood = new THREE.MeshBasicMaterial({ color: 0x5a0504 });
-const pDust = new THREE.MeshBasicMaterial({ color: 0x8a877a });
-function burst(pos, mat, n, spd) {
-  for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(pGeo, mat); m.position.copy(pos); scene.add(m);
-    particles.push({ m, v: new THREE.Vector3(rand(-spd, spd), rand(0, spd * 1.4), rand(-spd, spd)), life: rand(.4, .8) });
-  }
 }
 
 // ---- Player / camera / weapon -------------------------------------------
 const P = { x: center(...start)[0], z: center(...start)[1], hp: 100, inf: 0, bat: 100, st: 100, exhausted: false,
-  mag: 8, reserve: 16, notes: 0, key: false, kills: 0 };
+  notes: 0, key: false };
 let yaw = -Math.PI / 2, pitch = 0;
 const flash = new THREE.SpotLight(0xfff2d6, 2.4, 30, 0.44, 0.55, 1.4);
 flash.position.set(0.15, -0.1, 0); camera.add(flash);
 const flashTarget = new THREE.Object3D(); flashTarget.position.set(0, -0.05, -1); camera.add(flashTarget); flash.target = flashTarget;
 let flashOn = true;
-const gun = new THREE.Group();
-const gunMat = new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: .4, metalness: .6, emissive: 0x16171a });
-const slide = new THREE.Mesh(new THREE.BoxGeometry(.06, .07, .3), gunMat); gun.add(slide);
-const grip = new THREE.Mesh(new THREE.BoxGeometry(.055, .16, .07), gunMat); grip.position.set(0, -.1, .09); grip.rotation.x = .25; gun.add(grip);
-const handM = new THREE.Mesh(new THREE.BoxGeometry(.09, .1, .12), new THREE.MeshStandardMaterial({ color: 0x8c6d5a, roughness: .9 }));
-handM.position.set(0, -.12, .12); gun.add(handM);
-const muzzle = new THREE.Mesh(new THREE.PlaneGeometry(.22, .22), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
-muzzle.position.set(0, .01, -.2); gun.add(muzzle);
-gun.scale.setScalar(0.7); gun.position.set(.2, -.18, -.5); camera.add(gun);
-const muzzleLight = new THREE.PointLight(0xffc070, 0, 10, 2); muzzleLight.position.set(.2, -.1, -.6); camera.add(muzzleLight);
 
 // ---- Audio ---------------------------------------------------------------
 let AC = null, master = null, noiseBuf = null, alarmGain = null, alarmOsc = null;
@@ -563,16 +535,6 @@ function sfxGroan(x, z, loud) {
   n.connect(nb).connect(ng).connect(bp); o.connect(bp);
   const g = env(t, .2, .55 * sp.g * (loud ? 1.6 : 1), dur); bp.connect(g).connect(panner(sp.p)).connect(master);
   o.start(t); lfo.start(t); n.start(t, rand(0, 1)); o.stop(t + dur + .3); lfo.stop(t + dur + .3); n.stop(t + dur + .3);
-}
-function sfxShot() {
-  if (!AC) return; const t = AC.currentTime;
-  const n = noiseSrc(); const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(5000, t); lp.frequency.exponentialRampToValueAtTime(300, t + .25);
-  n.connect(lp).connect(env(t, .002, 1.1, .35)).connect(master); n.start(t); n.stop(t + .45);
-  const o = AC.createOscillator(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(40, t + .2);
-  o.connect(env(t, .002, .9, .25)).connect(master); o.start(t); o.stop(t + .3);
-  // reverb tail
-  const n2 = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600;
-  n2.connect(bp).connect(env(t + .05, .05, .12, 1.2)).connect(master); n2.start(t); n2.stop(t + 1.5);
 }
 function sfxClick(f = 1800, v = .2) {
   if (!AC) return; const t = AC.currentTime; const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = f;
@@ -629,7 +591,7 @@ function showScreen(id) {
 // ---- Input ---------------------------------------------------------------
 let state = 'title';
 const keys = {};
-let noLock = false, dragging = false, mouseHeld = false;
+let noLock = false, dragging = false;
 function requestLock() {
   if (noLock) return;
   try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => { noLock = true; }); }
@@ -649,13 +611,10 @@ document.addEventListener('mousemove', e => {
   else if (noLock && dragging) look(e.movementX * 1.4, e.movementY * 1.4);
 });
 renderer.domElement.addEventListener('mousedown', e => {
-  if (state === 'playing') {
-    if (noLock) { dragging = true; }
-    if (e.button === 0) { mouseHeld = true; shoot(); }
-  }
+  if (state === 'playing' && noLock) dragging = true;
 });
 document.addEventListener('mousedown', () => { if (state === 'note') closeNote(); });
-document.addEventListener('mouseup', () => { dragging = false; mouseHeld = false; });
+document.addEventListener('mouseup', () => { dragging = false; });
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (state === 'note' && (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape')) { closeNote(); return; }
@@ -664,7 +623,6 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.code === 'KeyF') { if (P.bat > 0) { flashOn = !flashOn; sfxClick(900, .15); } }
-  if (e.code === 'KeyR') reload();
   if (e.code === 'KeyE') interact();
   if (e.code === 'Escape' && noLock) { state = 'paused'; showScreen('pauseScreen'); }
   if (e.code === 'Space') e.preventDefault();
@@ -678,11 +636,10 @@ $('againBtn').onclick = () => location.reload();
 function resume() { initAudio(); state = 'playing'; showScreen(null); requestLock(); }
 
 // ---- Gameplay actions ----------------------------------------------------
-let fireCd = 0, recoil = 0, flashT = 0, reloading = 0, shake = 0, hurtT = 0;
+let shake = 0, hurtT = 0;
 let alarm = false, alarmT = 0;
 function alertNoise(x, z, radius) {
   for (const zb of zombies) {
-    if (zb.dead) continue;
     if (Math.hypot(zb.x - x, zb.z - z) < radius) { if (zb.state !== 'chase') spotted(zb); }
   }
 }
@@ -691,34 +648,6 @@ function spotted(zb) {
   zb.state = 'chase'; zb.lastSeen = time;
   sfxGroan(zb.x, zb.z, true);
   if (time - lastStinger > 12 && Math.hypot(zb.x - P.x, zb.z - P.z) < 16) { sfxStinger(); lastStinger = time; }
-}
-function shoot() {
-  if (reloading > 0 || fireCd > 0) return;
-  if (P.mag <= 0) { sfxClick(2400, .12); fireCd = 0.3; msg(P.reserve > 0 ? 'Empty — press <b>R</b> to reload' : 'Out of ammo. Run.'); return; }
-  P.mag--; fireCd = 0.3; recoil = 1; flashT = 0.06; sfxShot(); alertNoise(P.x, P.z, 30);
-  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-  const o = camera.position.clone();
-  let wd = 60;
-  for (let t = 0.1; t < 60; t += 0.06) {
-    const x = o.x + dir.x * t, y = o.y + dir.y * t, z = o.z + dir.z * t;
-    if (y < 0 || y > WALL_H || solidAt(x, z)) { wd = t; break; }
-  }
-  raycaster.set(o, dir); raycaster.far = wd;
-  const hits = raycaster.intersectObjects(zombies.filter(z => !z.dead).map(z => z.group), true);
-  if (hits.length) {
-    const h = hits[0], zb = h.object.userData.zombie, head = h.object.userData.part === 'head';
-    burst(h.point, pBlood, head ? 18 : 10, 2.2);
-    zb.hp -= head ? 4.5 : 1.6; zb.flash = 0.12;
-    zb.x += dir.x * .25; zb.z += dir.z * .25; if (blocked(zb.x, zb.z, .35)) { zb.x -= dir.x * .25; zb.z -= dir.z * .25; }
-    if (zb.state !== 'chase') spotted(zb);
-    if (zb.hp <= 0) { zb.dead = true; zb.deathT = 0; P.kills++; if (head) msg('Headshot.', 1.2); }
-  } else {
-    burst(o.clone().addScaledVector(dir, wd - 0.05), pDust, 6, 1.2);
-  }
-}
-function reload() {
-  if (reloading > 0 || P.mag >= 8 || P.reserve <= 0) return;
-  reloading = 1.4; sfxClick(700, .15); $('reloadTxt').textContent = 'RELOADING';
 }
 function interact() {
   // notes
@@ -750,7 +679,6 @@ function closeNote(lostLock) {
 }
 function takePickup(p) {
   p.taken = true; scene.remove(p.mesh); sfxPickup();
-  if (p.type === 'A') { P.reserve += 10; msg('+10 rounds'); }
   if (p.type === 'B') { P.bat = Math.min(100, P.bat + 50); msg('Flashlight battery'); if (!flashOn) flashOn = true; }
   if (p.type === 'M') { P.hp = Math.min(100, P.hp + 35); P.inf = Math.max(0, P.inf - 40); msg('Med kit — antiviral administered'); }
   if (p.type === 'K') {
@@ -767,7 +695,7 @@ function triggerAlarm() {
   const far = floorCells.filter(([c, r]) => { const [x, z] = center(c, r); return Math.hypot(x - P.x, z - P.z) > 18 && !los(P.x, P.z, x, z); });
   for (let i = 0; i < 5 && far.length; i++) { const [c, r] = far.splice((Math.random() * far.length) | 0, 1)[0]; const [x, z] = center(c, r);
     makeZombie(x, z, { chase: true, runner: i < 2 }); }
-  for (const zb of zombies) if (!zb.dead) { zb.state = 'chase'; zb.lastSeen = time; }
+  for (const zb of zombies) { zb.state = 'chase'; zb.lastSeen = time; }
   sfxStinger();
 }
 function hurt(dmg, inf) {
@@ -798,7 +726,7 @@ function win() {
 }
 function stats() {
   const m = Math.floor(time / 60), s = Math.floor(time % 60).toString().padStart(2, '0');
-  return `TIME ${m}:${s} &nbsp;·&nbsp; EVIDENCE ${P.notes}/5 &nbsp;·&nbsp; QUIET ONES PUT DOWN ${P.kills}`;
+  return `TIME ${m}:${s} &nbsp;·&nbsp; EVIDENCE ${P.notes}/5`;
 }
 
 // ---- Flow field (zombie pathing) -----------------------------------------
@@ -841,7 +769,6 @@ function updatePlayer(dt) {
   }
   // push out of zombies
   for (const zb of zombies) {
-    if (zb.dead) continue;
     const dx = P.x - zb.x, dz = P.z - zb.z, d = Math.hypot(dx, dz);
     if (d < 0.7 && d > 0.001) moveEntity(P, dx / d * (0.7 - d), dz / d * (0.7 - d), 0.32);
   }
@@ -854,32 +781,19 @@ function updatePlayer(dt) {
   P.inf = Math.max(0, P.inf - 0.35 * dt);
   if (P.inf > 75) { P.hp -= 2 * dt; if (P.hp <= 0) die('YOU WENT QUIET', 'The fever climbed until the world went silent. You stopped talking. Then you stopped sleeping.<br><br>Then you got back up.'); }
   // timers
-  fireCd -= dt; flashT -= dt; recoil = Math.max(0, recoil - dt * 6); shake = Math.max(0, shake - dt * 1.5); hurtT = Math.max(0, hurtT - dt * 1.6);
-  if (reloading > 0) {
-    reloading -= dt;
-    if (reloading <= 0) { const n = Math.min(8 - P.mag, P.reserve); P.mag += n; P.reserve -= n; $('reloadTxt').textContent = ''; sfxClick(1000, .18); }
-  }
+  shake = Math.max(0, shake - dt * 1.5); hurtT = Math.max(0, hurtT - dt * 1.6);
   // camera
   const by = moving ? Math.sin(bob) * (sprint ? .07 : .045) : 0;
   camera.position.set(P.x, EYE + by, P.z);
   const sx = shake * rand(-.04, .04), sy = shake * rand(-.04, .04);
   const sway = P.inf > 50 ? Math.sin(time * 0.9) * (P.inf - 50) / 50 * 0.05 : 0;
-  camera.rotation.set(pitch + recoil * 0.06 + sy, yaw + sx, sway);
-  gun.position.set(.2 + (moving ? Math.cos(bob * .5) * .012 : 0), -.18 + by * .3 - (reloading > 0 ? .15 : 0), -.5 + recoil * .05);
-  gun.rotation.x = recoil * .35 + (reloading > 0 ? -.6 : 0);
-  muzzle.material.opacity = flashT > 0 ? 1 : 0; muzzle.rotation.z = rand(0, 6);
-  muzzleLight.intensity = flashT > 0 ? 3 : 0;
+  camera.rotation.set(pitch + sy, yaw + sx, sway);
 }
 
 function updateZombies(dt) {
   flowT -= dt; if (flowT <= 0) { computeFlow(); flowT = 0.3; }
   let nearest = 99;
   for (const zb of zombies) {
-    if (zb.dead) {
-      if (zb.deathT < 1) { zb.deathT += dt * 1.8; const k = Math.min(1, zb.deathT);
-        zb.body.rotation.x = -Math.PI / 2 * k * k; zb.body.position.y = 0.15 * k; zb.arms.forEach(a => a.rotation.x = -1.35 + k * 1.2); }
-      continue;
-    }
     const dx = P.x - zb.x, dz = P.z - zb.z, d = Math.hypot(dx, dz);
     const sees = d < 20 && los(zb.x, zb.z, P.x, P.z);
     // detection
@@ -915,7 +829,7 @@ function updateZombies(dt) {
     }
     // separation
     for (const o of zombies) {
-      if (o === zb || o.dead) continue;
+      if (o === zb) continue;
       const sx = zb.x - o.x, sz = zb.z - o.z, sd = Math.hypot(sx, sz);
       if (sd < 0.8 && sd > 0.001) { vx += sx / sd * .6; vz += sz / sd * .6; }
     }
@@ -940,7 +854,6 @@ function updateZombies(dt) {
     zb.body.rotation.z = Math.sin(zb.phase) * (zb.runner ? .12 : .06);
     zb.body.rotation.x = zb.runner && zb.state === 'chase' ? .25 : 0;
     zb.group.position.set(zb.x, 0, zb.z); zb.group.rotation.y = zb.yaw;
-    zb.flash -= dt; zb.mats[0].emissive.setHex(zb.flash > 0 ? 0x660000 : 0x000000);
     // sounds
     zb.groanT -= dt;
     if (zb.groanT <= 0) { zb.groanT = zb.state === 'chase' ? rand(2, 4.5) : rand(6, 14); sfxGroan(zb.x, zb.z, false); }
@@ -990,12 +903,6 @@ function updateWorld(dt) {
   }
   if (!prompt && Math.hypot(exitPos[0] - P.x, exitPos[1] - P.z) < CELL / 2 + 1.6) prompt = P.key ? '<kbd>E</kbd>Swipe keycard &amp; escape' : '<kbd>E</kbd>Try the exit door';
   $('prompt').style.display = prompt ? 'block' : 'none'; if (prompt) $('prompt').innerHTML = prompt;
-  // particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const q = particles[i]; q.life -= dt; q.v.y -= 9 * dt; q.m.position.addScaledVector(q.v, dt);
-    if (q.m.position.y < 0.02) { q.m.position.y = 0.02; q.v.set(0, 0, 0); }
-    if (q.life <= 0) { scene.remove(q.m); particles.splice(i, 1); }
-  }
   // distant ambience
   ambT -= dt; if (ambT <= 0) { ambT = rand(18, 40); sfxDistant(); }
 }
@@ -1006,7 +913,6 @@ function updateHUD(dt) {
   $('batFill').style.width = P.bat + '%';
   $('stFill').style.width = P.st + '%';
   $('stFill').style.background = P.exhausted ? 'rgba(200,60,50,.7)' : 'rgba(220,220,210,.6)';
-  $('mag').textContent = P.mag; $('reserve').textContent = P.reserve;
   $('evid').textContent = `${P.notes} / ${NOTES.length}`;
   $('hurt').style.opacity = Math.max(hurtT, P.hp < 30 ? 0.35 + Math.sin(time * 4) * .1 : 0);
   $('sickfx').style.opacity = clamp((P.inf - 25) / 75, 0, 1) * (0.7 + Math.sin(time * 1.3) * .3);
