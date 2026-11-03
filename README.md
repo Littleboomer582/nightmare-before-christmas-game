@@ -21,6 +21,15 @@ Weapons are real-world firearms; perks, upgraded weapon names, wonder weapons, b
 
 **Character quotes:** your survivor talks: about 160 original lines for the start of each map, new rounds, multi-kills, headshots, crawlers, getting hurt, being surrounded, running dry, every wall gun, mystery box pulls, perks, power, the Forge, doors, buildables and power-ups. They show as subtitles with your survivor name and are spoken by the device's own speech engine (the browser's, or Android's text-to-speech in the app). Lines never repeat back-to-back, important ones wait their turn instead of talking over each other, and chatter leaves a few seconds of quiet. Add or change lines in `QUOTE_LINES` in `zombies.html`.
 
+**Recorded voice lines:** the quotes can be read by a real person. `voice/SCRIPT.md` lists every line to record, grouped by situation with the most-heard first, each with its file name. Recordings go in `voice/`; the game plays a recording whenever one exists for a line and uses the speech engine for the rest, and in a situation with some recordings it picks only the recorded lines so voices don't mix. Lines that name a gun or a round number stay with the speech engine. The radios and the farmhouse whisper can be recorded too. `tools/voice.js` (needs ffmpeg) does the work:
+
+- `node tools/voice.js script` regenerates `voice/SCRIPT.md` after lines change. File names come from each line's first words, so adding or reordering lines doesn't break recordings.
+- `node tools/voice.js split <recording> <section>` cuts one long take of a script section (lines read top to bottom, two seconds of silence between them) into a file per line. `--order=1,2,2,3` handles a re-read line: the later take wins.
+- `node tools/voice.js clean <recording> <file name>` cleans up one single-line recording.
+- `node tools/voice.js index` rewrites `voice/voice.json`, the list the game loads (split and clean do this for you).
+
+Every recording is cleaned the same way: rumble and hiss reduced, silence trimmed from both ends, loudness evened out, saved as a small mono MP3. The Android build copies `voice/` into the app.
+
 **Realism:** screen-space ambient occlusion, rain-slick wet patches that reflect the lamps, large-scale surface variation, sculpted zombies (gaunt faces, ribcage torsos, fingers, ragged clothes) that stagger when hit, fall away from the shot, lose arms and become crawlers when their legs go. Guns climb and kick under recoil, sway as you turn, leave bullet holes and smoke; you'll see a red arc pointing at whatever hit you. Zombie groans and footsteps are positioned in 3D, gunfire echoes indoors, and your footsteps change with the surface.
 
 **Menus:** a title screen over live shots of the map, then a main menu with Solo, Online Co-op, Operator, Leaderboards, Options, Field Manual and Credits. Everything works with the mouse or the keyboard (arrow keys, Enter, Esc).

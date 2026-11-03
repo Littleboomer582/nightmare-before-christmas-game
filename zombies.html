@@ -2298,7 +2298,7 @@ const QUOTE_LINES = {
   start_mine: ["Cold enough to freeze the dead. Apparently not cold enough.", "Snowed in with the walking dead. Great week.", "Keep moving. Keep warm. Keep shooting."],
   start_farm: ["Nobody's farmed here in fifty years. Something's still growing, though.", "Board up the windows. Hold the kitchen. Easy.", "Nice place. Needs a roof. And fewer corpses."],
   round: ["Here they come again.", "Another round. Sure. Why not.", "I can hear them shuffling.", "Reload. Breathe. Aim for the head.", "They just keep coming.", "Okay, okay. I'm ready. Mostly.", "Smell that? Yeah. They're close."],
-  roundBig: ["Round {round}. Still standing. Still angry.", "{round} rounds. Somebody write that down.", "Round {round}, and I'm just getting warmed up."],
+  roundBig: ["Round {round}. Still standing. Still angry.", "{round} rounds. Somebody write that down.", "Round {round}, and I'm just getting warmed up.", "Another five rounds down. Still breathing.", "Still standing. Still angry."],
   roundEnd: ["That's the last of them. For now.", "Quiet again. Won't last.", "Catch your breath. Check your ammo.", "Okay. Fix the windows. Move.", "Nobody's getting up from that."],
   multi: ["Line 'em up, knock 'em down!", "Four for the price of one!", "Who's next? Anybody?", "That's a pile. That's a whole pile.", "Ha! Bowling with bullets.", "Lined up like they wanted it."],
   head: ["Right between the eyes.", "Headshot. Don't get up.", "Clean. Real clean.", "Should've ducked.", "Pop goes the zombie."],
@@ -2321,7 +2321,7 @@ const QUOTE_LINES = {
   box_ray: ["A ray pistol. Sure. Nothing makes sense anymore.", "Oh, that's beautiful. Pew pew.", "Somebody built this to end the world. Good."],
   box_arc: ["Lightning in a box. I'll take it.", "This thing hums. I like things that hum.", "Now that's a weapon."],
   boxBig: ["{w}! Oh, this changes things.", "Heavy. Good. Heavy is good.", "Now we're cooking."],
-  boxMeh: ["{w}. It'll do.", "The box gave me a {w}. Could be worse.", "Huh. {w}. Fine."],
+  boxMeh: ["{w}. It'll do.", "The box gave me a {w}. Could be worse.", "Huh. {w}. Fine.", "Not my first pick. It'll do.", "Could be worse. Could be a lot worse."],
   perk_iron: ["Tastes like rust and courage.", "I feel tougher already. Also a little sick."],
   perk_quick: ["Whoa. My hands are buzzing.", "Fast hands. Fast reloads. Fast everything."],
   perk_dbl: ["Double the fire. Double the fun.", "Tastes like gunpowder. Is that normal?"],
@@ -2392,18 +2392,70 @@ const Voice = {
 };
 Voice.init();
 addEventListener('pagehide', () => Voice.stop());
+// Recorded voice lines. voice/voice.json lists files named <situation>--<first words of the line>.mp3
+// (voice/SCRIPT.md has every name); a line with a recording plays it, the rest use the computer voice.
+const VoicePack = {
+  files: new Map(), el: null,
+  key: (ev, line) => ev + '--' + String(line).toLowerCase().replace(/['\u2019]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').split('-').slice(0, 6).join('-'),
+  load() {
+    const x = new XMLHttpRequest(); x.open('GET', 'voice/voice.json'); x.responseType = 'json';
+    x.onload = () => { if ((x.status === 200 || x.status === 0) && Array.isArray(x.response)) for (const f of x.response) if (typeof f === 'string' && /^[a-z0-9_-]+\.(mp3|m4a|ogg|wav)$/i.test(f)) this.files.set(f.replace(/\.[a-z0-9]+$/i, ''), 'voice/' + f); };
+    x.onerror = () => {};
+    try { x.send(); } catch (e) {}
+  },
+  url(ev, line) { return this.files.get(this.key(ev, line)) || null; },
+  recordedIn(ev) {   // which of a situation's lines have recordings
+    if (!this.files.size) return null;
+    const s = new Set(); (QUOTE_LINES[ev] || []).forEach((l, i) => { if (this.files.has(this.key(ev, l))) s.add(i); });
+    return s;
+  },
+  // played through the game's own audio (starts at once, follows volume and pause); recently used lines stay decoded
+  cache: new Map(), src: null, n: 0,
+  play(url) {
+    initAudio(); if (!AC) return;
+    this.stop(); Voice.stop();
+    const n = this.n, t0 = performance.now();
+    const go = buf => {
+      if (this.n !== n || performance.now() - t0 > 1500) return;   // replaced, stopped, or too late to still fit the moment
+      if (!this.gain) { this.gain = AC.createGain(); this.gain.gain.value = 1.1; this.gain.connect(master); }
+      const src = this.src = AC.createBufferSource(); src.buffer = buf; src.connect(this.gain); src.start();
+      src.onended = () => { if (this.src === src) this.src = null; };
+      Quotes.showT = Math.max(Quotes.showT, buf.duration + .4);   // keep the subtitle up while you talk
+    };
+    const hit = this.cache.get(url);
+    if (hit) { this.cache.delete(url); this.cache.set(url, hit); return go(hit); }
+    const x = new XMLHttpRequest(); x.open('GET', url); x.responseType = 'arraybuffer';   // XHR: works from file:// in the Android app
+    x.onload = () => {
+      if (!(x.status === 200 || x.status === 0) || !x.response) return;
+      AC.decodeAudioData(x.response, buf => {
+        this.cache.set(url, buf); if (this.cache.size > 24) this.cache.delete(this.cache.keys().next().value);
+        go(buf);
+      }, () => {});
+    };
+    x.onerror = () => {};
+    try { x.send(); } catch (e) {}
+  },
+  playing() { return !!this.src; },
+  stop() { this.n++; if (this.src) { try { this.src.stop(); } catch (e) {} this.src = null; } },
+};
+VoicePack.load();
 const Quotes = {
   bags: {}, last: {}, cd: {}, later: [], streak: [], showT: 0, quietT: 0, prio: 0, scanT: 0,
   mode() { return SETTINGS.quotes || 'voice'; },
-  line(ev) {   // shuffle bag: every line plays once before any repeats
+  line(ev, only) {   // shuffle bag: every line plays once before any repeats; with recordings, only recorded lines
     const list = QUOTE_LINES[ev]; if (!list) return null;
-    let bag = this.bags[ev];
-    if (!bag || !bag.length) {
-      bag = this.bags[ev] = list.map((_, i) => i);
-      for (let i = bag.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; }
-      if (bag.length > 1 && bag[bag.length - 1] === this.last[ev]) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];   // not twice in a row across refills
+    for (let tries = 0; tries < list.length * 2 + 2; tries++) {
+      let bag = this.bags[ev];
+      if (!bag || !bag.length) {
+        bag = this.bags[ev] = list.map((_, i) => i);
+        for (let i = bag.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; }
+        if (bag.length > 1 && bag[bag.length - 1] === this.last[ev]) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];   // not twice in a row across refills
+      }
+      const i = bag.pop();
+      if (only && only.size && (!only.has(i) || (i === this.last[ev] && only.size > 1))) continue;
+      return list[this.last[ev] = i];
     }
-    return list[this.last[ev] = bag.pop()];
+    return list[0];
   },
   // prio 1 is chatter, 2 is a reaction worth hearing, 3 always cuts in
   say(ev, o = {}) {
@@ -2413,19 +2465,19 @@ const Quotes = {
     const prio = o.prio || 1;
     if (this.showT > 0 && prio <= this.prio && prio < 3) return false;   // never talk over yourself
     if (this.quietT > 0 && prio < 2) return false;                       // and leave a breath between chatter
-    let text = this.line(ev); if (!text) return false;
-    text = text.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
+    const raw = this.line(ev, this.mode() === 'voice' ? VoicePack.recordedIn(ev) : null); if (!raw) return false;
+    const text = raw.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
     this.cd[ev] = G.time + (o.cd ?? 20);
     this.showT = Math.max(2.2, .9 + text.split(/\s+/).length * .36); this.quietT = this.showT + 4; this.prio = prio;
     const el = $('quote'); el.innerHTML = `<b>${escapeHtml(SETTINGS.name || 'Survivor')}:</b> ${escapeHtml(text)}`; el.style.opacity = 1;
-    if (this.mode() === 'voice') Voice.speak(text);
+    if (this.mode() === 'voice') { const u = VoicePack.url(ev, raw); if (u) VoicePack.play(u); else { VoicePack.stop(); Voice.speak(text); } }
     return true;
   },
   sayLater(ev, delay, o) { this.later.push({ at: G.time + delay, ev, o }); },
-  narrate(speaker, text, pitch = .72) {   // someone else talking (radios): always subtitled
+  narrate(speaker, text, pitch = .72, rec = null) {   // someone else talking (radios): always subtitled
     this.showT = Math.max(3, 1 + text.split(/\s+/).length * .38); this.quietT = this.showT + 3; this.prio = 3;
     const el = $('quote'); el.innerHTML = `<b>${escapeHtml(speaker)}:</b> ${escapeHtml(text)}`; el.style.opacity = 1;
-    if (this.mode() === 'voice') Voice.speak(text, { pitch, rate: .95 });
+    if (this.mode() === 'voice') { const u = rec && VoicePack.files.get(rec); if (u) VoicePack.play(u); else { VoicePack.stop(); Voice.speak(text, { pitch, rate: .95 }); } }
   },
   onKill(how) {
     const t = G.time;
@@ -2451,7 +2503,7 @@ const Quotes = {
     this.later = []; this.cd = {}; this.streak = []; this.stop();
     this.sayLater(QUOTE_LINES['start_' + mapKey] && Math.random() < .75 ? 'start_' + mapKey : 'start', 5.5, { prio: 2 });
   },
-  stop() { this.showT = this.quietT = 0; this.prio = 0; $('quote').style.opacity = 0; Voice.stop(); },
+  stop() { this.showT = this.quietT = 0; this.prio = 0; $('quote').style.opacity = 0; Voice.stop(); VoicePack.stop(); },
 };
 /* =====================================================================
    SECRETS: a hidden song on every map (find three objects), story radios, the farmhouse
@@ -2668,7 +2720,7 @@ function setupEggs(mode) {
       EGG.radio.played = true; rm.userData.led.material.color.setHex(0x3aff6a);
       noiseHit({ dur: .5, freq: 2200, type: 'bandpass', q: .7, vol: .3, at: rm.position });
       const [who, text] = RADIO_TALK[song];
-      setTimeout(() => { Quotes.narrate(who, text); foundSecret('radio_' + song); }, 500);
+      setTimeout(() => { Quotes.narrate(who, text, .72, 'radio--' + song); foundSecret('radio_' + song); }, 500);
     },
   });
 }
@@ -2688,7 +2740,7 @@ function midnightClock(def) {
   for (let i = 0; i < 12; i++) for (const [f, v] of [[523, .16], [1046, .08], [1568, .04]]) tone(f, 2.2, { type: 'sine', vol: v, when: i * .62, at: chimeAt });
   def.dark = G.time + 8.5;
   setTimeout(() => {
-    Quotes.narrate('???', 'The marsh remembers you. Take this, and stay alive.', .6);
+    Quotes.narrate('???', 'The marsh remembers you. Take this, and stay alive.', .6, 'whisper');
     if (!Net.isClient) dropPowerup(pick(Object.keys(PU)), P.pos.clone().add(new V3(Math.sin(P.yaw) * -1.5, 0, Math.cos(P.yaw) * -1.5)));
     else addPoints(1000);
   }, 7600);
@@ -5743,7 +5795,7 @@ const OPTS = {
   quotes:  { list: ['voice', 'text', 'off'], labels: { voice: 'Voice + Text', text: 'Text Only', off: 'Off' }, get: () => SETTINGS.quotes || 'voice', set: v => {
     SETTINGS.quotes = v; Voice.stop();
     if (v === 'off') Quotes.stop();
-    if (v === 'voice') { Voice.unlock(); Voice.speak('Still alive. Still talking.'); }   // a sample, so you hear the voice
+    if (v === 'voice') { Voice.unlock(); if (VoicePack.files.size) { const f = [...VoicePack.files.values()]; VoicePack.play(f[Math.random() * f.length | 0]); } else Voice.speak('Still alive. Still talking.'); }   // a sample, so you hear the voice (yours, once recorded)
   } },
   dynRes:  { toggle: true, get: () => SETTINGS.dynRes, set: v => { SETTINGS.dynRes = v; if (!v) setRenderScale(1); } },
   quality: { list: ['high', 'medium', 'low'], labels: { high: 'High', medium: 'Medium', low: 'Low' }, get: () => pendingQuality, set: v => {

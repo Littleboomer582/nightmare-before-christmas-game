@@ -199,6 +199,9 @@ def prepare_web(html_path, npm_dir, out):
     sounds = os.path.join(os.path.dirname(os.path.abspath(html_path)), 'sounds')   # optional recorded sounds
     if os.path.isdir(sounds):
         shutil.copytree(sounds, os.path.join(out, 'sounds'))
+    voice = os.path.join(os.path.dirname(os.path.abspath(html_path)), 'voice')     # optional recorded voice lines
+    if os.path.isdir(voice):
+        shutil.copytree(voice, os.path.join(out, 'voice'), ignore=shutil.ignore_patterns('*.md'))
 
 
 # ---------------------------------------------------------------- APK zip
