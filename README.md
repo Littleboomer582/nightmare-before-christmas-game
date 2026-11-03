@@ -12,7 +12,7 @@ Single-file browser games — open any `.html` file in a desktop browser.
 
 You wake in the sealed sub-level of St. Ambrose Memorial. A mystery virus, **H-12**, has turned
 the patients into the "quiet ones": they stop talking, stop sleeping, then get back up.
-You have no weapon. Climb out through three areas, find the 7 documents that reveal what H-12
+You have no gun, but there are melee weapons to find. Climb out through three areas, find the 7 documents that reveal what H-12
 really is (and why you're still alive), and escape before dawn. The ending depends on how much
 of the truth you uncover.
 
@@ -25,9 +25,12 @@ of the truth you uncover.
 the Dr. Rowe reveal, a death scene, and the escape at dawn. Press Space to skip any of them.
 If you die, you can retry from the start of the current area.
 
-**Controls:** WASD move · mouse look · Shift sprint · F flashlight · E read/use · Esc pause · Space skip cutscene
+**Controls:** WASD move · mouse look · Shift sprint · click swing weapon · F flashlight · E read/use/pick up · Esc pause · Space skip cutscene
 
 - Bars for health, **infection** (bites raise it; your immune system slowly clears it, and above 75% it drains your health), flashlight battery and stamina
+- **Melee weapons** are hidden in every area: lead pipe, crowbar, pipe wrench and fire axe. Hits stagger zombies and knock them back, and enough hits kill them.
+  You carry one weapon at a time. Picking up another drops the one you're holding. Each has its own damage, speed and durability, and breaks when it wears out.
+  Every swing costs stamina and makes noise, so running away is often still the better choice.
 - Zombies hunt by sight, flashlight and running footsteps. Break line of sight to lose them, and sprint to outrun the fast ones.
 
 Uses Three.js (r128) from cdnjs. All textures and audio are generated in code. Headphones recommended.

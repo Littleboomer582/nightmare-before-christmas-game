@@ -50,6 +50,10 @@
   #batFill{background:linear-gradient(90deg,#6b5a1a,#e8cf68)}
   #stFill{background:rgba(220,220,210,.6)}
   #stBar .track{height:3px}
+  #weapon{position:absolute;right:26px;bottom:22px;text-align:right;font-size:12px;letter-spacing:2px;color:var(--dim);display:none;width:200px}
+  #weapon b{display:block;font-size:20px;font-weight:normal;color:var(--ink);letter-spacing:3px;margin-bottom:4px}
+  #weapon .track{height:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);margin-top:3px}
+  #durFill{height:100%;background:linear-gradient(90deg,#6a6a60,#d8d6c8);width:100%}
   #topleft{position:absolute;left:22px;top:18px;font-size:12px;letter-spacing:2px;color:var(--dim);line-height:1.8}
   #topleft .val{color:var(--ink)}
   #areaName{color:#666}
@@ -113,6 +117,7 @@
     <div class="bar">FLASHLIGHT<div class="track"><div class="fill" id="batFill"></div></div></div>
     <div class="bar" id="stBar"><div class="track"><div class="fill" id="stFill"></div></div></div>
   </div>
+  <div id="weapon"><b id="wName"></b>CONDITION<div class="track"><div id="durFill"></div></div></div>
 </div>
 <div id="msg"></div>
 <div id="prompt"></div>
@@ -131,12 +136,12 @@
     You wake up strapped to a gurney in the sealed sub-level of St. Ambrose Memorial.
     The power is failing. The bite on your arm has scabbed over. Someone has crossed your name off the patient list.<br><br>
     The hallways are full of the <i>quiet ones</i>: patients who stopped talking, then stopped sleeping, then got back up.
-    You have no weapon. Stay out of their sight, keep moving, and don't let them corner you.<br><br>
+    You have no gun. Improvised weapons are scattered around: pipes, crowbars, an axe. They help, but they break, and every swing makes noise. Often the best fight is the one you run from.<br><br>
     Climb out through the ward, the maintenance tunnels and the ground floor. Find out what happened here.
   </div>
   <div class="controls">
     <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint<br>
-    <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use &nbsp; <kbd>ESC</kbd> pause &nbsp; <kbd>SPACE</kbd> skip cutscene
+    <kbd>CLICK</kbd> swing weapon &nbsp; <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use / pick up &nbsp; <kbd>ESC</kbd> pause &nbsp; <kbd>SPACE</kbd> skip cutscene
   </div>
   <button id="startBtn">Wake up</button>
   <div class="warn">Headphones recommended. Desktop browser with keyboard &amp; mouse required.</div>
@@ -193,22 +198,22 @@ const TOTAL_NOTES = Object.keys(NOTES).length;
 
 // ---- Areas ---------------------------------------------------------------
 // # wall  . floor  + doorway  P start  Z zombie  N note  B battery  M medkit
-// K key item  S breaker  D Dr. Rowe  L lamp  X exit  T scare trigger  H ambush spawn
+// W melee weapon  K key item  S breaker  D Dr. Rowe  L lamp  X exit  T scare trigger  H ambush spawn
 const AREAS = [
   { name: 'SUB-LEVEL B — ISOLATION WARD', card: ['SUB-LEVEL B', 'ISOLATION WARD · 02:13 AM'], theme: 'ward',
-    notes: ['shift', 'memo', 'security'], exitLabel: 'EXIT', exitColor: 0x2bff6a, keyName: "DIRECTOR'S KEYCARD",
+    notes: ['shift', 'memo', 'security'], weapons: ['crowbar', 'pipe'], exitLabel: 'EXIT', exitColor: 0x2bff6a, keyName: "DIRECTOR'S KEYCARD",
     obj: 'Find a way out of Sub-Level B',
     map: [
       "###############################",
       "#P..L.#....N....#......#......#",
       "#.....#.........#..Z...#......#",
       "#..B..+....L....+..L...+..L...#",
-      "#.....#.........#......#......#",
+      "#.W...#.........#......#......#",
       "###+###....Z....###+####...Z..#",
       "#.....###+#######.....###+#####",
       "#.....#.........#..M..#......K#",
       "#..L..+....Z....+..L..+...L...#",
-      "#.Z...#....L....#.....#.......#",
+      "#.Z...#....LW...#.....#.......#",
       "###+###.........###+###....Z..#",
       "#.....##+########.....#####+###",
       "#.....#.........#..Z..#.......#",
@@ -222,7 +227,7 @@ const AREAS = [
       "#######################X#######",
     ] },
   { name: 'SUB-LEVEL C — MAINTENANCE TUNNELS', card: ['MAINTENANCE TUNNELS', 'SUB-LEVEL C · 02:47 AM'], theme: 'tunnel',
-    notes: ['brandt', 'hale'], exitLabel: 'SERVICE LIFT', exitColor: 0xffa030, needed: 3,
+    notes: ['brandt', 'hale'], weapons: ['wrench', 'axe'], exitLabel: 'SERVICE LIFT', exitColor: 0xffa030, needed: 3,
     obj: 'Find a way up',
     map: [
       "#############################",
@@ -232,7 +237,7 @@ const AREAS = [
       "###.###.#..L..Z..#.###+######",
       "#.......+........#..........#",
       "#.#####.#######+##.###.####.#",
-      "#.#...#.......#.....#...#...#",
+      "#.#...#.W.....#.....#...#...#",
       "#.#.Z.#..L.Z..#..L..#.L.#.Z.#",
       "#.#...+.......#.....+...#...#",
       "#.#.S.#########..T..#...#.M.#",
@@ -241,12 +246,12 @@ const AREAS = [
       "#.....#........#####.....L..#",
       "#####.#..N.....#...L...#....#",
       "#M....####+#####.......+..B.#",
-      "#.L.Z.#...........Z.S..#....#",
+      "#.L.Z.#..W........Z.S..#....#",
       "#.....#.....L.......Z..#.Z..#",
       "###############X#############",
     ] },
   { name: 'GROUND FLOOR — MAIN LOBBY', card: ['GROUND FLOOR', 'MAIN LOBBY · 03:31 AM'], theme: 'lobby',
-    notes: ['cleanup'], exitLabel: 'AMBULANCE BAY', exitColor: 0xff3a2a, keyName: 'AMBULANCE KEYS',
+    notes: ['cleanup'], weapons: ['crowbar', 'axe'], exitLabel: 'AMBULANCE BAY', exitColor: 0xff3a2a, keyName: 'AMBULANCE KEYS',
     obj: 'Find Dr. Rowe',
     map: [
       "#################################",
@@ -255,7 +260,7 @@ const AREAS = [
       "#...Z......+...L...#.....L......#",
       "#..........#.......####+#########",
       "#####+######...Z...#...........##",
-      "#...........+......#....Z......##",
+      "#....W......+......#....Z......##",
       "#..L....Z...#......+.....L.....##",
       "#...........###+####...........##",
       "###+#####.....L.........Z......##",
@@ -265,7 +270,7 @@ const AREAS = [
       "#.......######+#########....L...#",
       "#####+###......L.......#........#",
       "#.......+..........Z...#####+####",
-      "#..B....#..............#........#",
+      "#..B....#..............#...W....#",
       "#...L...#....Z.........+...L..Z.#",
       "#.....N.#..............#....B...#",
       "#.......#....P.........#........#",
@@ -528,6 +533,48 @@ flash.position.set(0.15, -0.1, 0); camera.add(flash);
 const flashTarget = new THREE.Object3D(); flashTarget.position.set(0, -0.05, -1); camera.add(flashTarget); flash.target = flashTarget;
 let flashOn = true;
 
+// ---- Melee weapons -------------------------------------------------------
+const WEAPONS = {
+  pipe:    { name: 'LEAD PIPE',   dmg: 1.4, cd: .5,  dur: 22, range: 1.9, cleave: 1 },
+  crowbar: { name: 'CROWBAR',     dmg: 2,   cd: .6,  dur: 28, range: 2.0, cleave: 1 },
+  wrench:  { name: 'PIPE WRENCH', dmg: 2.6, cd: .75, dur: 22, range: 1.9, cleave: 1 },
+  axe:     { name: 'FIRE AXE',    dmg: 4.6, cd: 1.0, dur: 14, range: 2.2, cleave: 2 },
+};
+function weaponMesh(type) {
+  const g = new THREE.Group();
+  const M = (c, e = 0x111111, metal = .5) => new THREE.MeshStandardMaterial({ color: c, emissive: e, roughness: .5, metalness: metal });
+  const add = (geo, mat, x, y, z, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.z = rz; g.add(m); return m; };
+  if (type === 'pipe') {
+    add(new THREE.CylinderGeometry(.025, .025, .75, 10), M(0x5a5d60, 0x16181a, .7), 0, .3, 0);
+    add(new THREE.CylinderGeometry(.036, .036, .08, 10), M(0x45484a, 0x101010, .7), 0, .66, 0);
+  } else if (type === 'crowbar') {
+    const red = M(0x8a1410, 0x260505, .6);
+    add(new THREE.BoxGeometry(.03, .75, .03), red, 0, .3, 0);
+    add(new THREE.BoxGeometry(.03, .14, .03), red, .045, .7, 0, -.9);
+    add(new THREE.BoxGeometry(.03, .08, .03), red, -.02, -.08, 0, .5);
+  } else if (type === 'wrench') {
+    add(new THREE.CylinderGeometry(.026, .03, .55, 10), M(0x8a1a10, 0x260505, .4), 0, .22, 0);
+    add(new THREE.BoxGeometry(.13, .14, .05), M(0x7a7e82, 0x1a1a1a, .8), .02, .55, 0);
+    add(new THREE.BoxGeometry(.05, .07, .05), M(0x7a7e82, 0x1a1a1a, .8), .07, .64, 0);
+  } else {
+    add(new THREE.CylinderGeometry(.028, .032, .82, 10), M(0x6a4a2a, 0x1a1208, .1), 0, .32, 0);
+    add(new THREE.BoxGeometry(.07, .13, .07), M(0xa01810, 0x300606, .4), 0, .68, 0);
+    add(new THREE.BoxGeometry(.17, .17, .016), M(0xb8bcc0, 0x2a2a2a, .9), .11, .68, 0);
+    add(new THREE.BoxGeometry(.09, .04, .03), M(0xa01810, 0x300606, .4), -.08, .68, 0);
+  }
+  return g;
+}
+// first-person viewmodel
+const vm = new THREE.Group(); vm.position.set(.3, -.42, -.55); camera.add(vm);
+let vmMesh = null, swingT = 0, swingCd = 0, hitPending = false;
+function setWeapon(w) {
+  P.weapon = w;
+  if (vmMesh) { vm.remove(vmMesh); vmMesh.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); vmMesh = null; }
+  if (w) { vmMesh = weaponMesh(w.type); vmMesh.position.y = -.12; vmMesh.scale.setScalar(.8); vm.add(vmMesh); }
+  $('weapon').style.display = w ? 'block' : 'none';
+  if (w) $('wName').textContent = WEAPONS[w.type].name;
+}
+
 // ---- Level contents ------------------------------------------------------
 let level = null, lamps = [], pickups = [], zombies = [], switches = [], obstacles = [], ambush = [];
 let floorCells = [], start = [1, 1], exitCell = null, exitDir = [0, -1], door = null, exitPos = [0, 0], doorMat = null;
@@ -538,7 +585,7 @@ const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2b2d30, roughness: 1 
 
 function makeZombie(x, z, opts = {}) {
   const runner = opts.runner ?? Math.random() < 0.22;
-  const zb = { x, z, runner, state: opts.chase ? 'chase' : 'idle',
+  const zb = { x, z, runner, hp: opts.hp ?? (runner ? 3 : 4.5), stun: 0, flash: 0, state: opts.chase ? 'chase' : 'idle',
     speed: runner ? rand(3.3, 3.8) : rand(1.6, 2.1), dir: rand(0, 6), wanderT: 0, lastSeen: 0, attackCd: 0,
     groanT: rand(2, 8), phase: rand(0, 6), lunge: 0, twitch: 0, yaw: rand(0, 6) };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
@@ -560,7 +607,7 @@ function makeZombie(x, z, opts = {}) {
   const eyes = [-.075, .075].map(ex => part(new THREE.BoxGeometry(.055, .035, .02), eyeMat, ex, .22, .165, neck));
   const s = runner ? rand(.9, .98) : rand(.98, 1.1); g.scale.set(s, s, s);
   g.position.set(x, 0, z); level.add(g);
-  Object.assign(zb, { group: g, body, legs, arms, neck, eyes });
+  Object.assign(zb, { group: g, body, legs, arms, neck, eyes, skinMat: skin });
   if (opts.register !== false) zombies.push(zb);
   return zb;
 }
@@ -582,6 +629,13 @@ function addPickup(type, c, r) {
   }
   m.position.set(x, 0.75, z); level.add(m);
   pickups.push({ type, x, z, mesh: m, taken: false, phase: rand(0, 6) });
+}
+
+function addWeaponPickup(type, x, z, dur) {
+  const outer = new THREE.Group(), m = weaponMesh(type);
+  m.rotation.z = Math.PI / 2; m.position.x = .35; outer.add(m);
+  outer.position.set(x, .75, z); level.add(outer);
+  pickups.push({ type: 'W', wtype: type, dur, x, z, mesh: outer, taken: false, phase: rand(0, 6) });
 }
 
 function addSwitch(c, r) {
@@ -639,9 +693,9 @@ function addDebris(kind, x, z) {
 
 function disposeLevel() {
   if (!level) return;
-  const keep = [eyeMat, woundMat, pantsMat], keepTex = [bloodTex, paperTex, medTex];
+  const keep = [eyeMat, woundMat, pantsMat, pMat], keepTex = [bloodTex, paperTex, medTex];
   level.traverse(o => {
-    if (o.geometry) o.geometry.dispose();
+    if (o.geometry && o.geometry !== pGeo) o.geometry.dispose();
     if (o.material && !keep.includes(o.material)) {
       for (const k of ['map', 'emissiveMap']) if (o.material[k] && !keepTex.includes(o.material[k])) o.material[k].dispose();
       o.material.dispose();
@@ -650,6 +704,7 @@ function disposeLevel() {
   scene.remove(level); level = null;
 }
 
+let areaWeaponIdx = 0, particles = [];
 let snapshot = null, progress = 0, areaNoteIdx = 0, alarm = false, alarmT = 0, timer = -1, blackout = 0;
 function loadArea(i) {
   disposeLevel();
@@ -657,7 +712,7 @@ function loadArea(i) {
   grid = AR.map.map(r => r.padEnd(AR.map[0].length, '#').split('')); H = grid.length; W = grid[0].length;
   level = new THREE.Group(); scene.add(level);
   lamps = []; pickups = []; zombies = []; switches = []; obstacles = []; ambush = []; floorCells = [];
-  rowe = null; trigger = null; progress = 0; areaNoteIdx = 0; alarm = false; alarmT = 0; timer = -1; blackout = 0;
+  rowe = null; trigger = null; progress = 0; areaNoteIdx = 0; areaWeaponIdx = 0; particles = []; alarm = false; alarmT = 0; timer = -1; blackout = 0;
   if (alarmGain) alarmGain.gain.value = 0;
   scene.fog.color.setHex(theme.fog); scene.fog.density = theme.fogD; scene.background.setHex(theme.fog);
   hemi.color.setHex(theme.hemi[0]); hemi.groundColor.setHex(theme.hemi[1]); hemi.intensity = theme.hemi[2];
@@ -699,6 +754,7 @@ function loadArea(i) {
     const ch = grid[r][c], [x, z] = center(c, r);
     if (ch === 'P') start = [c, r];
     else if ('NBMK'.includes(ch)) addPickup(ch, c, r);
+    else if (ch === 'W') { const t = AR.weapons[areaWeaponIdx++ % AR.weapons.length]; addWeaponPickup(t, x, z, WEAPONS[t].dur); }
     else if (ch === 'Z') makeZombie(x + rand(-1, 1), z + rand(-1, 1));
     else if (ch === 'S') addSwitch(c, r);
     else if (ch === 'T') trigger = { x, z, fired: false };
@@ -707,7 +763,7 @@ function loadArea(i) {
       const corpse = makeZombie(x + 1.1, z, { register: false, runner: false, cloth: 0xdedbd0, skin: 0xa3ab96, coat: true, hair: 0x1a1210 });
       corpse.body.rotation.x = -Math.PI / 2; corpse.body.position.y = .15; corpse.arms.forEach(a => a.rotation.x = -.2);
       corpse.yaw = Math.PI / 2; corpse.group.rotation.y = corpse.yaw; corpse.eyes.forEach(e => e.visible = false);
-      corpse.speed = 2.5;
+      corpse.speed = 2.5; corpse.hp = 7;
       const paper = new THREE.Mesh(new THREE.BoxGeometry(.3, .01, .38), new THREE.MeshStandardMaterial({ map: paperTex, emissive: 0x6a6450, emissiveIntensity: .35 }));
       paper.position.set(x + .3, .02, z + .4); paper.rotation.y = .5; level.add(paper);
       rowe = { x: x + .6, z, corpse, paper, searched: false };
@@ -746,7 +802,7 @@ function loadArea(i) {
   // player
   [P.x, P.z] = center(...start);
   flow = new Int32Array(W * H);
-  snapshot = { found: [...P.found], bat: P.bat };
+  snapshot = { found: [...P.found], bat: P.bat, weapon: P.weapon ? { ...P.weapon } : null, kills: P.kills };
   setObjective(AR.obj);
   $('areaName').textContent = AR.name;
   $('keyIcon').style.display = 'none';
@@ -754,7 +810,7 @@ function loadArea(i) {
 }
 
 // ---- Player ----------------------------------------------------------------
-const P = { x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [] };
+const P = { x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [], weapon: null, kills: 0 };
 let yaw = -Math.PI / 2, pitch = 0;
 
 // ---- Audio ---------------------------------------------------------------
@@ -849,6 +905,26 @@ function sfxGrind(dur, f = 90) {
   const n = noiseSrc(); const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700;
   const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.18, t + .2); g.gain.setValueAtTime(.18, t + dur - .3); g.gain.linearRampToValueAtTime(.0001, t + dur);
   o.connect(lp); n.connect(lp); lp.connect(g).connect(master); o.start(t); n.start(t); o.stop(t + dur); n.stop(t + dur);
+}
+function sfxWhoosh(heavy) {
+  if (!AC) return; const t = AC.currentTime;
+  const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(heavy ? 300 : 500, t); bp.frequency.exponentialRampToValueAtTime(heavy ? 1100 : 1800, t + .18);
+  n.connect(bp).connect(env(t, .06, heavy ? .35 : .25, .14)).connect(master); n.start(t, rand(0, 1)); n.stop(t + .3);
+}
+function sfxThud(power) {
+  if (!AC) return; const t = AC.currentTime;
+  const o = AC.createOscillator(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
+  o.connect(env(t, .002, .5 + power * .08, .18)).connect(master); o.start(t); o.stop(t + .25);
+  const n = noiseSrc(); const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+  n.connect(lp).connect(env(t, .002, .55, .12)).connect(master); n.start(t, rand(0, 1)); n.stop(t + .2);
+}
+function sfxBreak() {
+  if (!AC) return; const t = AC.currentTime;
+  const n = noiseSrc(); const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2000;
+  n.connect(hp).connect(env(t, .001, .5, .2)).connect(master); n.start(t); n.stop(t + .3);
+  [520, 780].forEach((f, i) => { const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = f;
+    o.connect(env(t + i * .05, .001, .08, .25)).connect(master); o.start(t + i * .05); o.stop(t + .4); });
 }
 function sfxDrip() {
   if (!AC) return; const t = AC.currentTime, p = rand(-1, 1), f = rand(1200, 2200);
@@ -1114,7 +1190,11 @@ document.addEventListener('mousemove', e => {
   if (document.pointerLockElement) look(e.movementX, e.movementY);
   else if (noLock && dragging) look(e.movementX * 1.4, e.movementY * 1.4);
 });
-renderer.domElement.addEventListener('mousedown', () => { if (state === 'playing' && noLock) dragging = true; });
+renderer.domElement.addEventListener('mousedown', e => {
+  if (state !== 'playing') return;
+  if (noLock) dragging = true;
+  if (e.button === 0) swing();
+});
 document.addEventListener('mousedown', () => { if (state === 'note') closeNote(); });
 document.addEventListener('mouseup', () => { dragging = false; });
 document.addEventListener('keydown', e => {
@@ -1139,7 +1219,7 @@ $('againBtn').onclick = () => location.reload();
 $('retryBtn').onclick = retryArea;
 function resume() { initAudio(); state = 'playing'; showScreen(null); requestLock(); }
 async function retryArea() {
-  P.found = [...snapshot.found]; P.bat = Math.max(snapshot.bat, 60); P.hp = 100; P.inf = 0; P.st = 100; P.exhausted = false; flashOn = true;
+  P.found = [...snapshot.found]; P.kills = snapshot.kills; setWeapon(snapshot.weapon ? { ...snapshot.weapon } : null); P.bat = Math.max(snapshot.bat, 60); P.hp = 100; P.inf = 0; P.st = 100; P.exhausted = false; flashOn = true;
   $('hurt').style.opacity = 0;
   showScreen(null); requestLock();
   enterCutscene();
@@ -1164,6 +1244,10 @@ function interact() {
   }
   if (rowe && !rowe.searched && Math.hypot(rowe.x - P.x, rowe.z - P.z) < 2) {
     rowe.searched = true; level.remove(rowe.paper); showNote('rowe'); return;
+  }
+  for (const p of pickups) {
+    if (p.taken || p.type !== 'W' || Math.hypot(p.x - P.x, p.z - P.z) > 1.8) continue;
+    takeWeapon(p); return;
   }
   for (const s of switches) {
     if (s.thrown || Math.hypot(s.x - P.x, s.z - P.z) > 1.9) continue;
@@ -1249,6 +1333,58 @@ function fireTrigger() {
   msg('<b>RUN.</b>', 2);
   ambush.forEach(([x, z]) => makeZombie(x, z, { chase: true, runner: true }));
 }
+function takeWeapon(p) {
+  p.taken = true; level.remove(p.mesh); sfxPickup();
+  const old = P.weapon;
+  setWeapon({ type: p.wtype, dur: p.dur });
+  if (old) addWeaponPickup(old.type, P.x, P.z, old.dur); // swap: drop what you were holding
+  const w = WEAPONS[p.wtype];
+  msg(`<b>${w.name}</b><br>${old ? 'Dropped ' + WEAPONS[old.type].name.toLowerCase() + ' · ' : ''}Click to swing`, 3);
+}
+function swing() {
+  if (!P.weapon || swingCd > 0) return;
+  const w = WEAPONS[P.weapon.type];
+  swingCd = w.cd * (P.exhausted ? 1.6 : 1); swingT = 0.0001; hitPending = true;
+  P.st = Math.max(0, P.st - 10); if (P.st <= 0) P.exhausted = true;
+  sfxWhoosh(P.weapon.type === 'axe');
+}
+function resolveHit() {
+  hitPending = false;
+  if (!P.weapon) return;
+  const w = WEAPONS[P.weapon.type], fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  const targets = zombies.map(z => { const dx = z.x - P.x, dz = z.z - P.z, d = Math.hypot(dx, dz) || .001; return { z, d, dot: (dx * fx + dz * fz) / d }; })
+    .filter(t => t.d < w.range + .35 && t.dot > .5 && los(P.x, P.z, t.z.x, t.z.z))
+    .sort((a, b) => a.d - b.d).slice(0, w.cleave);
+  if (!targets.length) return;
+  sfxThud(w.dmg); shake = Math.max(shake, .25);
+  alertNoise(P.x, P.z, 8);
+  for (const t of targets) hitZombie(t.z, w.dmg, fx, fz);
+  P.weapon.dur--;
+  if (P.weapon.dur <= 0) { sfxBreak(); msg(`Your <b>${w.name.toLowerCase()}</b> breaks.`, 2.5); setWeapon(null); }
+}
+function hitZombie(zb, dmg, fx, fz) {
+  zb.hp -= dmg; zb.stun = .65; zb.flash = .12;
+  moveEntity(zb, fx * .7, fz * .7, .35);
+  burst(zb.x, 1.4, zb.z, 10);
+  if (zb.state !== 'chase') { zb.state = 'chase'; zb.lastSeen = playTime; }
+  if (zb.hp <= 0) killZombie(zb);
+}
+function killZombie(zb) {
+  zombies.splice(zombies.indexOf(zb), 1); P.kills++;
+  zb.skinMat.emissive.setHex(0); zb.eyes.forEach(e => e.visible = false);
+  sfxGroan(zb.x, zb.z, false);
+  const a0 = zb.arms.map(a => a.rotation.x);
+  tween(.75, k => { const e = k * k; zb.body.rotation.x = -Math.PI / 2 * e; zb.body.position.y = .15 * e;
+    zb.arms.forEach((a, i) => a.rotation.x = lerp(a0[i], -.3, e)); zb.legs.forEach(l => l.rotation.x *= .8); });
+}
+const pGeo = new THREE.BoxGeometry(.05, .05, .05), pMat = new THREE.MeshBasicMaterial({ color: 0x5a0504 });
+function burst(x, y, z, n) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(pGeo, pMat); m.position.set(x + rand(-.15, .15), y, z + rand(-.15, .15)); level.add(m);
+    particles.push({ m, v: new THREE.Vector3(rand(-2, 2), rand(0, 2.6), rand(-2, 2)), life: rand(.4, .8) });
+  }
+}
+
 function hurt(dmg, inf) {
   P.hp -= dmg; P.inf = Math.min(100, P.inf + inf); hurtT = 1; shake = 0.6; sfxHurt();
   if (P.hp <= 0) die('OVERRUN', 'They pulled you down in the dark, and the hallway went quiet again.<br><br>Somewhere in your veins was the only cure. Now it walks with them.');
@@ -1276,7 +1412,7 @@ function win() {
 }
 function stats() {
   const m = Math.floor(playTime / 60), s = Math.floor(playTime % 60).toString().padStart(2, '0');
-  return `TIME ${m}:${s} &nbsp;·&nbsp; EVIDENCE ${P.found.length}/${TOTAL_NOTES}`;
+  return `TIME ${m}:${s} &nbsp;·&nbsp; EVIDENCE ${P.found.length}/${TOTAL_NOTES} &nbsp;·&nbsp; QUIET ONES PUT DOWN ${P.kills}`;
 }
 
 // ---- Flow field (zombie pathing) -----------------------------------------
@@ -1339,6 +1475,21 @@ function updatePlayer(dt) {
   const sx = shake * rand(-.04, .04), sy = shake * rand(-.04, .04);
   const sway = P.inf > 50 ? Math.sin(T * 0.9) * (P.inf - 50) / 50 * 0.05 : 0;
   camera.rotation.set(pitch + sy, yaw + sx, sway);
+  // weapon viewmodel
+  swingCd = Math.max(0, swingCd - dt);
+  const IX = -.55, IZ = .18; // idle pose
+  let rx = IX, rz = IZ;
+  if (swingT > 0 && P.weapon) {
+    swingT += dt / (WEAPONS[P.weapon.type].cd * .85);
+    const q = swingT;
+    if (q < .2) { const k = q / .2; rx = lerp(IX, .4, k); rz = lerp(IZ, .1, k); }
+    else if (q < .45) { const k = ease((q - .2) / .25); rx = lerp(.4, -1.7, k); rz = lerp(.1, .9, k); }
+    else { const k = ease(Math.min(1, (q - .45) / .55)); rx = lerp(-1.7, IX, k); rz = lerp(.9, IZ, k); }
+    if (hitPending && q >= .35) resolveHit();
+    if (swingT >= 1) swingT = 0;
+  }
+  vm.rotation.set(rx, 0, rz);
+  vm.position.set(.34 + (moving ? Math.cos(bob * .5) * .015 : 0), -.46 + by * .4, -.55);
 }
 
 function updateZombies(dt) {
@@ -1346,6 +1497,12 @@ function updateZombies(dt) {
   let nearest = 99;
   for (const zb of zombies) {
     const dx = P.x - zb.x, dz = P.z - zb.z, d = Math.hypot(dx, dz);
+    zb.flash -= dt; zb.skinMat.emissive.setHex(zb.flash > 0 ? 0x550000 : 0x000000);
+    if (zb.stun > 0) { // staggered by a hit
+      zb.stun -= dt; zb.attackCd = Math.max(zb.attackCd, .3);
+      zb.neck.rotation.x = -.5; zb.body.rotation.x = -.18; animZombie(zb, dt, 0);
+      continue;
+    }
     const sees = d < 20 && los(zb.x, zb.z, P.x, P.z);
     if (zb.state !== 'chase') {
       const range = (flashOn && blackout <= 0) ? 15 : 7;
@@ -1446,12 +1603,18 @@ function updateWorld(dt) {
     p.mesh.rotation.y += dt * (p.type === 'K' ? 2 : 0.6);
     const d = Math.hypot(p.x - P.x, p.z - P.z);
     if (p.type === 'N') { if (d < 1.8) prompt = '<kbd>E</kbd>Read document'; }
+    else if (p.type === 'W') { if (d < 1.8 && !prompt) prompt = `<kbd>E</kbd>${P.weapon ? 'Swap for' : 'Take'} ${WEAPONS[p.wtype].name.toLowerCase()}`; }
     else if (d < 1.2) takePickup(p);
   }
   if (!prompt && rowe && !rowe.searched && Math.hypot(rowe.x - P.x, rowe.z - P.z) < 2) prompt = '<kbd>E</kbd>Search the body';
   if (!prompt) for (const s of switches) if (!s.thrown && Math.hypot(s.x - P.x, s.z - P.z) < 1.9) prompt = '<kbd>E</kbd>Throw breaker';
   if (!prompt && nearExit()) prompt = (progress >= (AR.needed || 1)) ? `<kbd>E</kbd>${['Swipe keycard', 'Take the lift', 'Open the bay doors'][areaIdx]}` : `<kbd>E</kbd>Try the ${AR.exitLabel.toLowerCase()}`;
   $('prompt').style.display = prompt ? 'block' : 'none'; if (prompt) $('prompt').innerHTML = prompt;
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const q = particles[i]; q.life -= dt; q.v.y -= 9 * dt; q.m.position.addScaledVector(q.v, dt);
+    if (q.m.position.y < .02) { q.m.position.y = .02; q.v.set(0, 0, 0); }
+    if (q.life <= 0) { level.remove(q.m); particles.splice(i, 1); }
+  }
   ambT -= dt; if (ambT <= 0) { ambT = rand(18, 40); sfxDistant(); }
   if (areaIdx === 1) { dripT -= dt; if (dripT <= 0) { dripT = rand(.4, 2.2); sfxDrip(); } }
 }
@@ -1463,6 +1626,7 @@ function updateHUD(dt) {
   $('stFill').style.width = P.st + '%';
   $('stFill').style.background = P.exhausted ? 'rgba(200,60,50,.7)' : 'rgba(220,220,210,.6)';
   $('evid').textContent = `${P.found.length} / ${TOTAL_NOTES}`;
+  if (P.weapon) $('durFill').style.width = (P.weapon.dur / WEAPONS[P.weapon.type].dur * 100) + '%';
   $('hurt').style.opacity = Math.max(hurtT, P.hp < 30 ? 0.35 + Math.sin(T * 4) * .1 : 0);
   $('sickfx').style.opacity = clamp((P.inf - 25) / 75, 0, 1) * (0.7 + Math.sin(T * 1.3) * .3);
   fxT -= dt;
@@ -1504,6 +1668,7 @@ function frame() {
     camera.rotation.set(Math.sin(T * .2) * .05, -Math.PI / 2 + Math.sin(T * .15) * .5, 0);
     updateLights(dt);
   }
+  vm.visible = state === 'playing' || state === 'note' || state === 'paused';
   drawGrain();
   renderer.render(scene, camera);
 }
