@@ -20,6 +20,14 @@
     background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 75%,rgba(0,0,0,.95) 100%)}
   #hurt{position:fixed;inset:0;pointer-events:none;opacity:0;
     background:radial-gradient(ellipse at center,rgba(120,0,0,0) 30%,rgba(140,0,0,.85) 100%)}
+  #hideFx{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .6s;
+    background:radial-gradient(ellipse 70% 45% at center 55%,rgba(0,0,0,0) 40%,rgba(0,0,0,.92) 100%)}
+  #stealth{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);text-align:center;font-size:11px;letter-spacing:4px;color:var(--dim)}
+  #stealth b{display:block;font-size:13px;font-weight:normal;color:#9fb0a0;letter-spacing:5px}
+  #stealth b.danger{color:#e0281c}
+  #stealth kbd{border:1px solid #666;padding:0 4px;font-family:inherit}
+  #breathBar{width:160px;height:3px;margin:6px auto 0;background:rgba(255,255,255,.08);display:none}
+  #breathFill{height:100%;width:100%;background:#8fb7d8}
   #sickfx{position:fixed;inset:0;pointer-events:none;opacity:0;
     background:radial-gradient(ellipse at center,rgba(60,90,20,0) 35%,rgba(50,80,10,.7) 100%)}
   #fade{position:fixed;inset:0;pointer-events:none;background:#000;opacity:0}
@@ -98,6 +106,7 @@
 <body>
 <div id="game"></div>
 <canvas id="grain" width="320" height="200"></canvas>
+<div id="hideFx"></div>
 <div id="sickfx"></div>
 <div id="vignette"></div>
 <div id="hurt"></div>
@@ -117,6 +126,7 @@
     <div class="bar">FLASHLIGHT<div class="track"><div class="fill" id="batFill"></div></div></div>
     <div class="bar" id="stBar"><div class="track"><div class="fill" id="stFill"></div></div></div>
   </div>
+  <div id="stealth"><b id="stealthState"></b><span id="stealthHint"></span><div id="breathBar"><div id="breathFill"></div></div></div>
   <div id="weapon"><b id="wName"></b>CONDITION<div class="track"><div id="durFill"></div></div></div>
 </div>
 <div id="msg"></div>
@@ -136,11 +146,11 @@
     You wake up strapped to a gurney in the sealed sub-level of St. Ambrose Memorial.
     The power is failing. The bite on your arm has scabbed over. Someone has crossed your name off the patient list.<br><br>
     The hallways are full of the <i>quiet ones</i>: patients who stopped talking, then stopped sleeping, then got back up.
-    You have no gun. Improvised weapons are scattered around: pipes, crowbars, an axe. They help, but they break, and every swing makes noise. Often the best fight is the one you run from.<br><br>
+    You have no gun. Improvised weapons are scattered around: pipes, crowbars, an axe. They help, but they break, and every swing makes noise. Often the best fight is the one you run from, or the one you hide from: crawl under a gurney or desk, and hold your breath when they come looking.<br><br>
     Climb out through the ward, the maintenance tunnels and the ground floor. Find out what happened here.
   </div>
   <div class="controls">
-    <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint<br>
+    <kbd>W A S D</kbd> move &nbsp; <kbd>MOUSE</kbd> look &nbsp; <kbd>SHIFT</kbd> sprint &nbsp; <kbd>C</kbd> crouch / hide &nbsp; <kbd>SPACE</kbd> hold breath<br>
     <kbd>CLICK</kbd> swing weapon &nbsp; <kbd>F</kbd> flashlight &nbsp; <kbd>E</kbd> read / use / pick up &nbsp; <kbd>ESC</kbd> pause &nbsp; <kbd>SPACE</kbd> skip cutscene
   </div>
   <button id="startBtn">Wake up</button>
@@ -198,32 +208,32 @@ const TOTAL_NOTES = Object.keys(NOTES).length;
 
 // ---- Areas ---------------------------------------------------------------
 // # wall  . floor  + doorway  P start  Z zombie  N note  B battery  M medkit
-// W melee weapon  K key item  S breaker  D Dr. Rowe  L lamp  X exit  T scare trigger  H ambush spawn
+// W melee weapon  U hiding spot  K key item  S breaker  D Dr. Rowe  L lamp  X exit  T scare trigger  H ambush spawn
 const AREAS = [
   { name: 'SUB-LEVEL B — ISOLATION WARD', card: ['SUB-LEVEL B', 'ISOLATION WARD · 02:13 AM'], theme: 'ward',
     notes: ['shift', 'memo', 'security'], weapons: ['crowbar', 'pipe'], exitLabel: 'EXIT', exitColor: 0x2bff6a, keyName: "DIRECTOR'S KEYCARD",
     obj: 'Find a way out of Sub-Level B',
     map: [
       "###############################",
-      "#P..L.#....N....#......#......#",
+      "#P..L.#....N.U..#......#......#",
       "#.....#.........#..Z...#......#",
       "#..B..+....L....+..L...+..L...#",
       "#.W...#.........#......#......#",
       "###+###....Z....###+####...Z..#",
       "#.....###+#######.....###+#####",
-      "#.....#.........#..M..#......K#",
+      "#.....#.........#..M..#..U...K#",
       "#..L..+....Z....+..L..+...L...#",
       "#.Z...#....LW...#.....#.......#",
       "###+###.........###+###....Z..#",
       "#.....##+########.....#####+###",
-      "#.....#.........#..Z..#.......#",
-      "#..L..+....N....+..L..+...L.Z.#",
+      "#.....#.........#..Z..#...U...#",
+      "#..L..+.U..N....+..L..+...L.Z.#",
       "#.....#..Z......#.....#.......#",
       "###+#######+#####..B..#..M....#",
       "#.....#.........###+###########",
-      "#..M..+....L....#.......Z.....#",
+      "#..M..+..U.L....#.......Z.....#",
       "#..Z..#.......Z.+...L....N....#",
-      "#.....#.........#.........L...#",
+      "#.....#.........#...U.....L...#",
       "#######################X#######",
     ] },
   { name: 'SUB-LEVEL C — MAINTENANCE TUNNELS', card: ['MAINTENANCE TUNNELS', 'SUB-LEVEL C · 02:47 AM'], theme: 'tunnel',
@@ -235,15 +245,15 @@ const AREAS = [
       "#.....#.##########.#.L......#",
       "#..B..#.#..N.....#.#....Z...#",
       "###.###.#..L..Z..#.###+######",
-      "#.......+........#..........#",
+      "#.......+...U....#..........#",
       "#.#####.#######+##.###.####.#",
-      "#.#...#.W.....#.....#...#...#",
+      "#.#...#.W...U.#.....#...#...#",
       "#.#.Z.#..L.Z..#..L..#.L.#.Z.#",
-      "#.#...+.......#.....+...#...#",
+      "#.#...+.......#.....+...#.U.#",
       "#.#.S.#########..T..#...#.M.#",
       "#.#...#H.......#...##########",
       "#.###+#..L...Z.+...+.......H#",
-      "#.....#........#####.....L..#",
+      "#.....#.....U..#####..U..L..#",
       "#####.#..N.....#...L...#....#",
       "#M....####+#####.......+..B.#",
       "#.L.Z.#..W........Z.S..#....#",
@@ -256,22 +266,22 @@ const AREAS = [
     map: [
       "#################################",
       "#....L.....#.......#.....N......#",
-      "#..........#...Z...+............#",
+      "#..U.......#...Z...+............#",
       "#...Z......+...L...#.....L......#",
       "#..........#.......####+#########",
       "#####+######...Z...#...........##",
-      "#....W......+......#....Z......##",
+      "#....W......+...U..#....Z......##",
       "#..L....Z...#......+.....L.....##",
       "#...........###+####...........##",
       "###+#####.....L.........Z......##",
       "#.......#..............######+###",
-      "#..M....+.....Z........#........#",
+      "#..M....+.U...Z........#........#",
       "#...L...#..............+....D...#",
-      "#.......######+#########....L...#",
+      "#.......######+#########....LU..#",
       "#####+###......L.......#........#",
       "#.......+..........Z...#####+####",
-      "#..B....#..............#...W....#",
-      "#...L...#....Z.........+...L..Z.#",
+      "#..B....#..........U...#...W....#",
+      "#...LU..#....Z.........+...L..Z.#",
       "#.....N.#..............#....B...#",
       "#.......#....P.........#........#",
       "################X################",
@@ -660,6 +670,42 @@ function addSwitch(c, r) {
   switches.push({ x: sx, z: sz, pivot, lampMat, thrown: false });
 }
 
+const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const phantomEyeMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false });
+function addHideSpot(kind, x, z) {
+  const g = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: 0x6b6e70, roughness: 0.6, metalness: 0.4 });
+  const cloth = c => new THREE.MeshStandardMaterial({ color: c, roughness: 1, side: THREE.DoubleSide });
+  const box = (w, h, d, m, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); g.add(o); return o; };
+  let name;
+  if (kind === 'ward') { // gurney with a sheet hanging down both sides
+    name = 'gurney';
+    box(.95, .08, 2.1, metal, 0, .85, 0);
+    const sheet = cloth(0xb8b4a4);
+    box(1.0, .05, 1.9, sheet, 0, .92, 0);
+    for (const sx of [-.5, .5]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, .52), sheet); m.rotation.y = Math.PI / 2; m.position.set(sx, .66, 0); g.add(m); }
+    for (const [lx, lz] of [[.42, .95], [-.42, .95], [.42, -.95], [-.42, -.95]]) box(.05, .85, .05, metal, lx, .42, lz);
+    const stain = new THREE.Mesh(new THREE.PlaneGeometry(.5, .4), new THREE.MeshBasicMaterial({ map: bloodTex, transparent: true, depthWrite: false }));
+    stain.rotation.x = -Math.PI / 2; stain.position.set(rand(-.2, .2), .951, rand(-.5, .5)); g.add(stain);
+  } else if (kind === 'tunnel') { // steel workbench with a tarp over the front
+    name = 'workbench';
+    box(2.1, .08, 1.1, new THREE.MeshStandardMaterial({ color: 0x4a4e4a, roughness: .5, metalness: .6 }), 0, .95, 0);
+    for (const [lx, lz] of [[1, .5], [-1, .5], [1, -.5], [-1, -.5]]) box(.06, .95, .06, metal, lx, .47, lz);
+    const tarp = new THREE.Mesh(new THREE.PlaneGeometry(2.1, .6), cloth(0x2f4a5a)); tarp.position.set(0, .68, .56); g.add(tarp);
+    box(.4, .3, .3, new THREE.MeshStandardMaterial({ color: 0x8a1a10 }), -.6, 1.14, -.1); // toolbox
+  } else { // office desk with a modesty panel
+    name = 'desk';
+    const wood = new THREE.MeshStandardMaterial({ color: 0x4a3222, roughness: .7 });
+    box(1.9, .07, .95, wood, 0, .8, 0);
+    box(1.9, .62, .04, wood, 0, .5, -.45);
+    for (const sx of [-.93, .93]) box(.04, .78, .95, wood, sx, .39, 0);
+    box(.35, .25, .03, new THREE.MeshStandardMaterial({ color: 0x15181a, emissive: 0x0a1410 }), .4, .97, -.2); // dead monitor
+  }
+  g.position.set(x, 0, z); g.rotation.y = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]) + rand(-.1, .1);
+  level.add(g);
+  obstacles.push({ x, z, r: .8, hide: true, name });
+}
+
 function addDebris(kind, x, z) {
   const g = new THREE.Group();
   const metal = new THREE.MeshStandardMaterial({ color: 0x6b6e70, roughness: 0.6, metalness: 0.4 });
@@ -685,15 +731,16 @@ function addDebris(kind, x, z) {
     for (const lx of [-.8, .8]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(.06, .45, .45), metal); leg.position.set(lx, .22, 0); g.add(leg); }
   }
   g.position.set(x, 0, z); g.rotation.y = rand(0, 6);
-  if (kind === 'gurney' && Math.random() < 0.35) { g.rotation.z = Math.PI / 2 * (Math.random() < .5 ? 1 : -1); g.position.y = 0.45; }
+  let tipped = false;
+  if (kind === 'gurney' && Math.random() < 0.35) { tipped = true; g.rotation.z = Math.PI / 2 * (Math.random() < .5 ? 1 : -1); g.position.y = 0.45; }
   level.add(g);
-  obstacles.push({ x, z, r: kind === 'gurney' ? .7 : .55 });
+  obstacles.push({ x, z, r: kind === 'gurney' ? .7 : .55, hide: kind === 'gurney' && !tipped, name: 'gurney' });
   return g;
 }
 
 function disposeLevel() {
   if (!level) return;
-  const keep = [eyeMat, woundMat, pantsMat, pMat], keepTex = [bloodTex, paperTex, medTex];
+  const keep = [eyeMat, woundMat, pantsMat, pMat, shadowMat, phantomEyeMat], keepTex = [bloodTex, paperTex, medTex];
   level.traverse(o => {
     if (o.geometry && o.geometry !== pGeo) o.geometry.dispose();
     if (o.material && !keep.includes(o.material)) {
@@ -704,7 +751,7 @@ function disposeLevel() {
   scene.remove(level); level = null;
 }
 
-let areaWeaponIdx = 0, particles = [];
+let areaWeaponIdx = 0, particles = [], phantom = null, phantomT = 60;
 let snapshot = null, progress = 0, areaNoteIdx = 0, alarm = false, alarmT = 0, timer = -1, blackout = 0;
 function loadArea(i) {
   disposeLevel();
@@ -712,6 +759,7 @@ function loadArea(i) {
   grid = AR.map.map(r => r.padEnd(AR.map[0].length, '#').split('')); H = grid.length; W = grid[0].length;
   level = new THREE.Group(); scene.add(level);
   lamps = []; pickups = []; zombies = []; switches = []; obstacles = []; ambush = []; floorCells = [];
+  phantom = null; phantomT = rand(35, 70); P.crouch = false; P.hidden = false; P.breath = 100;
   rowe = null; trigger = null; progress = 0; areaNoteIdx = 0; areaWeaponIdx = 0; particles = []; alarm = false; alarmT = 0; timer = -1; blackout = 0;
   if (alarmGain) alarmGain.gain.value = 0;
   scene.fog.color.setHex(theme.fog); scene.fog.density = theme.fogD; scene.background.setHex(theme.fog);
@@ -754,6 +802,7 @@ function loadArea(i) {
     const ch = grid[r][c], [x, z] = center(c, r);
     if (ch === 'P') start = [c, r];
     else if ('NBMK'.includes(ch)) addPickup(ch, c, r);
+    else if (ch === 'U') addHideSpot(AR.theme, x, z);
     else if (ch === 'W') { const t = AR.weapons[areaWeaponIdx++ % AR.weapons.length]; addWeaponPickup(t, x, z, WEAPONS[t].dur); }
     else if (ch === 'Z') makeZombie(x + rand(-1, 1), z + rand(-1, 1));
     else if (ch === 'S') addSwitch(c, r);
@@ -810,7 +859,8 @@ function loadArea(i) {
 }
 
 // ---- Player ----------------------------------------------------------------
-const P = { x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [], weapon: null, kills: 0 };
+let eyeH = 1.6, breathT = 2, holding = false, gasping = 0, sniffT = 0, hideTipShown = false;
+const P = { crouch: false, hidden: false, breath: 100, x: 0, z: 0, hp: 100, inf: 0, bat: 100, st: 100, exhausted: false, found: [], weapon: null, kills: 0 };
 let yaw = -Math.PI / 2, pitch = 0;
 
 // ---- Audio ---------------------------------------------------------------
@@ -925,6 +975,40 @@ function sfxBreak() {
   n.connect(hp).connect(env(t, .001, .5, .2)).connect(master); n.start(t); n.stop(t + .3);
   [520, 780].forEach((f, i) => { const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = f;
     o.connect(env(t + i * .05, .001, .08, .25)).connect(master); o.start(t + i * .05); o.stop(t + .4); });
+}
+function sfxBreath(inhale, v) {
+  if (!AC) return; const t = AC.currentTime, dur = inhale ? .9 : 1.1;
+  const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = .8;
+  bp.frequency.setValueAtTime(inhale ? 700 : 1100, t); bp.frequency.linearRampToValueAtTime(inhale ? 1200 : 600, t + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(v, t + dur * .35); g.gain.linearRampToValueAtTime(.0001, t + dur);
+  n.connect(bp).connect(g).connect(master); n.start(t, rand(0, 1)); n.stop(t + dur);
+}
+function sfxGasp() {
+  if (!AC) return; const t = AC.currentTime;
+  const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.5;
+  bp.frequency.setValueAtTime(600, t); bp.frequency.exponentialRampToValueAtTime(1800, t + .35);
+  n.connect(bp).connect(env(t, .03, .45, .4)).connect(master); n.start(t, rand(0, 1)); n.stop(t + .5);
+}
+function sfxSniff(x, z) {
+  if (!AC) return; const sp = spatial(x, z); const t = AC.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 2;
+    n.connect(bp).connect(env(t + i * .18, .03, .3 * Math.max(sp.g, .3), .1)).connect(panner(sp.p)).connect(master); n.start(t + i * .18, rand(0, 1)); n.stop(t + i * .18 + .2);
+  }
+}
+function sfxWhisper() {
+  if (!AC) return; const t = AC.currentTime;
+  const n = noiseSrc(); const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 4;
+  const am = AC.createOscillator(); am.frequency.value = 7; const amg = AC.createGain(); amg.gain.value = .08;
+  const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.18, t + .3); g.gain.linearRampToValueAtTime(.0001, t + 1.6);
+  am.connect(amg).connect(g.gain);
+  n.connect(bp).connect(g).connect(panner(rand(-1, 1))).connect(master); n.start(t); am.start(t); n.stop(t + 1.7); am.stop(t + 1.7);
+  const o = AC.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(90, t); o.frequency.linearRampToValueAtTime(60, t + 1.5);
+  o.connect(env(t, .4, .15, 1.2)).connect(master); o.start(t); o.stop(t + 1.8);
+}
+function sfxCloth() {
+  if (!AC) return; const t = AC.currentTime; const n = noiseSrc(); const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
+  n.connect(f).connect(env(t, .02, .1, .2)).connect(master); n.start(t, rand(0, 1)); n.stop(t + .3);
 }
 function sfxDrip() {
   if (!AC) return; const t = AC.currentTime, p = rand(-1, 1), f = rand(1200, 2200);
@@ -1206,6 +1290,7 @@ document.addEventListener('keydown', e => {
     if (state === 'paused' && noLock && e.code === 'Escape') resume();
     return;
   }
+  if (e.code === 'KeyC') { P.crouch = !P.crouch; sfxCloth(); }
   if (e.code === 'KeyF') { if (P.bat > 0) { flashOn = !flashOn; sfxClick(900, .15); } }
   if (e.code === 'KeyE') interact();
   if (e.code === 'Escape' && noLock) { state = 'paused'; showScreen('pauseScreen'); }
@@ -1232,7 +1317,7 @@ function alertNoise(x, z, radius) {
   for (const zb of zombies) if (Math.hypot(zb.x - x, zb.z - z) < radius && zb.state !== 'chase') spotted(zb);
 }
 function spotted(zb) {
-  zb.state = 'chase'; zb.lastSeen = playTime;
+  zb.state = 'chase'; zb.lastSeen = playTime; zb.lastX = P.x; zb.lastZ = P.z;
   sfxGroan(zb.x, zb.z, true);
   if (playTime - lastStinger > 12 && Math.hypot(zb.x - P.x, zb.z - P.z) < 16) { sfxStinger(); lastStinger = playTime; }
 }
@@ -1439,22 +1524,23 @@ function updatePlayer(dt) {
   let mx = -Math.sin(yaw) * f + Math.cos(yaw) * s, mz = -Math.cos(yaw) * f - Math.sin(yaw) * s;
   const ml = Math.hypot(mx, mz), moving = ml > 0;
   if (moving) { mx /= ml; mz /= ml; }
-  const sprint = (keys.ShiftLeft || keys.ShiftRight) && f > 0 && !P.exhausted && P.st > 0 && moving;
+  const sprint = !P.crouch && (keys.ShiftLeft || keys.ShiftRight) && f > 0 && !P.exhausted && P.st > 0 && moving;
   if (sprint) { P.st -= 24 * dt; if (P.st <= 0) { P.st = 0; P.exhausted = true; } }
   else { P.st = Math.min(100, P.st + 14 * dt); if (P.exhausted && P.st > 35) P.exhausted = false; }
-  let speed = sprint ? 5.6 : 3.1;
+  let speed = sprint ? 5.6 : P.crouch ? 1.5 : 3.1;
   if (P.inf > 60) speed *= 0.85;
   if (moving) {
     moveEntity(P, mx * speed * dt, mz * speed * dt, 0.32);
     bob += dt * (sprint ? 13 : 9);
     const ph = Math.floor(bob / Math.PI);
-    if (ph !== lastStepPhase) { lastStepPhase = ph; sfxStep(sprint); if (sprint) alertNoise(P.x, P.z, 9); }
+    if (ph !== lastStepPhase) { lastStepPhase = ph; if (!P.crouch) sfxStep(sprint); if (sprint) alertNoise(P.x, P.z, 9); }
   }
   for (const zb of zombies) {
     const dx = P.x - zb.x, dz = P.z - zb.z, d = Math.hypot(dx, dz);
     if (d < 0.7 && d > 0.001) moveEntity(P, dx / d * (0.7 - d), dz / d * (0.7 - d), 0.32);
   }
   for (const o of obstacles) {
+    if (o.hide && P.crouch) continue; // you can crawl under these
     const dx = P.x - o.x, dz = P.z - o.z, d = Math.hypot(dx, dz), m = o.r + .3;
     if (d < m && d > 0.001) moveEntity(P, dx / d * (m - d), dz / d * (m - d), 0.32);
   }
@@ -1471,7 +1557,12 @@ function updatePlayer(dt) {
   }
   shake = Math.max(0, shake - dt * 1.5); hurtT = Math.max(0, hurtT - dt * 1.6);
   const by = moving ? Math.sin(bob) * (sprint ? .07 : .045) : 0;
-  camera.position.set(P.x, EYE + by, P.z);
+  // crouching / hiding / breath
+  eyeH = lerp(eyeH, P.crouch ? .55 : EYE, Math.min(1, dt * 8));
+  const spot = obstacles.find(o => o.hide && Math.hypot(P.x - o.x, P.z - o.z) < o.r);
+  P.hidden = P.crouch && !!spot;
+  updateBreath(dt);
+  camera.position.set(P.x, eyeH + by * (P.crouch ? .4 : 1), P.z);
   const sx = shake * rand(-.04, .04), sy = shake * rand(-.04, .04);
   const sway = P.inf > 50 ? Math.sin(T * 0.9) * (P.inf - 50) / 50 * 0.05 : 0;
   camera.rotation.set(pitch + sy, yaw + sx, sway);
@@ -1492,6 +1583,30 @@ function updatePlayer(dt) {
   vm.position.set(.34 + (moving ? Math.cos(bob * .5) * .015 : 0), -.46 + by * .4, -.55);
 }
 
+function updateBreath(dt) {
+  let near = 99; for (const zb of zombies) near = Math.min(near, Math.hypot(zb.x - P.x, zb.z - P.z));
+  holding = !!keys.Space && P.breath > 0 && gasping <= 0;
+  gasping = Math.max(0, gasping - dt);
+  if (holding) {
+    P.breath -= 17 * dt;
+    if (P.breath <= 0) { // you can't hold it any longer
+      P.breath = 0; gasping = 2.5; holding = false; sfxGasp(); msg('You gasp for air.', 2);
+      for (const zb of zombies) if (Math.hypot(zb.x - P.x, zb.z - P.z) < 9) { zb.state = 'chase'; zb.lastSeen = playTime; zb.lastX = P.x; zb.lastZ = P.z; zb.heard = true; sfxGroan(zb.x, zb.z, true); }
+    }
+  } else P.breath = Math.min(100, P.breath + 11 * dt);
+  // audible breathing while crouched, hiding, winded or scared
+  breathT -= dt;
+  if (!holding && breathT <= 0 && (P.crouch || P.st < 45 || near < 6)) {
+    const fast = P.st < 45 || near < 4 || gasping > 0;
+    breathT = fast ? 1.1 : 2.3;
+    sfxBreath(true, fast ? .06 : .035); setTimeout(() => sfxBreath(false, fast ? .05 : .03), fast ? 450 : 1000);
+    if (P.hidden) for (const zb of zombies) { // they can hear you breathing
+      const d = Math.hypot(zb.x - P.x, zb.z - P.z);
+      if (d < 2.8 && Math.random() < (fast ? .4 : .25)) { zb.state = 'chase'; zb.lastSeen = playTime; zb.lastX = P.x; zb.lastZ = P.z; zb.heard = true; sfxSniff(zb.x, zb.z); }
+    }
+  }
+}
+
 function updateZombies(dt) {
   flowT -= dt; if (flowT <= 0) { computeFlow(); flowT = 0.3; }
   let nearest = 99;
@@ -1503,18 +1618,26 @@ function updateZombies(dt) {
       zb.neck.rotation.x = -.5; zb.body.rotation.x = -.18; animZombie(zb, dt, 0);
       continue;
     }
-    const sees = d < 20 && los(zb.x, zb.z, P.x, P.z);
+    let sees = d < 20 && los(zb.x, zb.z, P.x, P.z);
+    if (P.hidden && d > 1.0 && !(zb.heard && d < 1.6)) sees = false; // under cover: only found by bumping into you or hearing you
+    if (sees) { zb.lastX = P.x; zb.lastZ = P.z; }
     if (zb.state !== 'chase') {
-      const range = (flashOn && blackout <= 0) ? 15 : 7;
+      const range = ((flashOn && blackout <= 0) ? 15 : 7) * (P.crouch ? .55 : 1);
       if (sees && d < range) spotted(zb);
     } else {
       if (sees) zb.lastSeen = playTime;
-      else if (playTime - zb.lastSeen > 9 && !alarm) zb.state = 'wander';
+      else if (playTime - zb.lastSeen > (P.hidden ? 7 : 9) && (!alarm || P.hidden)) { zb.state = 'wander'; zb.heard = false; }
     }
     let vx = 0, vz = 0, spd = 0;
     if (zb.state === 'chase') {
       spd = zb.speed;
       if (sees) { vx = dx / d; vz = dz / d; }
+      else if (P.hidden) { // lost you: go to where they last saw / heard you, then search
+        const tx = zb.lastX ?? zb.x, tz = zb.lastZ ?? zb.z, ex = tx - zb.x, ez = tz - zb.z, el = Math.hypot(ex, ez);
+        if (el > .7) { vx = ex / el; vz = ez / el; spd = zb.speed * .7; }
+        else { spd = .45; zb.dir += rand(-2, 2) * dt; vx = Math.sin(zb.dir); vz = Math.cos(zb.dir); }
+        if (d < 3.6) { sniffT -= dt; if (sniffT <= 0) { sniffT = rand(1.5, 3); sfxSniff(zb.x, zb.z); } }
+      }
       else {
         const c = Math.floor(zb.x / CELL), r = Math.floor(zb.z / CELL), cur = flow[r * W + c];
         let best = null, bv = cur < 0 ? 1e9 : cur;
@@ -1526,7 +1649,9 @@ function updateZombies(dt) {
       }
       zb.attackCd -= dt;
       if (d < 1.3 && zb.attackCd <= 0 && sees) {
-        zb.attackCd = 1.3; zb.lunge = 1; sfxGroan(zb.x, zb.z, true); hurt(zb.runner ? 10 : 15, zb.runner ? 9 : 13);
+        zb.attackCd = 1.3; zb.lunge = 1; sfxGroan(zb.x, zb.z, true);
+        if (P.hidden) { P.crouch = false; P.hidden = false; sfxStinger(); msg('<b>IT FOUND YOU</b>', 2); shake = 1; } // dragged out
+        hurt(zb.runner ? 10 : 15, zb.runner ? 9 : 13);
         if (state !== 'playing') return;
       }
       if (d < 1.05) spd = 0;
@@ -1539,6 +1664,10 @@ function updateZombies(dt) {
       if (o === zb) continue;
       const sx = zb.x - o.x, sz = zb.z - o.z, sd = Math.hypot(sx, sz);
       if (sd < 0.8 && sd > 0.001) { vx += sx / sd * .6; vz += sz / sd * .6; }
+    }
+    for (const o of obstacles) {
+      const ox = zb.x - o.x, oz = zb.z - o.z, od = Math.hypot(ox, oz), m = o.r + .4;
+      if (od < m && od > .001) { vx += ox / od * 1.2; vz += oz / od * 1.2; if (od < m * .8) moveEntity(zb, ox / od * (m * .8 - od), oz / od * (m * .8 - od), .35); }
     }
     let moveSpd = 0;
     if (spd > 0 && (vx || vz)) {
@@ -1584,7 +1713,7 @@ function updateLights(dt) {
     L.mat.color.setHex(alarm ? 0xff3a2a : theme.fix).multiplyScalar(0.15 + L.level * 0.85);
   }
   for (const p of pool) p.l.intensity = p.lamp ? 1.1 * p.lamp.level : 0;
-  let fi = flashOn ? 2.4 : 0;
+  let fi = flashOn ? (P.hidden ? .35 : 2.4) : 0; // under cover you cup the lens
   if (flashOn && (P.bat < 18 || blackout > 0) && Math.random() < 0.15) fi *= rand(0, .5);
   flash.intensity = fi;
 }
@@ -1608,6 +1737,9 @@ function updateWorld(dt) {
   }
   if (!prompt && rowe && !rowe.searched && Math.hypot(rowe.x - P.x, rowe.z - P.z) < 2) prompt = '<kbd>E</kbd>Search the body';
   if (!prompt) for (const s of switches) if (!s.thrown && Math.hypot(s.x - P.x, s.z - P.z) < 1.9) prompt = '<kbd>E</kbd>Throw breaker';
+  if (!prompt && !P.crouch) { const h = obstacles.find(o => o.hide && Math.hypot(P.x - o.x, P.z - o.z) < o.r + 1.1);
+    if (h) { prompt = `<kbd>C</kbd>Crouch to hide under the ${h.name}`; if (!hideTipShown) { hideTipShown = true; msg('You could hide under that.', 2.5); } } }
+  updatePhantom(dt);
   if (!prompt && nearExit()) prompt = (progress >= (AR.needed || 1)) ? `<kbd>E</kbd>${['Swipe keycard', 'Take the lift', 'Open the bay doors'][areaIdx]}` : `<kbd>E</kbd>Try the ${AR.exitLabel.toLowerCase()}`;
   $('prompt').style.display = prompt ? 'block' : 'none'; if (prompt) $('prompt').innerHTML = prompt;
   for (let i = particles.length - 1; i >= 0; i--) {
@@ -1619,6 +1751,33 @@ function updateWorld(dt) {
   if (areaIdx === 1) { dripT -= dt; if (dripT <= 0) { dripT = rand(.4, 2.2); sfxDrip(); } }
 }
 
+// The figure at the end of the hall. It is never there when you get close.
+function updatePhantom(dt) {
+  if (phantom) {
+    phantom.t += dt;
+    const d = Math.hypot(phantom.x - P.x, phantom.z - P.z);
+    if (d < 5 || phantom.t > 3.5 || !los(P.x, P.z, phantom.x, phantom.z)) {
+      level.remove(phantom.group); sfxWhisper(); phantom = null; phantomT = rand(55, 110);
+    }
+    return;
+  }
+  phantomT -= dt;
+  if (phantomT > 0 || zombies.some(z => z.state === 'chase')) return;
+  phantomT = rand(8, 15); // retry soon if there is no good spot
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  for (let t = 11; t >= 7; t--) {
+    const x = P.x + fx * t, z = P.z + fz * t;
+    if (solidAt(x, z) || !los(P.x, P.z, x, z)) continue;
+    const zb = makeZombie(x, z, { register: false, runner: false });
+    zb.group.traverse(o => { if (o.isMesh) o.material = o.material === eyeMat ? phantomEyeMat : shadowMat; });
+    zb.eyes.forEach(e => e.scale.set(1.4, 1.2, 1));
+    zb.yaw = Math.atan2(P.x - x, P.z - z); animZombie(zb, 0, 0);
+    zb.arms.forEach(a => a.rotation.x = 0); zb.neck.rotation.z = .4;
+    phantom = { group: zb.group, x, z, t: 0 };
+    return;
+  }
+}
+
 function updateHUD(dt) {
   $('hpFill').style.width = Math.max(0, P.hp) + '%';
   $('infFill').style.width = P.inf + '%';
@@ -1626,6 +1785,19 @@ function updateHUD(dt) {
   $('stFill').style.width = P.st + '%';
   $('stFill').style.background = P.exhausted ? 'rgba(200,60,50,.7)' : 'rgba(220,220,210,.6)';
   $('evid').textContent = `${P.found.length} / ${TOTAL_NOTES}`;
+  {
+    let near = 99, hunting = false;
+    for (const zb of zombies) { const d = Math.hypot(zb.x - P.x, zb.z - P.z); if (d < near) { near = d; hunting = zb.state === 'chase'; } }
+    const st = $('stealthState'), hint = $('stealthHint');
+    $('hideFx').style.opacity = P.hidden ? 1 : P.crouch ? .35 : 0;
+    if (P.hidden) {
+      st.textContent = holding ? 'HOLDING BREATH' : 'HIDDEN'; st.className = (near < 3.6 && hunting) ? 'danger' : '';
+      hint.innerHTML = near < 6 && !holding ? 'hold <kbd>SPACE</kbd> to hold your breath' : '';
+    } else if (P.crouch) { st.textContent = 'CROUCHED'; st.className = ''; hint.textContent = ''; }
+    else { st.textContent = ''; hint.textContent = ''; }
+    $('breathBar').style.display = (holding || P.breath < 100) ? 'block' : 'none';
+    $('breathFill').style.width = P.breath + '%';
+  }
   if (P.weapon) $('durFill').style.width = (P.weapon.dur / WEAPONS[P.weapon.type].dur * 100) + '%';
   $('hurt').style.opacity = Math.max(hurtT, P.hp < 30 ? 0.35 + Math.sin(T * 4) * .1 : 0);
   $('sickfx').style.opacity = clamp((P.inf - 25) / 75, 0, 1) * (0.7 + Math.sin(T * 1.3) * .3);

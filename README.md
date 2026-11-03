@@ -25,12 +25,16 @@ of the truth you uncover.
 the Dr. Rowe reveal, a death scene, and the escape at dawn. Press Space to skip any of them.
 If you die, you can retry from the start of the current area.
 
-**Controls:** WASD move · mouse look · Shift sprint · click swing weapon · F flashlight · E read/use/pick up · Esc pause · Space skip cutscene
+**Controls:** WASD move · mouse look · Shift sprint · C crouch/hide · Space hold breath · click swing weapon · F flashlight · E read/use/pick up · Esc pause · Space skip cutscene
 
 - Bars for health, **infection** (bites raise it; your immune system slowly clears it, and above 75% it drains your health), flashlight battery and stamina
 - **Melee weapons** are hidden in every area: lead pipe, crowbar, pipe wrench and fire axe. Hits stagger zombies and knock them back, and enough hits kill them.
   You carry one weapon at a time. Picking up another drops the one you're holding. Each has its own damage, speed and durability, and breaks when it wears out.
   Every swing costs stamina and makes noise, so running away is often still the better choice.
+- **Crouch and hide.** Press C to crouch: you move slowly and silently and are harder to spot. Crawl under gurneys, workbenches and desks to hide.
+  Zombies that lose you go to where they last saw you and search, sniffing around. If they saw you crawl in, they drag you out.
+  Your breathing can give you away, so hold Space to hold your breath. Hold it too long and you gasp out loud.
+- Sometimes a shadow figure with red eyes stands at the far end of a hall. It's never there when you get close.
 - Zombies hunt by sight, flashlight and running footsteps. Break line of sight to lose them, and sprint to outrun the fast ones.
 
 Uses Three.js (r128) from cdnjs. All textures and audio are generated in code. Headphones recommended.
