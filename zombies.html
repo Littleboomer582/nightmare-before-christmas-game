@@ -412,7 +412,7 @@
           <h5>Staying alive</h5>
           <p>Zombies tear the boards off the depot windows. Hold F at a window to rebuild it for points.</p>
           <p>Spend points on chalk wall weapons, the mystery box, the debris door (750) and the lot gate (1000).</p>
-          <p>Throw the power switch by the generator in the bus lot to wake the perk machines and the Forge.</p>
+          <p>Throw the power switch by the generator in the bus lot to wake the perk machines and the Punch Press.</p>
         </div>
         <div>
           <h5>Secrets <small id="secCount" style="color:#d9a2ff"></small></h5>
@@ -436,11 +436,11 @@
           <h5>Other maps</h5>
           <p><b style="color:#fff">Blackwater Pier</b>: they climb out of the harbour onto the boardwalk. The power switch is by the lighthouse at the end of the pier.</p>
           <p><b style="color:#fff">Ashgrove Farmhouse</b>: classic survival. No power, perks or buildables; zombies only come through the boarded windows of rooms you've opened.</p>
-          <p><b style="color:#fff">Cold Hollow Mine</b>: a snowed-in camp. The power switch is on the generator by the bunkhouse, and the Forge is at the end of the mine tunnel.</p>
+          <p><b style="color:#fff">Cold Hollow Mine</b>: a snowed-in camp. The power switch is on the generator by the bunkhouse, and the Punch Press is at the end of the mine tunnel.</p>
         </div>
         <div>
           <h5>Wonder weapons</h5>
-          <p>The mystery box can give the Ray Pistol, whose exploding bolts will hurt you up close until forged, and the rare Arc Thrower.</p>
+          <p>The mystery box can give the Ray Pistol, whose exploding bolts will hurt you up close until it's punched up, and the rare Arc Thrower.</p>
         </div>
       </div>
       <div class="list"><button class="mi back">Back</button></div>
@@ -1699,7 +1699,7 @@ for (const k in SAMPLE_OF) {
 /* =====================================================================
    WEAPONS
    ===================================================================== */
-// Real-world firearms. Upgraded ("forged") names are this game's own.
+// Real-world firearms. Upgraded (Punch Press) names are this game's own.
 const W = {
   // starting pistol
   m1911:    { name: 'M1911', up: 'M1911 Twin Fury', kind: 'pistol', dmg: 45, head: 3, rpm: 420, auto: false, mag: 8, reserve: 80, reload: 1.5, spread: .012, len: .2, color: 0x2a2a2e },
@@ -2353,7 +2353,7 @@ const QUOTE_LINES = {
   perk_blast: ["Explosions don't scare me anymore. Well. Less.", "Tastes like smoke. Feels like armor.", "Explosive."],
   sparkKill: ["Bzzzt. Next!", "Reloading with a side of lightning.", "Shocked? Me too."],
   power: ["Lights! We've got lights!", "Power's on. Let's see what works.", "Hear that hum? That's the sound of perks."],
-  forge: ["Forged. Shiny. Deadly.", "{w}. Oh, they're in trouble now.", "That machine just made my gun angry.", "I wonder, if I can put guns in there, can I put my knife in there?"],
+  forge: ["Punched up. Shiny. Deadly.", "{w}. Oh, they're in trouble now.", "That machine just made my gun angry.", "I wonder, if I can put guns in there, can I put my knife in there?"],
   door_lot: ["Bus lot's open. More room to run.", "More room to run. More room for them, too."],
   door_road: ["Road's open. Let's catch that bus.", "Out on the road. Stay off the yellow line."],
   door_parlor: ["Parlor's clear. Somebody liked fireplaces.", "More rooms, more windows. Great."],
@@ -3937,7 +3937,7 @@ function updateBox(dt) {
   }
 }
 
-// ---- Power switch, forge (upgrade machine), door ----
+// ---- Power switch, Punch Press (upgrade machine; `forge` in the code), door ----
 const powerLevers = [];
 // A wall-mounted power switch. rotY 0 means the player stands on the -x side of it.
 function powerSwitch(x, z, rotY = 0) {
@@ -3955,7 +3955,7 @@ function powerSwitch(x, z, rotY = 0) {
   });
   WORLD.power = { is: () => G.power, open: turnOnPower };
 }
-// The Forge upgrades the held weapon. rotY 0 faces +z.
+// The Punch Press upgrades the held weapon. rotY 0 faces +z.
 function buildForge(fx, fz, rotY = Math.PI / 4) {
   const fg = new THREE.Group(); fg.position.set(fx, 0, fz); fg.rotation.y = rotY; scene.add(fg);
   box(1.6, 1, 1.2, 0, .5, 0, mat(0x2a2422), { collide: false, parent: fg });
@@ -3964,7 +3964,7 @@ function buildForge(fx, fz, rotY = Math.PI / 4) {
   core.position.set(0, 1.45, .4); fg.add(core);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(.42, .05, 8, 24), mat(0x6a5a50, { shininess: 60 })); ring.position.set(0, 1.45, .45); fg.add(ring);
   for (const sx of [-.7, .7]) box(.15, 2.4, .15, sx, 1.2, -.4, M.darkMetal, { collide: false, parent: fg });
-  const flbl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .35), mat(0xffffff, { map: textTex(['THE FORGE'], { w: 512, h: 128, bg: '#120818', color: '#d9a2ff', size: 80, font: 'Creepster', glow: '#a040ff' }) }));
+  const flbl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .35), mat(0xffffff, { map: textTex(['PUNCH PRESS'], { w: 512, h: 128, bg: '#120818', color: '#d9a2ff', size: 80, font: 'Creepster', glow: '#a040ff' }) }));
   flbl.position.set(0, 2.15, .46); fg.add(flbl);
   addCollider(fx - 1, fx + 1, fz - 1, fz + 1, 0, 2.4);
   const fwd = new V3(Math.sin(rotY), 0, Math.cos(rotY));
@@ -3976,9 +3976,9 @@ function buildForge(fx, fz, rotY = Math.PI / 4) {
       if (!G.power) return 'You must turn on the power first!';
       const w = P.weapons[P.cur];
       if (forge.busy) return null;
-      if (w.def.kind === 'gale') return 'The Gale Cannon can\'t be forged';
-      if (w.up) return 'This weapon is already forged';
-      return `Press <b>F</b> to forge ${w.def.name} into ${w.def.up} [Cost: 5000]`;
+      if (w.def.kind === 'gale') return 'The Gale Cannon can\'t be punched up';
+      if (w.up) return 'This weapon is already punched up';
+      return `Press <b>F</b> to punch up ${w.def.name} into ${w.def.up} [Cost: 5000]`;
     },
     use() {
       const w = P.weapons[P.cur];
@@ -5634,11 +5634,11 @@ const MODES = {
     intro: ['ROUTE 9 TRANSIT DEPOT', 'Waiting room · last call', 'October 31 · 11:57 PM'] },
   pier: { map: 'pier', name: 'Blackwater Pier', tag: 'New map · Survival', title: 'Blackwater Pier',
     desc: 'A fishing harbour lost in sea fog. They climb out of the black water onto the boardwalk. Fight from the bait shop out to the end of the pier while the lighthouse sweeps the dark.',
-    bullets: ['Boardwalk, fishing pier and harbour front', 'Lighthouse power switch, perks and the Forge', 'All four buildables'],
+    bullets: ['Boardwalk, fishing pier and harbour front', 'Lighthouse power switch, perks and the Punch Press', 'All four buildables'],
     intro: ['BLACKWATER PIER', 'Harbour front, dead calm', 'November 1 · 1:12 AM'] },
   mine: { map: 'mine', name: 'Cold Hollow Mine', tag: 'New map · Survival', title: 'Cold Hollow Mine',
-    desc: 'A snowed-in mining camp ringed by cliffs. They stagger out of the dark tunnel and down off the rocks. Keep the bonfire at your back and the Forge waits at the end of the mine.',
-    bullets: ['Log cabins, bunkhouse and mess tent', 'Dead-end mine tunnel with the Forge', 'All four buildables, falling snow'],
+    desc: 'A snowed-in mining camp ringed by cliffs. They stagger out of the dark tunnel and down off the rocks. Keep the bonfire at your back and the Punch Press waits at the end of the mine.',
+    bullets: ['Log cabins, bunkhouse and mess tent', 'Dead-end mine tunnel with the Punch Press', 'All four buildables, falling snow'],
     intro: ['COLD HOLLOW MINE No. 3', 'Snowed in since Tuesday', 'November 2 · 3:40 AM'] },
   farm: { map: 'farm', name: 'Ashgrove Farmhouse', short: 'Ashgrove Farm', tag: 'Classic · Survival', title: 'Ashgrove Farmhouse',
     desc: 'Back to basics. A ruined farmhouse in the marsh, boarded windows and the guns on the walls: no power, no perks, no buildables. Open it up room by room and hold out.',
@@ -5661,7 +5661,7 @@ const TIPS = [
   'Headshots are worth more points than body shots, and knife kills more still.',
   'The bus waits 25 seconds at each stop. It honks before it leaves.',
   'Turn on the power before you buy perks. The switch is on the generator in the bus lot.',
-  'The Ray Pistol\'s splash hurts you at point blank. Forge it, or drink Blastproof Bitters.',
+  'The Ray Pistol\'s splash hurts you at point blank. Punch it up, or drink Blastproof Bitters.',
   'You can hold four perks at a time. Choose the ones that fit how you play.',
   'Online, a downed teammate gets back up if you hold F next to them for 3 seconds.',
   'Online co-op: the host keeps the game running for everyone, so the host should keep the game open on screen.',

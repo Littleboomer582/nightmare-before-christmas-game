@@ -43,7 +43,7 @@ const WHEN = {
   noAmmo: 'out of ammo', ammo: 'buying ammo', overheat: 'the Gale Cannon overheats', start: 'any map', start_route9: 'Route 9', start_depot: 'the depot',
   start_pier: 'the pier', start_mine: 'the mine', start_farm: 'Ashgrove Farmhouse', buy_rifle: 'buying a rifle', buy_smg: 'buying an SMG', buy_shotgun: 'buying a shotgun',
   boxSpin: 'spinning the box', boxBig: 'a great gun from the box', boxMeh: 'a so-so gun from the box', box_ray: 'the ray gun from the box', box_arc: 'the arc gun from the box',
-  forge: 'upgrading a gun', perk_iron: 'Ironhide Ale', perk_quick: 'Quickhand Cola', perk_dbl: 'Double Barrel Brew', perk_wind: 'Second Wind Soda', perk_fleet: 'Fleetfoot Fizz',
+  forge: 'upgrading a gun', perk_iron: 'Ironhide Ale', perk_quick: 'Quickhands Cola', perk_dbl: 'Doubleshot Draught', perk_wind: 'Second Wind Soda', perk_fleet: 'Fleetfoot Fizz',
   perk_holster: 'Third Holster Tonic', perk_steady: 'Steady Hand Stout', perk_spark: 'Spark Cider', perk_blast: 'Blastproof Bitters', pu_ammo: 'Max Ammo',
   pu_insta: 'Insta-Kill', pu_dbl: 'Double Points', pu_nuke: 'the nuke', pu_carp: 'Carpenter', power: 'turning the power on', repair: 'rebuilding a board',
   door_lot: 'opening the lot', door_road: 'opening the road', door_parlor: 'opening the parlor', door_barn: 'opening the barn', build_shield: 'building the shield',

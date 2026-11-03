@@ -268,8 +268,8 @@ One plays when a match begins, plus one for the map.
    <sub>the arc gun from the box · `box_arc--this-thing-hums-i-like-things.mp3`</sub>
 18. "Now that's a weapon."  
    <sub>the arc gun from the box · `box_arc--now-thats-a-weapon.mp3`</sub>
-19. "Forged. Shiny. Deadly."  
-   <sub>upgrading a gun · `forge--forged-shiny-deadly.mp3`</sub>
+19. "Punched up. Shiny. Deadly."  
+   <sub>upgrading a gun · `forge--punched-up-shiny-deadly.mp3`</sub>
 20. "That machine just made my gun angry."  
    <sub>upgrading a gun · `forge--that-machine-just-made-my-gun.mp3`</sub>
 21. ✅ "I wonder, if I can put guns in there, can I put my knife in there?"  
@@ -284,17 +284,17 @@ One plays when a match begins, plus one for the map.
 3. ✅ "Mmm. Makes me stronger, and tastes better."  
    <sub>Ironhide Ale · `perk_iron--mmm-makes-me-stronger-and-tastes.mp3` · recorded</sub>
 4. "Whoa. My hands are buzzing."  
-   <sub>Quickhand Cola · `perk_quick--whoa-my-hands-are-buzzing.mp3`</sub>
+   <sub>Quickhands Cola · `perk_quick--whoa-my-hands-are-buzzing.mp3`</sub>
 5. "Fast hands. Fast reloads. Fast everything."  
-   <sub>Quickhand Cola · `perk_quick--fast-hands-fast-reloads-fast-everything.mp3`</sub>
+   <sub>Quickhands Cola · `perk_quick--fast-hands-fast-reloads-fast-everything.mp3`</sub>
 6. ✅ "My hands feel twitchy after drinking that."  
-   <sub>Quickhand Cola · `perk_quick--my-hands-feel-twitchy-after-drinking.mp3` · recorded</sub>
+   <sub>Quickhands Cola · `perk_quick--my-hands-feel-twitchy-after-drinking.mp3` · recorded</sub>
 7. "Double the fire. Double the fun."  
-   <sub>Double Barrel Brew · `perk_dbl--double-the-fire-double-the-fun.mp3`</sub>
+   <sub>Doubleshot Draught · `perk_dbl--double-the-fire-double-the-fun.mp3`</sub>
 8. "Tastes like gunpowder. Is that normal?"  
-   <sub>Double Barrel Brew · `perk_dbl--tastes-like-gunpowder-is-that-normal.mp3`</sub>
+   <sub>Doubleshot Draught · `perk_dbl--tastes-like-gunpowder-is-that-normal.mp3`</sub>
 9. ✅ "So I can be able to tap two times?"  
-   <sub>Double Barrel Brew · `perk_dbl--so-i-can-be-able-to.mp3` · recorded</sub>
+   <sub>Doubleshot Draught · `perk_dbl--so-i-can-be-able-to.mp3` · recorded</sub>
 10. "Second chances, bottled. Nice."  
    <sub>Second Wind Soda · `perk_wind--second-chances-bottled-nice.mp3`</sub>
 11. "Insurance in a can."  
