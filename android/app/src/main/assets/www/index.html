@@ -406,7 +406,7 @@ const ARSENAL = [
   ['sawedoff', 'Sawed-Off Shotgun', 'dbl', 60, 240, 2, 60, 2.4, 'wood short nostock'],
   ['bazooka', 'M9A1 Bazooka', 'launcher', 900, 40, 1, 20, 3.2, 'olive long'],
   ['panzerschreck', 'Panzerschreck', 'launcher', 1000, 40, 1, 20, 3.4, 'olive long shield'],
-  ['flamethrower', 'M2 Flamethrower', 'flame', 45, 600, 100, 300, 4, 'auto olive'],
+  ['flamethrower', 'M2 Flamethrower', 'flame', 45, 600, 100, 0, 4, 'auto olive'],
   // Black Ops
   ['python', 'Python', 'revolver', 380, 200, 6, 60, 2.8, 'semi long'],
   ['cz75', 'CZ75', 'pistol', 75, 450, 12, 120, 1.6, 'semi'],
@@ -547,6 +547,8 @@ for (const [id, name, arch, dmg, rpm, mag, res, reload, traits, cost] of ARSENAL
   if (o.has('chain')) { d.chain = true; d.snd = 'zap'; }
   if (o.has('gale')) { d.gale = true; d.snd = 'gale'; d.recoil = .09; }
   if (o.has('cryo')) { d.cryo = true; d.snd = 'cryo'; }
+  // rechargeable fuel: refills on its own after you stop firing; empty it and it overheats
+  if (arch === 'flame') d.recharge = { delay: .8, rate: 30, cool: .35 };
   WEAPONS[id] = d;
 }
 const UP = {};
@@ -564,6 +566,7 @@ Object.assign(UP.ptrs, { dmg: 3500, pierce: 12 });
 Object.assign(UP.storm, { dmg: 5000, mag: 24, res: 192, chains: 16 });
 Object.assign(UP.gale, { dmg: 9000, mag: 4, res: 48 });
 Object.assign(UP.cryo, { dmg: 500, mag: 60, res: 300 });
+Object.assign(UP.flamethrower, { res: 0, recharge: { delay: .5, rate: 48, cool: .3 } });
 for (const id in WEAPONS) if (WEAPONS[id].launcher) UP[id].splash = WEAPONS[id].splash * 1.3;
 // every weapon except the starting pistol; wonder weapons get extra tickets
 const BOX_POOL = Object.keys(WEAPONS).filter(id => id !== 'm1911');
@@ -671,6 +674,7 @@ const SFX = new Proxy({
   breakAct() { noise(.09, 'lowpass', 900, .5); noise(.04, 'bandpass', 2200, .3, 5); },
   coverAct() { noise(.09, 'bandpass', 1000, .38, 3); },
   slap() { noise(.05, 'lowpass', 700, .4); },
+  overheat() { noise(.9, 'highpass', 2600, .35, 1, 0, .02); noise(.5, 'lowpass', 400, .3); tone('sine', 900, .3, .06, 300); },
   heartbeat() { tone('sine', 58, .14, .5, 38); tone('sine', 52, .14, .38, 34, .2); },
   breath() { noise(1.1, 'bandpass', 700, .1, 1.5, 0, .4); },
   tink() { tone('sine', 3800 + Math.random() * 1600, .07, .025); tone('sine', 6100 + Math.random() * 900, .05, .012, null, .01); },
@@ -1907,12 +1911,20 @@ function updateHUD(dt) {
   const w = curW(), s = statsOf(w);
   setHTML('points', String(player.points));
   setHTML('wname', s.name); $('wname').className = w.up ? 'up' : '';
+  let hint = '';
+  if (s.recharge) {
+    const pct = Math.floor(w.mag / s.mag * 100);
+    setHTML('mag', pct + '%'); setHTML('res', ' FUEL');
+    $('ammo').className = w.overheat || pct <= 20 ? 'low' : '';
+    if (w.overheat) hint = '<span style="color:#ff8030">OVERHEATED - let it cool down</span>';
+    else if (w.mag < s.mag && time - (w.lastFire ?? -9) > s.recharge.delay) hint = '<span style="color:#9fd8ff">Refuelling</span>';
+  } else {
   setHTML('mag', String(w.mag)); setHTML('res', ' / ' + w.res);
   $('ammo').className = w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) ? 'low' : '';
-  let hint = '';
   if (w.mag + w.res === 0) hint = '<span style="color:#ff4040">NO AMMO</span>';
   else if (player.reloadT <= 0 && w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) && w.res > 0) hint = IS_TOUCH ? 'Tap <b>RELOAD</b>' : 'Press <b>R</b> to reload';
   else if (w.res === 0 && w.mag <= Math.ceil(s.mag * .25)) hint = '<span style="color:#ffd23f">LOW AMMO</span>';
+  }
   setHTML('ammoHint', hint);
   setHTML('nades', '● '.repeat(player.grenades).trim() + '  <small>GRENADES</small>');
   const hpf = Math.max(0, 1 - player.hp / player.maxHp);
@@ -2605,6 +2617,7 @@ const _v = new THREE.Vector3(), _o = new THREE.Vector3(), _m = new THREE.Vector3
 function fire() {
   const w = curW(), s = statsOf(w), P = player;
   w.mag--;
+  if (s.recharge) { w.lastFire = time; if (w.mag < 1) { w.mag = 0; w.overheat = true; SFX.overheat(); } }
   const rate = s.rpm * (P.perks.has('rapid') ? 1.33 : 1);
   P.fireCD = P.fireDur = 60 / rate;
   if (s.flame || s.cryo || s.gale) { coneFire(w, s); return; }
@@ -3026,7 +3039,7 @@ function dropPowerup(x, z) {
 function applyPowerup(type) {
   const info = PU_INFO[type];
   announce(info.label, info.color, 2.5); SFX.powerup();
-  if (type === 'max') { for (const w of player.weapons) w.res = statsOf(w).res; player.grenades = 4; }
+  if (type === 'max') { for (const w of player.weapons) { w.res = statsOf(w).res; if (statsOf(w).recharge) { w.mag = statsOf(w).mag; w.overheat = false; } } player.grenades = 4; }
   else if (type === 'insta') insta = 30;
   else if (type === 'double') dbl = 30;
   else if (type === 'nuke') {
@@ -3136,6 +3149,15 @@ function update(dt) {
     if (rangeOpts.god) P.invuln = 1;
     if (rangeOpts.ammo) { for (const ww of P.weapons) ww.res = statsOf(ww).res; P.grenades = 4; }
   }
+  for (const ww of P.weapons) {
+    const ss = statsOf(ww); if (!ss.recharge) continue;
+    if (time - (ww.lastFire ?? -9) > ss.recharge.delay && ww.mag < ss.mag) {
+      ww.mag = Math.min(ss.mag, ww.mag + ss.recharge.rate * dt);
+      if (ww.mag >= ss.mag && ww === w) SFX.click();
+    }
+    if (ww.overheat && ww.mag >= ss.mag * ss.recharge.cool) { ww.overheat = false; if (ww === w) SFX.reloadIn(); }
+    if (ww.overheat && ww === w && Math.random() < dt * 9) { camera.localToWorld(_v.set(.12, -.1, -.75)); puff(_v.x, _v.y, _v.z, 'muzzle', 1.6); }
+  }
   advanceReload(dt);
   // reload cancel: once the new rounds are in (or at least one shell), firing ends the animation early
   if (P.rl && mouseL && !triggerLatch && w.mag > 0 && P.rl.applied) cancelReload();
@@ -3151,7 +3173,8 @@ function update(dt) {
   const adsWant = mouseR && !P.sprinting && P.reloadT <= 0 && P.swapT <= 0 && P.upgradeT <= 0 && P.knifeT <= 0 && !P.drink && P.throwT <= 0;
   P.ads += ((adsWant ? 1 : 0) - P.ads) * Math.min(1, dt * 11);
   if (mouseL && !busy && !P.sprinting && P.fireCD <= 0 && (s.auto || !triggerLatch)) {
-    if (w.mag > 0) { fire(); triggerLatch = true; if (s.burst) P.burstLeft = s.burst - 1; }
+    if (s.recharge && w.overheat) { if (!triggerLatch) { SFX.click(); triggerLatch = true; } }
+    else if (w.mag > 0) { fire(); triggerLatch = true; if (s.burst) P.burstLeft = s.burst - 1; }
     else if (w.res > 0) startReload();
     else if (!triggerLatch) { SFX.click(); triggerLatch = true; }
   }
@@ -3445,7 +3468,7 @@ function renderLoadout() {
     const d = WEAPONS[id], eq = cur && cur.id === id;
     const type = d.arch === 'bow' ? 'Crossbow' : d.arch === 'revolver' ? 'Revolver' : d.arch === 'bullpup' ? 'Bullpup rifle' : KIND_LABEL[d.kind] || 'Weapon';
     return `<button class="lo-card${eq ? ' eq' : ''}" data-id="${id}"><span class="n">${d.name}</span><span class="t">${type} \u00b7 ${WEAPON_ERA[id]}</span>` +
-      `<span class="st">${Math.round(d.dmg)} dmg${d.pellets ? ' \u00d7' + d.pellets : ''} \u00b7 ${d.burst ? '3-round burst' : d.auto ? d.rpm + ' rpm' : 'semi'} \u00b7 ${d.mag} rounds</span></button>`;
+      `<span class="st">${Math.round(d.dmg)} dmg${d.pellets ? ' \u00d7' + d.pellets : ''} \u00b7 ${d.burst ? '3-round burst' : d.auto ? d.rpm + ' rpm' : 'semi'} \u00b7 ${d.recharge ? 'rechargeable fuel' : d.mag + ' rounds'}</span></button>`;
   }).join('') : '<div class="lo-empty">No weapons match that search.</div>';
   $('loSlot').querySelectorAll('button').forEach(b => { const on = +b.dataset.slot === rangeOpts.slot; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
   $('loLevelV').textContent = rangeOpts.level; $('loHp').textContent = zombieHp(rangeOpts.level).toLocaleString() + ' HP';
