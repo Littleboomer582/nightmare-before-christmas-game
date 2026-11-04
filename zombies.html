@@ -129,8 +129,8 @@
     <b>G</b><span>Throw grenade</span>
     <b>Q / 1 / 2 / Wheel</b><span>Switch weapon</span>
   </div>
-  <div class="tips">1945. Earn points by shooting zombies and rebuilding the boarded windows. Spend them on wall weapons,
-    the Mystery Box, opening new areas and perk machines. Find the power switch to activate the perks and the Upgrade Machine.
+  <div class="tips">Earn points by shooting zombies and rebuilding the boarded windows. Spend them on wall weapons,
+    the Mystery Box (over 120 weapons from World War II to the near future), opening new areas and perk machines. Find the power switch to activate the perks and the Upgrade Machine.
     Survive as many rounds as you can.</div>
   <div class="best" id="bestMenu"></div>
 </div>
@@ -181,9 +181,9 @@ const MAP_SRC = [
 "##c..........#............###",
 "###..........#............###",
 "###..........#...........X###",
-"#######2###########3#########",
+"####i##2##j#####k##3#########",
 "###..........#J..........M###",
-"###..........#............###",
+"###..........#............l##",
 "#sW..........#............###",
 "###..........1............Ws#",
 "##a....P.....1............###",
@@ -201,7 +201,7 @@ const cx = c => c * CS + CS / 2, cz = r => r * CS + CS / 2;
 const toC = x => Math.floor(x / CS), toR = z => Math.floor(z / CS);
 const cell = (r, c) => (r < 0 || c < 0 || r >= R || c >= C) ? '#' : grid[r][c];
 const isFloor = ch => ch === '.' || ch === 'P';
-const WB_CHARS = 'abcdefgh';
+const WB_CHARS = 'abcdefghijkl';
 const isWallish = ch => ch === '#' || WB_CHARS.includes(ch);
 const DIRS4 = [[-1,0],[1,0],[0,-1],[0,1]];
 const DIRS8 = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
@@ -241,6 +241,163 @@ const WEAPONS = {
   ptrs:       { name:'PTRS-41',           up:'Tank Buster',       dmg:1300,rpm:60,  auto:false, mag:5,   res:50,  reload:3.4, spread:.002, head:4,   kind:'sniper', snd:'cannon', recoil:.08, pierce:6, zoom:20 },
   ion:        { name:'Ion Blaster',       up:'Ion Annihilator',   dmg:1000,rpm:200, auto:false, mag:20,  res:160, reload:2.8, spread:.01,  head:1,   kind:'wonder', snd:'wonder', recoil:.02, splash:2.6 },
 };
+/* The wider arsenal, World at War through Black Ops 3. Real firearms go by their real names.
+   The Black Ops 3-style future weapons and the wonder weapons are original designs filling
+   the same roles. Columns: id, name, model type, damage, rpm, magazine, reserve, reload
+   seconds, traits, wall cost. */
+const ARSENAL = [
+  // World at War
+  ['springfield', 'M1903 Springfield', 'rifle', 250, 55, 5, 50, 2.8, 'bolt wood stripper'],
+  ['arisaka', 'Arisaka', 'rifle', 250, 55, 5, 50, 2.9, 'bolt wood stripper long'],
+  ['mosin', 'Mosin-Nagant', 'rifle', 265, 50, 5, 50, 3.0, 'bolt wood stripper long'],
+  ['svt40', 'SVT-40', 'rifle', 130, 420, 10, 170, 2.6, 'semi wood box'],
+  ['m1919', 'Browning M1919', 'lmg', 125, 550, 125, 500, 6, 'auto belt bipod'],
+  ['dp28', 'DP-28', 'lmg', 110, 550, 47, 282, 4, 'auto top wood bipod'],
+  ['type99lmg', 'Type 99 LMG', 'lmg', 115, 750, 30, 240, 3.5, 'auto topbox wood bipod'],
+  ['p38', 'Walther P38', 'pistol', 45, 450, 8, 80, 1.6, 'semi'],
+  ['tt33', 'Tokarev TT-33', 'pistol', 48, 450, 8, 80, 1.6, 'semi'],
+  ['nambu', 'Nambu', 'pistol', 40, 420, 8, 80, 1.6, 'semi long'],
+  ['sawedoff', 'Sawed-Off Shotgun', 'dbl', 60, 240, 2, 60, 2.4, 'wood short nostock'],
+  ['bazooka', 'M9A1 Bazooka', 'launcher', 900, 40, 1, 20, 3.2, 'olive long'],
+  ['panzerschreck', 'Panzerschreck', 'launcher', 1000, 40, 1, 20, 3.4, 'olive long shield'],
+  ['flamethrower', 'M2 Flamethrower', 'flame', 45, 600, 100, 300, 4, 'auto olive'],
+  // Black Ops
+  ['python', 'Python', 'revolver', 380, 200, 6, 60, 2.8, 'semi long'],
+  ['cz75', 'CZ75', 'pistol', 75, 450, 12, 120, 1.6, 'semi'],
+  ['asp', 'ASP', 'pistol', 60, 450, 7, 70, 1.5, 'semi short'],
+  ['makarov', 'Makarov', 'pistol', 55, 450, 8, 80, 1.5, 'semi short'],
+  ['mp5k', 'MP5K', 'smg', 50, 800, 30, 120, 2.2, 'auto curved nostock short', 1000],
+  ['ak74u', 'AK-74u', 'smg', 60, 700, 20, 160, 2.4, 'auto curved wood fold', 1200],
+  ['mpl', 'MPL', 'smg', 48, 850, 24, 192, 2.2, 'auto box fold'],
+  ['pm63', 'PM-63', 'smg', 45, 750, 20, 100, 2.0, 'auto box nostock short'],
+  ['spectre', 'Spectre M4', 'smg', 48, 900, 30, 120, 2.3, 'auto box fold'],
+  ['uzi', 'Uzi', 'smg', 52, 600, 32, 160, 2.4, 'auto box fold'],
+  ['kiparis', 'Kiparis', 'smg', 45, 800, 20, 160, 2.0, 'auto box nostock short'],
+  ['skorpion', 'Skorpion', 'smg', 44, 900, 20, 120, 2.0, 'auto curved wire short'],
+  ['mac11', 'MAC-11', 'smg', 42, 1200, 32, 160, 2.0, 'auto box nostock short'],
+  ['m14', 'M14', 'rifle', 105, 500, 8, 92, 2.4, 'semi wood box', 500],
+  ['m16', 'M16', 'rifle', 100, 800, 30, 120, 2.6, 'burst carry'],
+  ['commando', 'Commando', 'rifle', 95, 700, 30, 120, 2.5, 'auto carry short'],
+  ['l85', 'L85A1', 'bullpup', 90, 650, 30, 180, 2.6, 'auto optic'],
+  ['famas', 'FAMAS', 'bullpup', 85, 900, 30, 150, 2.6, 'auto carry'],
+  ['galil', 'Galil', 'rifle', 100, 650, 35, 315, 2.8, 'auto curved fold'],
+  ['aug', 'Steyr AUG', 'bullpup', 100, 700, 30, 270, 2.7, 'auto optic olive'],
+  ['fnfal', 'FN FAL', 'rifle', 120, 450, 20, 180, 2.6, 'semi wood box'],
+  ['ak47', 'AK-47', 'rifle', 110, 600, 30, 270, 2.6, 'auto curved wood'],
+  ['g11', 'G11', 'bullpup', 100, 1500, 45, 225, 2.6, 'burst optic box'],
+  ['ithaca', 'Ithaca 37', 'shotgun', 55, 90, 6, 60, 3, 'pump wood'],
+  ['spas12', 'SPAS-12', 'shotgun', 55, 180, 8, 64, 3.2, 'pump fold'],
+  ['overunder', 'Over-Under Shotgun', 'dbl', 60, 240, 2, 60, 2.5, 'wood stack', 500],
+  ['hk21', 'HK21', 'lmg', 120, 750, 125, 375, 5.5, 'auto belt bipod'],
+  ['rpk', 'RPK', 'lmg', 110, 650, 75, 375, 4, 'auto drum wood bipod'],
+  ['m60', 'M60', 'lmg', 125, 550, 100, 400, 5.5, 'auto belt bipod'],
+  ['stoner63', 'Stoner 63', 'lmg', 115, 750, 75, 375, 5, 'auto belt'],
+  ['dragunov', 'Dragunov', 'sniper', 500, 200, 10, 40, 2.8, 'semi wood box'],
+  ['wa2000', 'WA2000', 'sniper', 550, 200, 6, 48, 3, 'semi box'],
+  ['l96a1', 'L96A1', 'sniper', 900, 45, 5, 50, 3.2, 'bolt olive box'],
+  ['psg1', 'PSG1', 'sniper', 500, 240, 5, 60, 2.8, 'semi box'],
+  ['chinalake', 'China Lake', 'launcher', 800, 60, 4, 24, 3, 'pump gl'],
+  ['law', 'M72 LAW', 'launcher', 1000, 40, 1, 20, 3.0, 'olive'],
+  ['rpg7', 'RPG-7', 'launcher', 1000, 40, 1, 20, 3.3, 'wood warhead'],
+  ['crossbow', 'Crossbow', 'bow', 800, 60, 1, 30, 2.4, 'wood'],
+  // Black Ops II
+  ['beretta93r', 'Beretta 93R', 'pistol', 60, 1100, 15, 150, 1.8, 'burst'],
+  ['judge', 'Judge Revolver', 'revolver', 55, 250, 5, 40, 2.6, 'pellets'],
+  ['fiveseven', 'Five-seveN', 'pistol', 55, 500, 20, 200, 1.6, 'semi poly'],
+  ['c96', 'Mauser C96', 'pistol', 60, 600, 10, 100, 2.0, 'semi wood frontmag'],
+  ['mp5', 'MP5', 'smg', 55, 800, 30, 120, 2.3, 'auto curved'],
+  ['p90', 'P90', 'smg', 50, 900, 50, 250, 2.8, 'auto topflat poly optic'],
+  ['vector', 'Vector', 'smg', 48, 1100, 33, 165, 2.3, 'auto box poly'],
+  ['scorpionevo', 'Scorpion EVO', 'smg', 48, 1000, 30, 180, 2.2, 'auto box poly fold'],
+  ['qcw05', 'QCW-05', 'bullpup', 55, 800, 36, 180, 2.6, 'auto box poly'],
+  ['mtar', 'MTAR-21', 'bullpup', 95, 800, 30, 270, 2.5, 'auto optic poly'],
+  ['m8a1', 'M8A1', 'rifle', 90, 1000, 32, 192, 2.6, 'burst optic poly'],
+  ['m27', 'M27', 'rifle', 100, 750, 30, 270, 2.6, 'auto box'],
+  ['an94', 'AN-94', 'rifle', 105, 650, 30, 270, 2.8, 'auto curved poly'],
+  ['mk48', 'Mk 48', 'lmg', 125, 700, 100, 400, 5.5, 'auto belt bipod'],
+  ['lsat', 'LSAT', 'lmg', 115, 750, 100, 400, 5, 'auto belt'],
+  ['qbb', 'QBB LSW', 'lmg', 110, 650, 75, 375, 4, 'auto drum poly'],
+  ['rpd', 'RPD', 'lmg', 120, 750, 100, 400, 5, 'auto drum wood bipod'],
+  ['rem870', 'Remington 870 MCS', 'shotgun', 60, 90, 8, 48, 3, 'pump'],
+  ['saiga12', 'Saiga-12', 'shotgun', 55, 240, 10, 60, 3, 'semi box'],
+  ['ksg', 'KSG', 'shotgun', 90, 90, 14, 56, 3.4, 'pump poly'],
+  ['m1216', 'M1216', 'shotgun', 55, 300, 16, 64, 3.4, 'semi cyl'],
+  ['dsr50', 'DSR 50', 'sniper', 1000, 45, 5, 50, 3.2, 'bolt box poly'],
+  ['barrett', 'Barrett M82A1', 'sniper', 1100, 90, 10, 50, 3.4, 'semi box bipod long'],
+  ['svu', 'SVU-AS', 'sniper', 500, 300, 10, 90, 2.8, 'semi box poly'],
+  ['mgl', 'Milkor MGL', 'launcher', 700, 120, 6, 24, 4, 'gl cylmag'],
+  ['mg0815', 'MG 08/15', 'lmg', 140, 500, 100, 400, 6, 'auto belt wood'],
+  // Black Ops III-style future weapons (original designs)
+  ['vanguard', 'Vanguard 6', 'pistol', 70, 400, 10, 100, 1.6, 'semi future'],
+  ['breaker', 'Breaker RK', 'pistol', 60, 1000, 21, 210, 1.8, 'burst future'],
+  ['hornet', 'Hornet Auto', 'pistol', 45, 900, 12, 144, 1.6, 'auto future'],
+  ['mule', 'Mule 16', 'pistol', 45, 240, 16, 64, 2.0, 'pellets future'],
+  ['stinger', 'Stinger', 'smg', 55, 850, 30, 180, 2.3, 'auto box future fold'],
+  ['wraith', 'Wraith', 'smg', 50, 900, 30, 180, 2.2, 'auto box future'],
+  ['gremlin', 'Gremlin', 'smg', 45, 1000, 36, 216, 2.4, 'auto box future nostock'],
+  ['corsair', 'Corsair', 'smg', 60, 700, 40, 200, 2.6, 'auto box future'],
+  ['raptor', 'Raptor', 'smg', 55, 750, 50, 250, 2.8, 'auto topflat future optic'],
+  ['sentinel', 'Sentinel-44', 'rifle', 105, 650, 30, 270, 2.6, 'auto box future'],
+  ['rangerxr', 'Ranger XR', 'rifle', 100, 800, 30, 270, 2.6, 'burst box future optic'],
+  ['talon', 'Talon-30', 'rifle', 95, 800, 30, 270, 2.6, 'auto curved future'],
+  ['overseer', 'Overseer', 'rifle', 100, 700, 30, 270, 2.5, 'auto box future optic'],
+  ['warden', 'Warden', 'rifle', 140, 450, 30, 270, 2.8, 'auto box future long'],
+  ['echo9', 'Echo-9', 'rifle', 140, 500, 20, 200, 2.4, 'semi box future'],
+  ['bulwark', 'Bulwark 262', 'shotgun', 65, 90, 8, 48, 3, 'pump future'],
+  ['hydra', 'Hydra', 'shotgun', 50, 300, 8, 48, 3, 'semi box future'],
+  ['tempest', 'Tempest 12', 'shotgun', 45, 400, 8, 48, 3, 'auto box future'],
+  ['ironclad', 'Ironclad', 'shotgun', 100, 60, 6, 36, 3, 'pump future long'],
+  ['juggernaut', 'Juggernaut', 'lmg', 115, 700, 80, 320, 5, 'auto box future bipod'],
+  ['mastiff', 'Mastiff', 'lmg', 105, 900, 70, 280, 4.5, 'auto box future'],
+  ['hellion', 'Hellion', 'lmg', 140, 450, 40, 240, 4, 'auto drum future'],
+  ['leviathan', 'Leviathan', 'lmg', 130, 650, 100, 400, 5.5, 'auto belt future'],
+  ['wyvern', 'Wyvern', 'sniper', 600, 200, 10, 60, 3, 'semi box future'],
+  ['marauder', 'Marauder', 'sniper', 1100, 45, 5, 50, 3.2, 'bolt box future'],
+  ['titan', 'Titan', 'sniper', 1300, 40, 5, 40, 3.5, 'bolt box future long'],
+  ['hammerhead', 'Hammerhead', 'launcher', 1000, 50, 3, 24, 3.5, 'future'],
+  // original wonder weapons
+  ['storm', 'Storm Caller', 'wonder', 2000, 150, 12, 96, 3, 'chain'],
+  ['gale', 'Gale Cannon', 'wonder', 3000, 60, 2, 24, 3, 'gale'],
+  ['cryo', 'Cryo Projector', 'wonder', 220, 480, 40, 200, 3, 'cryo auto'],
+];
+const ARCH = {
+  pistol:   { kind: 'pistol', spread: .02, head: 2, recoil: .016, snd: 'pistol' },
+  revolver: { kind: 'pistol', spread: .015, head: 3, recoil: .05, snd: 'magnum', pierce: 2 },
+  smg:      { kind: 'smg', spread: .032, head: 2, recoil: .01, snd: 'smg' },
+  rifle:    { kind: 'rifle', spread: .022, head: 2.5, recoil: .014, snd: 'ar' },
+  bullpup:  { kind: 'ar', spread: .022, head: 2.5, recoil: .013, snd: 'ar' },
+  lmg:      { kind: 'lmg', spread: .04, head: 2, recoil: .012, snd: 'heavy' },
+  shotgun:  { kind: 'shotgun', spread: .085, head: 1.5, recoil: .06, snd: 'shotgun', pellets: 8 },
+  dbl:      { kind: 'shotgun', spread: .1, head: 1.5, recoil: .07, snd: 'shotgun', pellets: 8 },
+  sniper:   { kind: 'sniper', spread: .002, head: 4, recoil: .05, snd: 'rifle', pierce: 3, zoom: 24 },
+  launcher: { kind: 'launcher', spread: .004, head: 1, recoil: .08, snd: 'launch', splash: 4.5, launcher: true },
+  flame:    { kind: 'flame', spread: .01, head: 1, recoil: .003, snd: 'flame', flame: true },
+  bow:      { kind: 'rifle', spread: .004, head: 3, recoil: .03, snd: 'bow', pierce: 4 },
+  wonder:   { kind: 'wonder', spread: .01, head: 1, recoil: .02, snd: 'wonder' },
+};
+const UP_PREFIX = ['Hellfire', 'Bloodhound', 'Nightfall', 'Grim', 'Inferno', 'Wrath', 'Vengeance', 'Havoc', 'Doombringer', 'Phantom', 'Banshee', 'Tempest', 'Venom', 'Oblivion', 'Requiem', 'Ragnarok', 'Brimstone', 'Reaver'];
+for (const [id, name, arch, dmg, rpm, mag, res, reload, traits, cost] of ARSENAL) {
+  const o = new Set(traits.split(' ')), A = ARCH[arch];
+  const d = Object.assign({}, A, { name, arch, opt: o, dmg, rpm, mag, res, reload, auto: o.has('auto') });
+  d.up = UP_PREFIX[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % UP_PREFIX.length] + ' ' + name.replace(/^(M\d+A?\d? |Mauser |Walther |Browning )/, '');
+  if (cost) d.cost = cost;
+  if (o.has('burst')) { d.burst = 3; d.auto = false; }
+  if (o.has('semi') && (arch === 'rifle' || arch === 'sniper')) { d.snd = 'rifle'; d.recoil = arch === 'sniper' ? .05 : .025; }
+  if (o.has('bolt')) { d.bolt = true; d.recoil = .045; d.pierce = Math.max(d.pierce || 1, 2); }
+  if (o.has('pellets')) { d.pellets = 6; d.spread = .08; d.head = 1.5; }
+  if (o.has('long') && arch === 'sniper') d.zoom = 20;
+  if (o.has('gl')) { d.splash = 3.5; d.snd = 'launch'; }
+  if (arch === 'shotgun' && !o.has('box') && !o.has('cyl')) { d.pump = true; d.rl = 'shells'; }
+  if (o.has('gl') && o.has('pump')) { d.pump = true; d.rl = 'shells'; }
+  if (o.has('cylmag') || arch === 'revolver') d.rl = 'revolver';
+  if (arch === 'dbl') d.rl = 'break';
+  if (o.has('stripper')) d.rl = 'stripper';
+  if (o.has('belt')) d.rl = 'belt';
+  if (o.has('chain')) { d.chain = true; d.snd = 'zap'; }
+  if (o.has('gale')) { d.gale = true; d.snd = 'gale'; d.recoil = .09; }
+  if (o.has('cryo')) { d.cryo = true; d.snd = 'cryo'; }
+  WEAPONS[id] = d;
+}
 const UP = {};
 for (const id in WEAPONS) {
   const d = WEAPONS[id];
@@ -253,8 +410,14 @@ Object.assign(UP.doublebarrel, { pellets: 10 });
 Object.assign(UP.kar98k, { dmg: 900, rpm: 70 });
 Object.assign(UP.kar98scoped, { dmg: 2400, pierce: 8 });
 Object.assign(UP.ptrs, { dmg: 3500, pierce: 12 });
-const BOX_POOL = ['thompson','mp40','stg44','trench','doublebarrel','bar','fg42','type100','ppsh','mg42','magnum','ptrs','kar98scoped','garand','g43','m1carbine','ion'];
-const WALLBUYS = { a: 'kar98k', d: 'm1carbine', b: 'mp40', g: 'thompson', c: 'trench', f: 'stg44', e: 'bar', h: 'garand' };
+Object.assign(UP.storm, { dmg: 5000, mag: 24, res: 192, chains: 16 });
+Object.assign(UP.gale, { dmg: 9000, mag: 4, res: 48 });
+Object.assign(UP.cryo, { dmg: 500, mag: 60, res: 300 });
+for (const id in WEAPONS) if (WEAPONS[id].launcher) UP[id].splash = WEAPONS[id].splash * 1.3;
+// every weapon except the starting pistol; wonder weapons get extra tickets
+const BOX_POOL = Object.keys(WEAPONS).filter(id => id !== 'm1911');
+for (const id of ['ion', 'storm', 'gale', 'cryo']) BOX_POOL.push(id, id);
+const WALLBUYS = { a: 'kar98k', d: 'm1carbine', b: 'mp40', g: 'thompson', c: 'trench', f: 'stg44', e: 'bar', h: 'garand', i: 'm14', j: 'overunder', k: 'mp5k', l: 'ak74u' };
 const PERKS = {
   J: { id:'iron',  name:'Iron Brew',            cost:2500, color:'#c0121a', hex:0xc0121a, short:'IB', desc:'take more hits' },
   R: { id:'quick', name:'Quickdraw Cola',       cost:3000, color:'#2fa83a', hex:0x2fa83a, short:'QC', desc:'faster reloads' },
@@ -327,6 +490,12 @@ const GUN_SND = {
 const SFX = new Proxy({
   shot(snd) {
     if (snd === 'wonder') { tone('sawtooth', 1500, .25, .22, 180); tone('square', 600, .2, .1, 90); noise(.3, 'bandpass', 3000, .2, 2); return; }
+    if (snd === 'launch') { noise(.7, 'lowpass', 520, .9); noise(.9, 'bandpass', 1300, .3, 1, .02, .06); tone('sine', 70, .4, .6, 30); return; }
+    if (snd === 'flame') { noise(.14, 'lowpass', 650, .32); noise(.1, 'bandpass', 2400, .06, 1); return; }
+    if (snd === 'bow') { noise(.08, 'bandpass', 900, .45, 3); tone('triangle', 230, .12, .15, 110); return; }
+    if (snd === 'zap') { for (let i = 0; i < 5; i++) noise(.04, 'highpass', 3200, .45, 1, i * .035); tone('square', 110, .3, .12, 60); tone('sawtooth', 2200, .2, .06, 500); return; }
+    if (snd === 'gale') { noise(.8, 'lowpass', 260, 1.2); tone('sine', 42, .7, .9, 18); noise(.5, 'bandpass', 700, .35, 1, .05, .1); return; }
+    if (snd === 'cryo') { noise(.12, 'highpass', 4200, .22); noise(.12, 'bandpass', 1800, .1, 2); return; }
     const p = GUN_SND[snd] || GUN_SND.pistol;
     noise(p[0], 'lowpass', p[1] * (.9 + Math.random() * .2), p[2]);
     noise(.035, 'highpass', 3500, p[3]);
@@ -920,11 +1089,219 @@ const GM = {
   sleeve: S({ color: 0x4b4a30, roughness: 1 }),
   cuff: S({ color: 0x3a3a26, roughness: 1 }),
   glass: S({ color: 0x101820, metalness: .2, roughness: .05, envMap: envTex }),
+  poly: S({ color: 0x1e2024, roughness: .55, metalness: .1, envMap: envTex, envMapIntensity: .35 }),
+  polyTan: S({ color: 0x8a7a5c, roughness: .6, metalness: .05, envMap: envTex, envMapIntensity: .3 }),
+  olive: S({ color: 0x44502f, roughness: .7, metalness: .2, envMap: envTex, envMapIntensity: .3 }),
+  tan: S({ color: 0x7a6a4a, roughness: .65 }),
   shell: S({ color: 0x8a1a14, roughness: .5 }),
 };
+const rlType = id => RL_TYPE[id] || WEAPONS[id].rl || 'mag';
 const RL_TYPE = { magnum: 'revolver', kar98k: 'stripper', kar98scoped: 'stripper', garand: 'garand', mg42: 'belt', trench: 'shells', doublebarrel: 'break' };
 const CHARGE = { m1carbine: [.03, .035, -.06], g43: [-.03, .04, -.02], thompson: [0, .064, .0], mp40: [-.03, .03, -.05], type100: [.028, .03, 0],
   ppsh: [.028, .045, -.02], stg44: [-.032, .045, -.16], fg42: [.03, .03, -.03], bar: [-.035, .02, -.12], mg42: [.035, .035, .02] };
+/* Builds a viewmodel from a weapon's model type and traits. Coordinates match the hand-made
+   guns: the pistol grip sits at z ~ .03, the muzzle points down -z, and parts the reload
+   animations move (magazine, slide, pump at z -.25, bolt at z .045, belt cover, barrels)
+   are returned so the reload engine can animate them. */
+function genericModel(id, d, up, H) {
+  const { B, Cz, Cx, add, g, st } = H, o = d.opt, A = d.arch;
+  const fut = o.has('future');
+  const hsh = [...id].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  const fm = up ? upgradedMat(.5) : o.has('wood') ? GM.wood : o.has('tan') ? GM.tan : o.has('olive') ? GM.olive : fut ? (hsh % 3 === 0 ? GM.polyTan : GM.poly) : o.has('poly') ? GM.poly : GM.bake;
+  const dk = up ? st : GM.poly;
+  const L = o.has('short') ? .8 : o.has('long') ? 1.2 : 1;
+  const r = { muzzle: -.4, mag: null, slide: null, pump: null, bolt: null, cover: null, barrels: null, lh: [-.005, -.04, -.24], rearZ: .04, eject: [.03, .04, -.02], cp: null, magSide: false, magTop: false, fixed: false };
+  const grip = (z = .03, rx = .25) => B(.032, .085, .045, o.has('wood') && A !== 'smg' ? fm : dk, 0, -.05, z, rx);
+  const optic = (z, y) => {
+    // open red-dot sight: thin frame and a glowing dot, so the eye looks straight through it
+    const w = .036, h = .03, l = .05;
+    B(.004, h, l, dk, -w / 2, y, z); B(.004, h, l, dk, w / 2, y, z); B(w + .004, .004, l, dk, 0, y + h / 2, z); B(w, .008, l, dk, 0, y - h / 2 - .003, z);
+    add(new THREE.Mesh(new THREE.SphereGeometry(.0016, 6, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, .2, .2) })), 0, y, z - l / 2);
+    r.fixed = true; r.sightY = y; r.rearZ = z + l / 2;
+  };
+  const scope = (z, y) => {
+    Cz(.019, .26, st, 0, y, z); Cz(.029, .07, st, 0, y, z - .16, .02); Cz(.025, .05, st, 0, y, z + .15, .019);
+    B(.014, y - .05, .014, st, 0, (y + .05) / 2, z - .09); B(.014, y - .05, .014, st, 0, (y + .05) / 2, z + .08);
+    add(new THREE.Mesh(new THREE.CircleGeometry(.026, 16), GM.glass), 0, y, z - .196, 0, Math.PI);
+    r.fixed = true; r.sightY = y; r.rearZ = z + .18;
+  };
+  const magFor = (z, yTop) => {
+    if (o.has('drum')) return Cx(.065, .045, st, 0, yTop - .068, z);
+    if (o.has('curved')) {
+      const m = new THREE.Group(); g.add(m);
+      const a = new THREE.Mesh(new THREE.BoxGeometry(.03, .09, .05), st); a.position.set(0, yTop - .045, z); a.rotation.x = .12; m.add(a);
+      const b2 = new THREE.Mesh(new THREE.BoxGeometry(.03, .08, .05), st); b2.position.set(0, yTop - .12, z - .025); b2.rotation.x = .32; m.add(b2);
+      return m;
+    }
+    if (o.has('side')) { r.magSide = true; return B(.12, .03, .035, st, -.075, yTop + .03, z); }
+    if (o.has('top')) { r.magTop = true; return Cx(.085, .022, st, 0, .085, z).rotateZ(-Math.PI / 2); }
+    if (o.has('topbox')) { r.magTop = true; return B(.03, .1, .05, st, 0, .11, z); }
+    if (o.has('topflat')) { r.magTop = true; return B(.042, .02, .2, GM.glass, 0, .07, z); }
+    return B(.03, .13, .042, st, 0, yTop - .065, z);
+  };
+  const stock = (z0) => {
+    if (o.has('nostock')) return;
+    if (o.has('wire')) { B(.008, .008, .22, st, .02, .006, z0 + .11); B(.008, .008, .22, st, -.02, .006, z0 + .11); B(.05, .06, .012, st, 0, -.015, z0 + .22); return; }
+    if (o.has('fold')) { B(.01, .01, .2, dk, 0, .025, z0 + .1); B(.01, .01, .2, dk, 0, -.035, z0 + .1); B(.04, .085, .02, dk, 0, -.005, z0 + .2); return; }
+    B(.045, .1, .24, fm, 0, -.02, z0 + .12, -.05); B(.047, .105, .012, dk, 0, -.025, z0 + .245, -.05);
+  };
+  const bipod = (z) => { B(.007, .16, .007, st, .035, -.04, z, .4); B(.007, .16, .007, st, -.035, -.04, z, .4); };
+  const boltHandle = () => {
+    r.bolt = new THREE.Group(); r.bolt.position.set(.02, .03, .045); g.add(r.bolt);
+    const h1 = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .06, 8), st); h1.rotation.z = Math.PI / 2; h1.position.x = .03; r.bolt.add(h1);
+    const k = new THREE.Mesh(new THREE.SphereGeometry(.012, 10, 8), st); k.position.set(.06, -.012, 0); r.bolt.add(k);
+  };
+  const glowMat = (c) => new THREE.MeshBasicMaterial({ color: up ? new THREE.Color(3, .5, 3) : c });
+  if (A === 'pistol') {
+    const sl = .19 * L, ext = o.has('burst') || o.has('auto');
+    r.slide = B(.032, .034, sl, fut ? fm : st, 0, .03, .06 - sl / 2);
+    B(.029, .022, sl * .85, fut || o.has('poly') ? dk : st, 0, .004, .06 - sl * .45);
+    if (o.has('wood')) B(.034, .1, .055, GM.wood, 0, -.05, .05, .35); else grip(.025, .22);
+    B(.008, .022, .045, st, 0, -.016, -.018);
+    B(.006, .012, .008, st, 0, .052, .06 - sl + .01); B(.02, .01, .008, st, 0, .051, .045);
+    if (fut) { B(.034, .01, sl * .6, dk, 0, .05, .06 - sl * .55); B(.004, .01, sl * .5, glowMat(new THREE.Color(.3, 1.6, 2.4)), .018, .03, .06 - sl * .5); }
+    if (o.has('frontmag')) r.mag = B(.03, .075, .05, st, 0, -.035, -.055);
+    else r.mag = B(.026, ext ? .07 : .03, .038, st, 0, ext ? -.12 : -.1, .037, .22);
+    if (o.has('pellets')) Cz(.017, .04, st, 0, .03, .06 - sl - .015);
+    r.muzzle = .06 - sl - .03; r.rearZ = .045; r.lh = [-.022, -.075, .045]; r.eject = [.02, .05, -.03];
+  } else if (A === 'revolver') {
+    const pl = o.has('pellets');
+    B(.032, .055, .12, st, 0, .02, -.02); r.mag = Cz(pl ? .037 : .032, pl ? .075 : .06, st, 0, .022, -.01);
+    const bl = o.has('long') ? .2 : .15;
+    Cz(pl ? .017 : .014, bl, st, 0, .035, -.07 - bl / 2); B(.012, .014, bl, st, 0, .05, -.07 - bl / 2);
+    B(.004, .014, .01, st, 0, .062, -.06 - bl); B(.034, .11, .055, GM.wood, 0, -.05, .05, .35); B(.014, .03, .014, st, 0, .052, .05, -.4);
+    r.muzzle = -.08 - bl; r.rearZ = .05; r.lh = [-.022, -.08, .06]; r.eject = null;
+  } else if (A === 'smg') {
+    const rl = .26 * L, front = .06 - rl;
+    B(.048, .062, rl, fut ? fm : st, 0, .025, .06 - rl / 2);
+    if (fut || o.has('poly')) B(.05, .022, rl * .7, dk, 0, .062, .06 - rl * .4);
+    if (o.has('wood')) B(.05, .05, .1, GM.wood, 0, .015, front + .06);
+    Cz(.012, .1, st, 0, .03, front - .05); r.muzzle = front - .1;
+    grip(.03, .25); B(.007, .02, .04, st, 0, -.02, 0);
+    r.mag = magFor(-.06, -.005);
+    stock(.06);
+    if (o.has('optic')) optic(-.03, o.has('topflat') ? .105 : .09);
+    else { B(.016, .016, .02, st, 0, .065, .04); B(.006, .016, .008, st, 0, .062, front + .01); }
+    r.lh = o.has('nostock') && o.has('short') ? [-.005, -.12, -.06] : [-.005, -.035, front + .07];
+    r.cp = [-.03, .035, -.04];
+  } else if (A === 'rifle' || A === 'sniper' || (A === 'shotgun' && !d.pump)) {
+    const rcv = .24, hg = (A === 'shotgun' ? .2 : .24) * L, hz0 = .06 - rcv, hz1 = hz0 - hg;
+    B(.05, .068, rcv, fut ? fm : st, 0, .025, .06 - rcv / 2);
+    B(.052, .058, hg, fm, 0, .022, (hz0 + hz1) / 2);
+    if (fut) { B(.054, .01, hg + rcv * .6, dk, 0, .062, (hz0 + hz1) / 2 + .05); B(.004, .012, hg * .7, glowMat(new THREE.Color(2.4, .6, .2)), .028, .02, (hz0 + hz1) / 2); }
+    if (o.has('curved') && o.has('wood')) Cz(.012, hg * .8, st, 0, .062, hz0 - hg * .45);
+    const bl = (A === 'sniper' ? .3 : A === 'shotgun' ? .14 : .16) * L;
+    Cz(A === 'shotgun' ? .016 : .012, bl, st, 0, .03, hz1 - bl / 2); r.muzzle = hz1 - bl;
+    if (A === 'sniper' && (o.has('long') || id === 'barrett')) { B(.05, .03, .06, st, 0, .03, r.muzzle - .02); r.muzzle -= .05; }
+    B(.006, .03, .008, st, 0, .062, hz1 + .005);
+    grip(.03, .25);
+    if (o.has('cyl')) r.mag = Cz(.045, .14, st, 0, -.02, hz0 - .07);
+    else if (!o.has('stripper')) r.mag = magFor(-.07, -.008);
+    if (o.has('carry')) { B(.012, .03, .16, st, 0, .085, -.06); B(.022, .02, .02, st, 0, .102, .0); }
+    else if (o.has('optic')) optic(-.06, .1);
+    else if (A !== 'sniper') B(.018, .015, .025, st, 0, .062, 0);
+    if (A === 'sniper') scope(-.02, .105);
+    stock(.06);
+    if (o.has('bolt')) boltHandle();
+    if (o.has('bipod')) bipod(hz1 + .04);
+    r.lh = [-.005, -.035, (hz0 + hz1) / 2];
+    r.cp = o.has('bolt') ? null : [-.03, .045, -.06];
+  } else if (A === 'bullpup') {
+    const bodyL = .55 * L, back = .35, front = back - bodyL;
+    B(.055, .085, bodyL, fm, 0, .015, back - bodyL / 2);
+    B(.03, .02, bodyL * .9, dk, 0, .065, back - bodyL / 2);
+    grip(.03, .25); B(.007, .02, .04, st, 0, -.02, 0);
+    r.mag = magFor(.15, -.025);
+    Cz(.012, .12, st, 0, .035, front - .06); r.muzzle = front - .12;
+    if (o.has('optic')) optic(-.02, .1);
+    else if (o.has('carry')) { B(.012, .032, .3, st, 0, .085, -.04); B(.006, .02, .008, st, 0, .1, front + .06); }
+    else { B(.016, .015, .02, st, 0, .08, .06); B(.006, .016, .008, st, 0, .078, front + .02); }
+    r.lh = [-.005, -.04, front + .08]; r.cp = [-.032, .05, front + .14]; r.eject = [.03, .04, .12];
+  } else if (A === 'lmg') {
+    B(.06, .08, .3, fut ? fm : st, 0, .03, -.02);
+    if (o.has('wood')) B(.055, .06, .18, GM.wood, 0, .01, -.26);
+    const bl = .4 * L;
+    Cz(.022, bl, st, 0, .035, -.17 - bl / 2); r.muzzle = -.17 - bl - .03; Cz(.026, .05, st, 0, .035, r.muzzle + .02);
+    grip(.05, .3); stock(.13);
+    if (o.has('belt')) {
+      r.mag = B(.07, .1, .12, GM.steelL, -.065, -.04, -.05);
+      r.cover = new THREE.Group(); r.cover.position.set(0, .072, .08); g.add(r.cover);
+      const cv = new THREE.Mesh(new THREE.BoxGeometry(.05, .015, .2), fut ? fm : st); cv.position.z = -.1; r.cover.add(cv);
+    } else r.mag = magFor(-.06, -.01);
+    if (o.has('bipod')) bipod(r.muzzle + .12);
+    B(.012, .03, .012, st, 0, .085, r.muzzle + .04); B(.02, .02, .02, st, 0, .085, .06);
+    r.lh = [-.005, -.05, -.27]; r.cp = [.035, .035, .02];
+  } else if (A === 'shotgun') {
+    const bl = .5 * L;
+    Cz(.016, bl, st, 0, .035, -.08 - bl / 2); Cz(.012, .38, st, 0, .006, -.28);
+    if (id === 'ksg') Cz(.012, .38, st, 0, -.022, -.28);
+    r.pump = B(.042, .042, .14, fm === GM.bake ? dk : fm, 0, .005, -.25);
+    B(.045, .065, .18, fut ? fm : st, 0, .025, 0); stock(.09);
+    if (!o.has('wood')) grip(.03, .25);
+    B(.008, .008, .008, GM.brass, 0, .056, -.08 - bl + .01);
+    r.muzzle = -.08 - bl; r.lh = [-.005, -.03, -.25]; r.eject = [.03, .03, -.02];
+  } else if (A === 'dbl') {
+    const bl = .55 * L, stack = o.has('stack');
+    r.barrels = new THREE.Group(); r.barrels.position.set(0, .02, -.05); g.add(r.barrels);
+    const bc = () => new THREE.Mesh(new THREE.CylinderGeometry(.016, .016, bl, 14), st);
+    for (const [x, y] of stack ? [[0, .046], [0, .013]] : [[.016, .015], [-.016, .015]]) { const m = bc(); m.rotation.x = Math.PI / 2; m.position.set(x, y, -bl / 2); r.barrels.add(m); }
+    { const fe = new THREE.Mesh(new THREE.BoxGeometry(.05, .03, Math.min(.2, bl * .5)), fm); fe.position.set(0, -.015, -.15); r.barrels.add(fe); }
+    B(.05, .06, .12, st, 0, .025, 0);
+    if (o.has('nostock')) B(.034, .1, .05, fm, 0, -.05, .05, .35); else B(.045, .11, .3, fm, 0, -.035, .22, -.12);
+    r.muzzle = -.05 - bl; r.lh = [-.005, -.025, -.2]; r.eject = null;
+  } else if (A === 'launcher') {
+    if (o.has('cylmag')) {
+      r.mag = Cz(.07, .12, st, 0, .0, -.08); Cz(.03, .22, fm, 0, .03, -.25); stock(.05); grip(.03, .25);
+      B(.032, .085, .045, dk, 0, -.04, -.2, .1); r.muzzle = -.36; r.lh = [-.005, -.07, -.2];
+    } else if (o.has('pump')) {
+      Cz(.03, .45, st, 0, .04, -.25); Cz(.018, .38, st, 0, .0, -.27);
+      r.pump = B(.05, .045, .14, GM.wood, 0, .0, -.25); B(.05, .07, .18, st, 0, .03, 0); stock(.09); grip(.03, .25);
+      r.muzzle = -.48; r.lh = [-.005, -.03, -.25];
+    } else {
+      const tl = .95 * L, tr = o.has('warhead') ? .03 : .045;
+      Cz(tr, tl, o.has('warhead') ? st : fm, 0, .06, .2 - tl / 2);
+      if (o.has('warhead')) B(.07, .07, .2, GM.wood, 0, .06, -.05);
+      if (o.has('shield')) B(.16, .16, .008, GM.olive, -.11, .09, -.32);
+      grip(.03, .25); B(.032, .085, .045, dk, 0, -.035, -.22, .1);
+      B(.012, .045, .012, st, -.05, .12, -.05); B(.012, .045, .012, st, -.05, .12, -.3);
+      const wh = new THREE.Group(); g.add(wh);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(o.has('warhead') ? .055 : tr * .85, o.has('warhead') ? .2 : .09, 14), o.has('warhead') ? GM.olive : st);
+      cone.rotation.x = -Math.PI / 2; cone.position.set(0, .06, .2 - tl - (o.has('warhead') ? .1 : .02)); wh.add(cone);
+      r.mag = wh; r.muzzle = .2 - tl - .05; r.lh = [-.005, -.035, -.22];
+    }
+    r.eject = null;
+  } else if (A === 'flame') {
+    Cz(.018, .55, st, 0, .03, -.25); Cz(.03, .06, st, 0, .03, -.54);
+    add(new THREE.Mesh(new THREE.SphereGeometry(.008, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 1.6, .3) })), 0, .0, -.565);
+    grip(.03, .25); B(.032, .085, .045, dk, 0, -.04, -.25, .1);
+    r.mag = Cz(.034, .14, fm, 0, -.05, -.1); B(.012, .012, .25, GM.bake, -.03, -.04, .1);
+    r.muzzle = -.57; r.lh = [-.005, -.06, -.25]; r.eject = null;
+  } else if (A === 'bow') {
+    B(.04, .05, .45, fm, 0, .0, -.12); B(.045, .1, .2, fm, 0, -.03, .2); grip(.03, .25);
+    B(.42, .02, .03, dk, 0, .03, -.33); B(.4, .003, .003, GM.glove, 0, .035, -.27);
+    B(.012, .01, .3, st, 0, .03, -.2);
+    r.mag = B(.006, .006, .32, st, 0, .045, -.18); r.magTop = true;
+    r.muzzle = -.36; r.lh = [-.005, -.03, -.25]; r.eject = null;
+  } else if (A === 'wonder') {
+    const glow = glowMat(id === 'storm' ? new THREE.Color(.5, 1.6, 3.5) : id === 'cryo' ? new THREE.Color(.8, 2.6, 3.2) : new THREE.Color(2.6, 2.4, 1.6));
+    if (id === 'storm') {
+      B(.07, .09, .3, st, 0, .01, -.08); stock(.07); grip(.03, .25);
+      for (let i = 0; i < 4; i++) add(new THREE.Mesh(new THREE.TorusGeometry(.046, .01, 8, 18), glow), 0, .01, -.26 - i * .04);
+      Cz(.006, .14, st, .02, .02, -.45); Cz(.006, .14, st, -.02, .02, -.45); r.mag = B(.04, .05, .07, glow, 0, -.065, -.1); r.muzzle = -.52;
+    } else if (id === 'gale') {
+      B(.08, .1, .3, st, 0, .01, -.06); grip(.03, .25);
+      Cz(.025, .22, GM.steelL, .055, .0, -.1); Cz(.025, .22, GM.steelL, -.055, .0, -.1);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(.11, .05, .14, 18, 1, true), st), 0, .01, -.28, -Math.PI / 2);
+      add(new THREE.Mesh(new THREE.TorusGeometry(.1, .008, 8, 24), glow), 0, .01, -.35); r.mag = B(.05, .05, .08, glow, 0, -.07, -.08); r.muzzle = -.36;
+    } else {
+      B(.06, .08, .22, st, 0, .0, -.05); grip(.03, .25); Cz(.03, .18, glow, 0, .07, -.06);
+      Cz(.014, .12, st, 0, .0, -.22); add(new THREE.Mesh(new THREE.TorusGeometry(.03, .007, 8, 16), glow), 0, .0, -.28);
+      r.mag = B(.035, .05, .06, glow, 0, -.065, -.1); r.muzzle = -.29;
+    }
+    r.lh = [-.005, -.07, -.18]; r.eject = null;
+  }
+  return r;
+}
 function buildGun(id, up, hands) {
   const d = WEAPONS[id], g = new THREE.Group();
   const st = up ? upgradedMat() : GM.steel, wd = up ? upgradedMat(.5) : GM.wood, bk = up ? st : GM.bake;
@@ -932,7 +1309,7 @@ function buildGun(id, up, hands) {
   const B = (w, h, l, mat, x, y, z, rx, ry, rz) => add(new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat), x, y, z, rx, ry, rz);
   const Cz = (r, l, mat, x, y, z, r2) => add(new THREE.Mesh(new THREE.CylinderGeometry(r2 ?? r, r, l, 14), mat), x, y, z, Math.PI / 2);
   const Cx = (r, l, mat, x, y, z) => add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 18), mat), x, y, z, 0, 0, Math.PI / 2);
-  let slide = null, cover = null, barrels = null, rearZ = .04, muzzle = -.4, sightY = .06, mag = null, bolt = null, pump = null, lh = [-.01, -.04, -.26], eject = [.03, .04, -.02];
+  let fixedSight = false, gen = null, slide = null, cover = null, barrels = null, rearZ = .04, muzzle = -.4, sightY = .06, mag = null, bolt = null, pump = null, lh = [-.01, -.04, -.26], eject = [.03, .04, -.02];
   // shared rifle furniture
   const rifleStock = (len, z0) => {
     B(.05, .062, len, wd, 0, -.005, z0 - len / 2);
@@ -1081,8 +1458,13 @@ function buildGun(id, up, hands) {
       mag = B(.04, .05, .07, glow, 0, -.065, -.12);
       muzzle = -.3; rearZ = 0.04; sightY = .07; lh = [-.03, -.08, .05]; eject = null; break;
     }
+    default: {
+      gen = genericModel(id, d, up, { B, Cz, Cx, add, g, st });
+      ({ muzzle, rearZ, lh, eject, mag, slide, pump, bolt, cover, barrels } = gen);
+      if (gen.fixed) { sightY = gen.sightY; fixedSight = true; }
+    }
   }
-  if (id !== 'kar98scoped' && id !== 'ptrs') {
+  if (!fixedSight && d.kind !== 'sniper') {
     // eye line sits just above the tallest sight so the front post touches the centre of the screen
     let top = -1; const bx = new THREE.Box3();
     g.updateMatrixWorld(true);
@@ -1117,7 +1499,7 @@ function buildGun(id, up, hands) {
     lseg([-.02, -.03, .04], [-.06, -.1, .14], GM.cuff, .066);
     lseg([-.06, -.1, .14], [-.22 - lh[0], -.44 - lh[1], .55 - lh[2]], GM.sleeve, .085);
     // the thing the hand brings in during a reload
-    const rt = RL_TYPE[id] || 'mag', item = new THREE.Group();
+    const rt = rlType(id), item = new THREE.Group();
     const round = (r, l, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 8), mat); m.position.set(x, y, z); m.rotation.x = rx; item.add(m); return m; };
     if (rt === 'stripper') {
       const fr = new THREE.Mesh(new THREE.BoxGeometry(.012, .008, .06), GM.brass); fr.position.y = .0; item.add(fr);
@@ -1136,14 +1518,15 @@ function buildGun(id, up, hands) {
     }
     item.visible = false; lhand.add(item); ud.item = item;
     // visible charging handle that racks on empty reloads
-    const cp = CHARGE[id];
+    const cp = CHARGE[id] || (gen && gen.cp);
     if (cp) {
       const ch = new THREE.Mesh(new THREE.BoxGeometry(cp[1] > .055 && Math.abs(cp[0]) < .01 ? .02 : .02, .012, .022), st);
       ch.position.set(cp[0] + Math.sign(cp[0]) * .01, cp[1], cp[2]); g.add(ch); ud.charge = ch; ud.chargeZ = ch.position.z; ud.cp = cp;
     }
     if (mag) {
       const bb = new THREE.Box3().setFromObject(mag), sz = bb.getSize(new THREE.Vector3());
-      ud.magSide = id === 'fg42' || id === 'type100';
+      ud.magSide = id === 'fg42' || id === 'type100' || !!(gen && gen.magSide);
+      ud.magTop = !!(gen && gen.magTop);
       ud.magHalf = ud.magSide ? sz.x / 2 : sz.y / 2;
       ud.magCenter = bb.getCenter(new THREE.Vector3()).toArray();
     }
@@ -1301,7 +1684,7 @@ function newPlayer() {
     hp: 100, maxHp: 100, lastHurt: -10, invuln: 0, points: 500,
     weapons: [{ id: 'm1911', up: false, mag: 8, res: 80 }], cur: 0,
     perks: new Set(), grenades: 2, stamina: 1, sprinting: false,
-    fireCD: 0, fireDur: 1, drink: null, throwT: 0, stabPending: false, hbT: 0, brT: 0, rl: null, rlG: [0, 0, 0, 0, 0, 0], rlH: null, reloadT: 0, reloadDur: 0, swapT: 0, knifeT: 0, upgradeT: 0, rebuildT: 0,
+    fireCD: 0, fireDur: 1, burstLeft: 0, drink: null, throwT: 0, stabPending: false, hbT: 0, brT: 0, rl: null, rlG: [0, 0, 0, 0, 0, 0], rlH: null, reloadT: 0, reloadDur: 0, swapT: 0, knifeT: 0, upgradeT: 0, rebuildT: 0,
     ads: 0, bobT: 0, lastStep: 0, recoil: 0, recoilYaw: 0, kick: 0, onGround: true, nadeCD: 0, reloadSnd: 0,
   };
 }
@@ -1356,10 +1739,10 @@ function updateHUD(dt) {
   setHTML('points', String(player.points));
   setHTML('wname', s.name); $('wname').className = w.up ? 'up' : '';
   setHTML('mag', String(w.mag)); setHTML('res', ' / ' + w.res);
-  $('ammo').className = w.mag <= Math.ceil(s.mag * .25) ? 'low' : '';
+  $('ammo').className = w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) ? 'low' : '';
   let hint = '';
   if (w.mag + w.res === 0) hint = '<span style="color:#ff4040">NO AMMO</span>';
-  else if (player.reloadT <= 0 && w.mag <= Math.ceil(s.mag * .25) && w.res > 0) hint = 'Press <b>R</b> to reload';
+  else if (player.reloadT <= 0 && w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) && w.res > 0) hint = 'Press <b>R</b> to reload';
   else if (w.res === 0 && w.mag <= Math.ceil(s.mag * .25)) hint = '<span style="color:#ffd23f">LOW AMMO</span>';
   setHTML('ammoHint', hint);
   setHTML('nades', '● '.repeat(player.grenades).trim() + '  <small>GRENADES</small>');
@@ -1641,6 +2024,9 @@ const PUFF = {
   muzzle: { c: [.55, .55, .55], s0: .04, s1: .3, life: .6, a: .22, vy: .35, drift: .15 },
   fire:   { c: [2.4, 1.1, .35], s0: .5, s1: 1.9, life: .45, a: .9, vy: .9, drift: .9, add: true },
   splint: { c: [.35, .24, .12], s0: .08, s1: .45, life: .6, a: .5, vy: .1, drift: .3 },
+  frost:  { c: [.9, 1.5, 2.2], s0: .2, s1: 1.1, life: .6, a: .5, vy: -.1, drift: .5, add: true },
+  zap:    { c: [.9, 1.8, 4], s0: .2, s1: .7, life: .22, a: .9, vy: 0, drift: .2, add: true },
+  ice:    { c: [.7, .9, 1.1], s0: .2, s1: 1.2, life: .7, a: .7, vy: -.2, drift: .8 },
 };
 const puffs = [];
 function puff(x, y, z, type, size = 1) {
@@ -1822,7 +2208,7 @@ function damageZombie(z, dmg, kind, px, py, pz) {
   z.flinch = Math.min(1.2, z.flinch + .45 + Math.min(.8, dmg / z.maxHp));
   { const dx = z.x - player.x, dz = z.z - player.z, dl = Math.hypot(dx, dz) || 1; z.kx = dx / dl; z.kz = dz / dl; }
   // explosives that don't kill can blow the legs off: the zombie keeps coming as a crawler
-  if (kind === 'splash' && z.hp > 0 && !z.crawler && z.state === 'move' && Math.random() < .45) makeCrawler(z);
+  if (kind === 'blast' && z.hp > 0 && !z.crawler && z.state === 'move' && Math.random() < .45) makeCrawler(z);
   if (px !== undefined) { blood(px, py, pz, kind === 'head' ? 6 : 3); puff(px, py, pz, 'blood', kind === 'head' ? 1.6 : 1); }
   if (z.hp <= 0) { killZombie(z, kind); hitmarker(true); SFX.kill(); return true; }
   // heavy hits can tear off a forearm
@@ -1832,7 +2218,7 @@ function damageZombie(z, dmg, kind, px, py, pz) {
     const wp = a.el.getWorldPosition(_arm); blood(wp.x, wp.y, wp.z, 14, 1.2);
     for (let i = 0; i < 2; i++) spawnPart(wp.x, wp.y, wp.z, (Math.random() - .5) * 3, 2 + Math.random() * 2, (Math.random() - .5) * 3, 0x4a5a40, 1.2, .1);
   }
-  if (kind !== 'splash' || Math.random() < .3) addPoints(10);
+  if ((kind !== 'splash' && kind !== 'blast') || Math.random() < .3) addPoints(10);
   hitmarker(false); SFX.hit(); return false;
 }
 function makeCrawler(z) {
@@ -1846,6 +2232,13 @@ function killZombie(z, kind) {
   z.fallDir = Math.random() < .7 ? 1 : -1;
   // pick a death: headshots buckle at the knees, crawlers just go limp, the rest topple
   z.side = Math.random() < .5 ? -1 : 1;
+  if (z.frozen > 0 && kind !== 'nuke') {
+    // frozen solid: burst into ice instead of falling
+    z.shatter = true; z.m.g.visible = false;
+    for (let i = 0; i < 4; i++) puff(z.x + (Math.random() - .5) * .5, .4 + Math.random() * 1.2, z.z + (Math.random() - .5) * .5, 'ice', 1);
+    for (let i = 0; i < 16; i++) spawnPart(z.x, .5 + Math.random() * 1.2, z.z, (Math.random() - .5) * 5, Math.random() * 4, (Math.random() - .5) * 5, 0xa8d4f0, .9, .07 + Math.random() * .06);
+    SFX.tink(); SFX.tink();
+  }
   z.dtype = z.crawler ? 'flat' : kind === 'head' || kind === 'melee' ? (Math.random() < .75 ? 'crumple' : 'back')
     : Math.random() < .55 ? 'back' : Math.random() < .5 ? 'crumple' : 'forward';
   z.m.armL.sh.rotation.z = z.m.armR.sh.rotation.z = 0;
@@ -1862,11 +2255,27 @@ function updateZombies(dt) {
   const pr = toR(player.z), pc = toC(player.x);
   for (const z of zombies) {
     const m = z.m;
-    if (z.flashT > 0) { z.flashT -= dt; const v = z.flashT > 0 ? .5 : 0; m.mats.forEach(mt => mt.emissive.setRGB(v, 0, 0)); }
+    // emissive tint: red hit flash, orange while burning, icy blue while frozen
+    if (z.flashT > 0) z.flashT -= dt;
+    const bu = z.burnT > 0 && z.state !== 'dead' ? .4 + Math.random() * .4 : 0, fr = z.frozen > 0 ? 1 : 0;
+    const er = (z.flashT > 0 && !fr ? .5 : 0) + bu * .6, eg = bu * .22 + fr * .32, eb = fr * .75;
+    if (er || eg || eb || z.emOn) { m.mats.forEach(mt => mt.emissive.setRGB(er, eg, eb)); z.emOn = !!(er || eg || eb); }
+    if (z.state === 'move') {
+      if (z.burnT > 0) {
+        z.burnT -= dt; z.burnAcc = (z.burnAcc || 0) + dt;
+        if (Math.random() < dt * 10) puff(z.x + (Math.random() - .5) * .4, .6 + Math.random() * 1.1, z.z + (Math.random() - .5) * .4, 'fire', .45);
+        if (z.burnAcc > .3) { z.burnAcc = 0; if (damageZombie(z, 20 + round * 8, 'splash')) continue; }
+      }
+      if (z.frozen > 0) z.frozen -= dt;
+    }
     if (z.state === 'dead') {
       z.deathT += dt;
       const t = z.deathT;
-      if (t < .4) { const kk = (1 - t / .4) * dt * 2.2; z.x += z.kx * kk; z.z += z.kz * kk; collide(z, .3, zombieSolid); m.g.position.x = z.x; m.g.position.z = z.z; }
+      if (z.launch) {
+        // flung by the gale: fly back in an arc
+        if (t < .7) { const kk = (1 - t / .7) * dt * 14; z.x += z.kx * kk; z.z += z.kz * kk; collide(z, .3, zombieSolid); }
+        z.dtype = 'back'; m.g.position.set(z.x, Math.sin(Math.min(1, t / .7) * Math.PI) * 1.3, z.z);
+      } else if (t < .4) { const kk = (1 - t / .4) * dt * 2.2; z.x += z.kx * kk; z.z += z.kz * kk; collide(z, .3, zombieSolid); m.g.position.x = z.x; m.g.position.z = z.z; }
       if (z.dtype === 'crumple') {
         const a = ease(t / .38), b = ease((t - .3) / .55);
         m.legL.hip.rotation.x = m.legR.hip.rotation.x = -1.35 * a; m.legL.kn.rotation.x = m.legR.kn.rotation.x = 2.3 * a;
@@ -1940,7 +2349,7 @@ function updateZombies(dt) {
     let mvx = tx - z.x, mvz = tz - z.z; const ml = Math.hypot(mvx, mvz);
     if (move && ml > .05 && !(dp < 1.0)) {
       const limpK = z.limp ? 1 - z.limp * .5 * Math.max(0, Math.sin(z.animT)) : 1;
-      const sp = z.speed * dt * (z.atkT > .2 ? .4 : 1) * limpK * (1 - Math.min(1, z.flinch) * .75);
+      const sp = z.speed * dt * (z.atkT > .2 ? .4 : 1) * limpK * (1 - Math.min(1, z.flinch) * .75) * (z.frozen > 0 ? .25 : 1);
       z.x += mvx / ml * Math.min(sp, ml + .5); z.z += mvz / ml * Math.min(sp, ml + .5);
     }
     for (const o of zombies) {
@@ -1963,7 +2372,7 @@ function updateZombies(dt) {
     z.face += da * Math.min(1, dt * 8);
     m.g.position.set(z.x, 0, z.z); m.g.rotation.y = z.face;
     const rate = z.type === 'walk' ? 4.2 : z.type === 'run' ? 8 : 11;
-    z.animT += dt * rate;
+    z.animT += dt * rate * (z.frozen > 0 ? .25 : 1);
     const s = Math.sin(z.animT), cS = Math.cos(z.animT), amp = z.type === 'walk' ? .45 : .85;
     m.legL.hip.rotation.x = s * amp; m.legR.hip.rotation.x = -s * amp * (1 - z.limp * .6);
     m.legL.kn.rotation.x = Math.max(0, cS) * amp * 1.3; m.legR.kn.rotation.x = Math.max(0, -cS) * amp * 1.3;
@@ -2026,6 +2435,7 @@ function fire() {
   w.mag--;
   const rate = s.rpm * (P.perks.has('rapid') ? 1.33 : 1);
   P.fireCD = P.fireDur = 60 / rate;
+  if (s.flame || s.cryo || s.gale) { coneFire(w, s); return; }
   const pellets = s.pellets || 1;
   const moving = Math.hypot(P.vx, P.vz) > 1;
   let spread = s.spread * (moving ? 1.6 : 1) * (1 - P.ads * .8) * (P.onGround ? 1 : 2);
@@ -2036,17 +2446,17 @@ function fire() {
   for (let p = 0; p < pellets; p++) {
     const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * spread;
     _v.set(Math.cos(a) * rr, Math.sin(a) * rr, -1).normalize().applyQuaternion(camera.quaternion);
-    shootRay(_o, _v, s, _m);
+    if (s.chain) chainFire(_o, _v, s, _m); else shootRay(_o, _v, s, _m);
   }
   // recoil: part of it sticks (climbs), part springs back
   const rk = s.recoil * (P.ads > .5 ? .7 : 1);
   P.recoil += rk * .7; P.pitch = Math.min(1.45, P.pitch + rk * .3);
   P.recoilYaw += (Math.random() - .5) * rk * .8;
   P.kick = 1;
-  vmFlash.material.opacity = vmFlash2.material.opacity = s.kind === 'wonder' ? 0 : 1;
+  vmFlash.material.opacity = vmFlash2.material.opacity = s.kind === 'wonder' || s.chain ? 0 : 1;
   vmFlash.rotation.z = Math.random() * 3; vmFlash.scale.setScalar(.8 + Math.random() * .5);
   vmMuzzleL.intensity = s.kind === 'wonder' ? 0 : 3 * (1 - P.ads * .7);
-  muzzleLight.position.copy(_m); muzzleLight.intensity = s.kind === 'wonder' ? 0 : 3;
+  muzzleLight.position.copy(_m); muzzleLight.intensity = s.kind === 'wonder' ? 0 : 3; muzzleLight.color.set(0xffb060);
   if (s.kind !== 'wonder') puff(_m.x, _m.y + .02, _m.z, 'muzzle', s.pellets || s.kind === 'sniper' ? 2 : 1);
   SFX.shot(s.snd);
   if (s.bolt) SFX.bolt(); else if (s.pump) SFX.pump();
@@ -2060,11 +2470,75 @@ function fire() {
       s.kind === 'shotgun' ? 0x6a1410 : 0x7a5a1e, .9, .016, 1);
   }
   if (s.kind === 'shotgun' || s.kind === 'sniper') shake(.1);
+  if (s.kind === 'launcher') shake(.2);
 }
-function shootRay(o, d, s, muzzlePos) {
+// zombies inside a cone in front of the player, nearest first, with line of sight
+function coneTargets(range, cosMin) {
+  const f = _q.set(0, 0, -1).applyQuaternion(camera.quaternion), o = camera.position, out = [];
+  for (const z of zombies) {
+    if (z.state === 'dead' || z.state === 'rise') continue;
+    const dx = z.x - o.x, dy = (z.crawler ? .4 : 1.1) - o.y, dz = z.z - o.z, dist = Math.hypot(dx, dy, dz);
+    if (dist > range || dist < .01 || (dx * f.x + dy * f.y + dz * f.z) / dist < cosMin) continue;
+    const flat = Math.hypot(dx, dz) || 1;
+    if (rayGrid(o.x, o.z, dx / flat, dz / flat, flat, bulletSolid) < flat - .2) continue;
+    out.push({ z, dist });
+  }
+  return out.sort((a, b) => a.dist - b.dist);
+}
+function coneFire(w, s) {
+  const P = player, f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), o = camera.position;
+  camera.localToWorld(_m.set(.16 * (1 - P.ads), -.12 * (1 - P.ads) - .03, -.9));
+  SFX.shot(s.snd);
+  if (s.flame) {
+    for (const { z } of coneTargets(7, .93)) { z.burnT = 2.5; damageZombie(z, s.dmg, 'splash', z.x, 1.1, z.z); }
+    for (let i = 0; i < 2; i++) { const t = 1 + Math.random() * 5; puff(o.x + f.x * t + (Math.random() - .5) * .3, o.y + f.y * t - .25 + t * .04, o.z + f.z * t + (Math.random() - .5) * .3, 'fire', .35 + t * .12); }
+    if (Math.random() < .2) puff(o.x + f.x * 5, o.y + f.y * 5, o.z + f.z * 5, 'smoke', .5);
+    muzzleLight.position.copy(_m); muzzleLight.intensity = 2.5; muzzleLight.color.set(0xff8030);
+  } else if (s.cryo) {
+    for (const { z } of coneTargets(8, .95)) {
+      z.frozen = 3; damageZombie(z, s.dmg, 'splash', z.x, 1.1, z.z);
+    }
+    for (let i = 0; i < 2; i++) { const t = .8 + Math.random() * 6; puff(o.x + f.x * t, o.y + f.y * t - .2, o.z + f.z * t, 'frost', .3 + t * .1); }
+  } else if (s.gale) {
+    // a wall of air: everything in front is flung away
+    for (const { z, dist } of coneTargets(10, .8)) {
+      const dx = z.x - P.x, dz = z.z - P.z, dl = Math.hypot(dx, dz) || 1;
+      z.kx = dx / dl; z.kz = dz / dl; z.launch = 1;
+      if (!damageZombie(z, s.dmg * (1 - dist / 14), 'splash')) { z.x += z.kx * 2.5; z.z += z.kz * 2.5; collide(z, .32, zombieSolid); z.flinch = 1.2; }
+    }
+    for (let i = 0; i < 10; i++) { const t = 1 + i * .8; puff(o.x + f.x * t + (Math.random() - .5) * t * .4, o.y + f.y * t - .4, o.z + f.z * t + (Math.random() - .5) * t * .4, 'dust', .8 + t * .15); }
+    shake(.35); flashScreen(.15);
+  }
+  const rk = s.recoil; P.recoil += rk * .7; P.pitch = Math.min(1.45, P.pitch + rk * .3); P.kick = s.gale ? 1 : .3;
+}
+// chain lightning: hits the first zombie in line, then arcs to the nearest ones around it
+function chainFire(o, d, s, muzzlePos) {
   let wallT = rayGrid(o.x, o.z, d.x, d.z, 80, bulletSolid);
   if (d.y < 0) wallT = Math.min(wallT, -o.y / d.y);
-  if (d.y > 0) wallT = Math.min(wallT, (WH - o.y) / d.y);
+  const first = rayZombies(o, d, wallT)[0];
+  if (!first) { const ex = o.x + d.x * wallT, ey = o.y + d.y * wallT, ez = o.z + d.z * wallT; bolt(muzzlePos, _end.set(ex, ey, ez)); puff(ex, ey, ez, 'zap', 1); return; }
+  let cur = first.z, prev = muzzlePos.clone(); const hit = new Set(), max = s.chains || 9;
+  for (let k = 0; k < max && cur; k++) {
+    hit.add(cur);
+    const p = new THREE.Vector3(cur.x, cur.crawler ? .4 : 1.2, cur.z);
+    bolt(prev, p); puff(p.x, p.y, p.z, 'zap', 1.2);
+    damageZombie(cur, s.dmg * (1 - k * .05), 'body', p.x, p.y, p.z);
+    prev = p; let best = null, bd = 7;
+    for (const z of zombies) { if (z.state === 'dead' || hit.has(z)) continue; const dd = Math.hypot(z.x - cur.x, z.z - cur.z); if (dd < bd) { bd = dd; best = z; } }
+    cur = best;
+  }
+}
+const tracerMatB = new THREE.LineBasicMaterial({ color: new THREE.Color(.8, 1.8, 4), transparent: true, opacity: 1 });
+function bolt(a, b) {
+  // jagged lightning built from short tracer segments
+  let p = a.clone();
+  for (let i = 1; i <= 5; i++) {
+    const q = new THREE.Vector3().lerpVectors(a, b, i / 5);
+    if (i < 5) q.add(new THREE.Vector3((Math.random() - .5) * .35, (Math.random() - .5) * .35, (Math.random() - .5) * .35));
+    tracer(p, q, tracerMatB); p = q;
+  }
+}
+function rayZombies(o, d, wallT) {
   const hits = [];
   for (const z of zombies) {
     if (z.state === 'dead') continue;
@@ -2081,7 +2555,13 @@ function shootRay(o, d, s, muzzlePos) {
     if (th !== null && (tb === null || th <= tb + .15)) { t = th; head = true; } else if (tb !== null) t = tb;
     if (t !== null && t < wallT) hits.push({ z, t, head });
   }
-  hits.sort((a, b) => a.t - b.t);
+  return hits.sort((a, b) => a.t - b.t);
+}
+function shootRay(o, d, s, muzzlePos) {
+  let wallT = rayGrid(o.x, o.z, d.x, d.z, 80, bulletSolid);
+  if (d.y < 0) wallT = Math.min(wallT, -o.y / d.y);
+  if (d.y > 0) wallT = Math.min(wallT, (WH - o.y) / d.y);
+  const hits = rayZombies(o, d, wallT);
   const pierce = s.pierce || 1;
   let endT = wallT, hitZ = false;
   for (let i = 0; i < Math.min(pierce, hits.length); i++) {
@@ -2092,7 +2572,8 @@ function shootRay(o, d, s, muzzlePos) {
   }
   const ex = o.x + d.x * endT, ey = o.y + d.y * endT, ez = o.z + d.z * endT;
   if (s.splash) {
-    explode(ex - d.x * .2, ey - d.y * .2, ez - d.z * .2, s.splash, s.dmg, false, curW().up ? 0xff40ff : (s.kind === 'wonder' ? 0x40ff70 : 0xff8030));
+    if (s.launcher) for (let t = .9, n = 0; t < endT && n < 24; t += .7, n++) puff(o.x + d.x * t, o.y + d.y * t - .05, o.z + d.z * t, 'smoke', .32 + n * .015);
+    explode(ex - d.x * .2, ey - d.y * .2, ez - d.z * .2, s.splash, s.dmg, !!s.launcher, curW().up ? 0xff40ff : (s.kind === 'wonder' ? 0x40ff70 : 0xff8030));
     tracer(muzzlePos, _end.set(ex, ey, ez), s.kind === 'wonder' ? (curW().up ? tracerMatP : tracerMatG) : tracerMat);
   } else {
     if (!hitZ) {
@@ -2119,7 +2600,7 @@ function explode(x, y, z, rad, dmg, selfDmg, color) {
   for (const zb of zombies) {
     if (zb.state === 'dead') continue;
     const d = Math.hypot(zb.x - x, (1 - y) * .5, zb.z - z);
-    if (d < rad) damageZombie(zb, dmg * (1 - d / rad * .5), 'splash', zb.x, 1.2, zb.z);
+    if (d < rad) damageZombie(zb, dmg * (1 - d / rad * .5), 'blast', zb.x, 1.2, zb.z);
   }
   if (selfDmg) {
     const d = Math.hypot(player.x - x, player.z - z);
@@ -2185,7 +2666,7 @@ function shellDebris(n, color, x, y, z) {
 }
 const debris = [];
 function buildReloadPlan(w, s, ud, empty) {
-  const id = w.id, type = RL_TYPE[id] || 'mag', rest = restPose(ud), phases = [];
+  const id = w.id, type = rlType(id), rest = restPose(ud), phases = [];
   const quick = player.perks.has('quick') ? .5 : 1;
   const start = Object.assign({}, rest, { g: rest.g.slice(), h: rest.h.slice(), m: rest.m.slice() });
   if (type === 'garand' && empty) start.mv = 0;
@@ -2203,7 +2684,7 @@ function buildReloadPlan(w, s, ud, empty) {
   };
   if (type === 'mag') {
     const pistol = s.kind === 'pistol';
-    const md = ud.magSide ? [-1, 0, 0] : [0, -1, 0];
+    const md = ud.magSide ? [-1, 0, 0] : ud.magTop ? [0, 1, 0] : [0, -1, 0];
     const mc = ud.magCenter || ud.lhRest, gp = v3(mc, md, (ud.magHalf || .04) + .028);
     const lift = Math.max(0, (ud.magHalf || .04) * 2 - .06) * .9;
     const tilt = pistol ? [-.04, .1, -.03, .25, .2, -.3] : ud.magSide ? [-.04, .04, -.02, .06, .18, -.12] : [-.04, .045 + lift * .45, -.04, .06, .2, -.36];
@@ -2488,11 +2969,15 @@ function update(dt) {
   const adsWant = mouseR && !P.sprinting && P.reloadT <= 0 && P.swapT <= 0 && P.upgradeT <= 0 && P.knifeT <= 0 && !P.drink && P.throwT <= 0;
   P.ads += ((adsWant ? 1 : 0) - P.ads) * Math.min(1, dt * 11);
   if (mouseL && !busy && !P.sprinting && P.fireCD <= 0 && (s.auto || !triggerLatch)) {
-    if (w.mag > 0) { fire(); triggerLatch = true; }
+    if (w.mag > 0) { fire(); triggerLatch = true; if (s.burst) P.burstLeft = s.burst - 1; }
     else if (w.res > 0) startReload();
     else if (!triggerLatch) { SFX.click(); triggerLatch = true; }
   }
   if (!mouseL) triggerLatch = false;
+  // the rest of a burst fires on its own once the trigger is pulled
+  if (P.burstLeft > 0 && P.fireCD <= 0 && !busy && !P.sprinting) {
+    if (w.mag > 0) { fire(); P.burstLeft--; if (!P.burstLeft) P.fireCD += .2; } else P.burstLeft = 0;
+  }
   if (w.mag === 0 && w.res > 0 && !P.rl && !busy && !mouseL && P.fireCD <= 0) startReload();
   P.recoil *= Math.max(0, 1 - dt * 9);
   P.recoilYaw *= Math.max(0, 1 - dt * 7);
@@ -2612,7 +3097,7 @@ function updateVisuals(dt) {
   const bobA = (1 - P.ads * .9) * Math.min(1, Math.hypot(P.vx, P.vz) / 5);
   pos.x += Math.cos(P.bobT) * .014 * bobA + swayX * .4 * (1 - P.ads * .7);
   pos.y += Math.abs(Math.sin(P.bobT)) * .016 * bobA - swayY * .4 * (1 - P.ads * .7) + Math.sin(time * 1.6) * .002 * (1 - P.ads);
-  const heavy = s.kind === 'shotgun' || s.kind === 'sniper' || s.snd === 'magnum';
+  const heavy = s.kind === 'shotgun' || s.kind === 'sniper' || s.kind === 'launcher' || s.snd === 'magnum' || !!s.gale;
   pos.z += P.kick * (heavy ? .09 : .03) * (P.ads > .5 ? .6 : 1);
   let rx = P.kick * (heavy ? .14 : .04), ry = -swayX * 2.5, rz = -swayX * 3;
   if (P.sprinting) { pos.x -= .02; pos.y -= .06; ry += .75; rx -= .3; rz += .2; }
@@ -2814,7 +3299,7 @@ requestAnimationFrame(loop);
 window.__dr = { get state() { return state; }, get player() { return player; }, get zombies() { return zombies; }, get round() { return round; },
   startGame, equip, step: (n = 60, dt = 1 / 60, draw = true) => { for (let i = 0; i < n; i++) { if (state === 'playing') { update(dt); updateHUD(dt); } updateVisuals(dt); } if (draw) render(); },
   input: { keys, set mouseL(v) { mouseL = v; }, set mouseR(v) { mouseR = v; }, press(k) { if (k === 'F') fPressed = true; if (k === 'R') rPressed = true; if (k === 'V') vPressed = true; if (k === 'G') gPressed = true; } },
-  set hold(v) { testHold = v; }, explodeAt(x, y, z) { explode(x, y, z, 3, 1, false, 0xff8030); }, vmProps, clearZombies() { toSpawn = 0; spawnT = 1e9; for (const z of zombies) scene.remove(z.m.g); zombies = []; }, setPower, doors, windows, mysteryBox, props, hasPost: !!composer };
+  set hold(v) { testHold = v; }, spawnTest(n) { for (let i = 0; i < n; i++) spawnZombie(); }, weaponIds: Object.keys(WEAPONS), weaponMag: (id) => WEAPONS[id].mag, explodeAt(x, y, z) { explode(x, y, z, 3, 1, false, 0xff8030); }, vmProps, clearZombies() { toSpawn = 0; spawnT = 1e9; for (const z of zombies) scene.remove(z.m.g); zombies = []; }, setPower, doors, windows, mysteryBox, props, hasPost: !!composer };
 })();
 </script>
 </body>
