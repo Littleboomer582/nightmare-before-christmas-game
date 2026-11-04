@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.deadreckoning.zombies'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.deadreckoning.zombies'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // A fixed key kept in the repo, so newer builds install over older ones.
+    // It only identifies this hobby app; do not reuse it for anything else.
+    signingConfigs {
+        release {
+            storeFile file('../keystore/dead-reckoning.jks')
+            storePassword 'deadreckoning'
+            keyAlias 'deadreckoning'
+            keyPassword 'deadreckoning'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // the game is one large HTML file; keep assets uncompressed for fast loading
+    androidResources {
+        noCompress 'html', 'js'
+    }
+}

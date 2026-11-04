@@ -91,6 +91,44 @@
   .best{color:#ffd23f;margin-top:12px;font-size:18px;letter-spacing:2px}
   .stats{font-size:22px;line-height:1.7;margin:10px 0 18px;color:#ddd}
   .stats span{color:#ffd23f}
+  .overlay{justify-content:safe center}
+  body.touch .overlay h1{font-size:clamp(34px,8vh,64px)}
+  body.touch .overlay h2{margin:2px 0 10px;font-size:14px;letter-spacing:5px}
+  body.touch .overlay .btn{font-size:18px;padding:9px 26px}
+  body.touch .controls{font-size:13px;margin:10px 0 4px;gap:2px 14px}
+  body.touch .tips{font-size:12px;margin-top:4px}
+  .touch-help{display:none}
+  body.touch .touch-help{display:grid}
+  body.touch .key-help{display:none}
+  #touch{position:fixed;inset:0;z-index:3;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  .tzone{position:absolute;top:0;bottom:0}
+  #tMove{left:0;width:40%} #tLook{right:0;width:60%}
+  #joyBase{position:absolute;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:2px solid rgba(255,255,255,.28);background:rgba(0,0,0,.18);display:none;pointer-events:none}
+  #joyKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.5)}
+  .tb{position:absolute;width:60px;height:60px;border-radius:50%;background:rgba(20,10,10,.36);border:2px solid rgba(255,255,255,.32);color:#fff;
+    font:600 12px 'Oswald',Impact,sans-serif;letter-spacing:1px;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 2px #000}
+  .tb.big{width:90px;height:90px;font-size:16px;background:rgba(120,0,0,.36);border-color:rgba(255,90,90,.65)}
+  .tb.on,.tb.down{background:rgba(200,30,30,.6);border-color:#fff}
+  .tb.sq{border-radius:10px;width:46px;height:40px}.tb.sq.wide{width:64px}
+  .tb[data-act="fire"]{right:calc(34px + env(safe-area-inset-right,0px));bottom:104px}
+  .tb[data-act="jump"]{right:calc(48px + env(safe-area-inset-right,0px));bottom:26px}
+  .tb[data-act="ads"]{right:calc(140px + env(safe-area-inset-right,0px));bottom:52px}
+  .tb[data-act="reload"]{right:calc(146px + env(safe-area-inset-right,0px));bottom:132px}
+  .tb[data-act="use"]{right:calc(224px + env(safe-area-inset-right,0px));bottom:90px}
+  .tb[data-act="knife"]{right:calc(48px + env(safe-area-inset-right,0px));bottom:212px}
+  .tb[data-act="nade"]{right:calc(122px + env(safe-area-inset-right,0px));bottom:214px}
+  .tb[data-act="swap"]{right:calc(196px + env(safe-area-inset-right,0px));bottom:192px}
+  .tb[data-act="pause"]{right:calc(14px + env(safe-area-inset-right,0px));top:12px}
+  .tb[data-act="guns"]{right:calc(70px + env(safe-area-inset-right,0px));top:12px}
+  body.touch #weapon{bottom:auto;top:10px;right:calc(150px + env(safe-area-inset-right,0px));transform:scale(.72);transform-origin:top right}
+  body.touch #pointsWrap{bottom:auto;top:10px;right:auto;left:calc(18px + env(safe-area-inset-left,0px));text-align:left}
+  body.touch #pointsWrap .pop{right:auto;left:0}
+  body.touch #round{font-size:64px;left:calc(18px + env(safe-area-inset-left,0px));bottom:8px}
+  body.touch #perks{left:calc(18px + env(safe-area-inset-left,0px));bottom:80px}
+  body.touch #hint{display:none}
+  body.touch #prompt{top:auto;bottom:30%;font-size:19px}
+  body.touch #announce{font-size:30px}
+  body.touch #powerups{bottom:auto;top:70px}
   #loadout{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);padding:16px;box-sizing:border-box;z-index:5}
   .lo-panel{width:min(1100px,100%);height:min(720px,100%);display:flex;flex-direction:column;background:#140c0b;border:2px solid #6a0000;border-radius:6px;box-shadow:0 0 40px rgba(160,0,0,.35);overflow:hidden}
   .lo-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid #3a1a16;background:#1d1210}
@@ -153,7 +191,7 @@
   <h1>Dead Reckoning</h1>
   <h2>ROUND-BASED ZOMBIE SURVIVAL</h2>
   <div><button class="btn" id="playBtn">Play</button><button class="btn" id="rangeBtn">Firing Range</button></div>
-  <div class="controls">
+  <div class="controls key-help">
     <b>WASD</b><span>Move</span>
     <b>Mouse</b><span>Look / Left-click shoot / Right-click aim down sights</span>
     <b>Shift</b><span>Sprint</span>
@@ -164,17 +202,40 @@
     <b>G</b><span>Throw grenade</span>
     <b>Q / 1 / 2 / Wheel</b><span>Switch weapon</span>
   </div>
+  <div class="controls touch-help">
+    <b>Left side</b><span>Drag to move. Push all the way forward to sprint</span>
+    <b>Right side</b><span>Drag to look. Drag on FIRE to aim while shooting</span>
+    <b>AIM</b><span>Toggle aiming down sights</span>
+    <b>USE</b><span>Buy, open doors, hold to rebuild barriers</span>
+    <b>SWAP / KNIFE / NADE</b><span>Switch weapon, knife, throw a grenade</span>
+  </div>
   <div class="tips">Earn points by shooting zombies and rebuilding the boarded windows. Spend them on wall weapons,
     the Mystery Box (over 120 weapons from World War II to the near future), opening new areas and perk machines. Find the power switch to activate the perks and the Upgrade Machine.
     Survive as many rounds as you can.</div>
   <div class="best" id="bestMenu"></div>
 </div>
 
+<div id="touch" class="hidden" aria-hidden="true">
+  <div id="tMove" class="tzone"></div>
+  <div id="tLook" class="tzone"></div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div class="tb big" data-act="fire">FIRE</div>
+  <div class="tb" data-act="ads">AIM</div>
+  <div class="tb" data-act="reload">RELOAD</div>
+  <div class="tb" data-act="jump">JUMP</div>
+  <div class="tb" data-act="use">USE</div>
+  <div class="tb" data-act="knife">KNIFE</div>
+  <div class="tb" data-act="nade">NADE</div>
+  <div class="tb" data-act="swap">SWAP</div>
+  <div class="tb sq" data-act="pause">II</div>
+  <div class="tb sq wide" data-act="guns">GUNS</div>
+</div>
+
 <div id="loadout" class="hidden">
   <div class="lo-panel" role="dialog" aria-labelledby="loTitle">
     <div class="lo-head">
       <h3 id="loTitle">Firing Range</h3>
-      <span class="lo-keys">Pick a weapon for a slot. <b>B</b> or <b>Esc</b> closes this panel.</span>
+      <span class="lo-keys" id="loKeys">Pick a weapon for a slot. <b>B</b> or <b>Esc</b> closes this panel.</span>
     </div>
     <div class="lo-body">
       <section class="lo-guns">
@@ -658,8 +719,12 @@ const SFX = new Proxy({
 /* ===================================================================
    RENDERER / SCENE / POST-PROCESSING
    =================================================================== */
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+// touch devices (and the Android app) get on-screen controls and lighter rendering settings
+const IS_APP = /DeadReckoningApp/.test(navigator.userAgent);
+const IS_TOUCH = IS_APP || (window.matchMedia && matchMedia('(pointer: coarse)').matches) || /[?&]touch=1/.test(location.search);
+if (IS_TOUCH) document.body.classList.add('touch');
+const renderer = new THREE.WebGLRenderer({ antialias: !IS_TOUCH, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_TOUCH ? 1 : 1.25));
 renderer.setSize(innerWidth, innerHeight);
 renderer.autoClear = false;
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -677,7 +742,7 @@ scene.add(camera);
 const flashlight = new THREE.SpotLight(0xffe8c8, 1.4, 30, 0.5, 0.6, 1.4);
 flashlight.position.set(0.3, -0.2, 0.1);
 flashlight.castShadow = true;
-flashlight.shadow.mapSize.set(1024, 1024);
+flashlight.shadow.mapSize.set(IS_TOUCH ? 512 : 1024, IS_TOUCH ? 512 : 1024);
 flashlight.shadow.camera.near = .3; flashlight.shadow.camera.far = 30;
 flashlight.shadow.bias = -0.0006; flashlight.shadow.normalBias = .02;
 camera.add(flashlight);
@@ -1762,7 +1827,7 @@ for (const zn of ZONES) {
 }
 // floating dust
 const dust = (() => {
-  const n = 700, pos = new Float32Array(n * 3);
+  const n = IS_TOUCH ? 300 : 700, pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { pos[i * 3] = 9 + Math.random() * 69; pos[i * 3 + 1] = Math.random() * WH; pos[i * 3 + 2] = 9 + Math.random() * 45; }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xbfa888, size: .035, transparent: true, opacity: .45, depthWrite: false }));
@@ -1846,7 +1911,7 @@ function updateHUD(dt) {
   $('ammo').className = w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) ? 'low' : '';
   let hint = '';
   if (w.mag + w.res === 0) hint = '<span style="color:#ff4040">NO AMMO</span>';
-  else if (player.reloadT <= 0 && w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) && w.res > 0) hint = 'Press <b>R</b> to reload';
+  else if (player.reloadT <= 0 && w.mag < s.mag && w.mag <= Math.ceil(s.mag * .25) && w.res > 0) hint = IS_TOUCH ? 'Tap <b>RELOAD</b>' : 'Press <b>R</b> to reload';
   else if (w.res === 0 && w.mag <= Math.ceil(s.mag * .25)) hint = '<span style="color:#ffd23f">LOW AMMO</span>';
   setHTML('ammoHint', hint);
   setHTML('nades', '● '.repeat(player.grenades).trim() + '  <small>GRENADES</small>');
@@ -1925,7 +1990,7 @@ function findInteract() {
   return best;
 }
 function interactPrompt(it) {
-  const F = '<b>F</b>';
+  const F = IS_TOUCH ? '<b>USE</b>' : '<b>F</b>';
   switch (it.kind) {
     case 'window': return `Hold ${F} to rebuild barrier`;
     case 'door': return `Press ${F} to clear debris [Cost: ${it.d.cost}]`;
@@ -3020,10 +3085,14 @@ function update(dt) {
   const P = player;
   if (P.invuln > 0) P.invuln -= dt;
   // ---- movement
-  const fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), str = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+  let fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), str = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), amag = 1;
+  if (touch.joyId !== null && (touch.jx || touch.jy)) { fwd = -touch.jy; str = touch.jx; amag = Math.min(1, Math.hypot(fwd, str)); }
   const sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
   let mx = -sn * fwd + cs * str, mz = -cs * fwd - sn * str; const ml = Math.hypot(mx, mz);
-  if (ml > 0) { mx /= ml; mz /= ml; }
+  if (ml > 0) { mx = mx / ml * amag; mz = mz / ml * amag; }
+  const touchSprint = touch.joyId !== null && -touch.jy > .9;
+  if (touchSprint) keys.ShiftLeft = true; else if (touch.sprinted) keys.ShiftLeft = false;
+  touch.sprinted = touchSprint;
   P.sprinting = keys.ShiftLeft && fwd > 0 && P.stamina > .02 && !mouseR && P.reloadT <= 0 && P.upgradeT <= 0;
   if (P.sprinting) P.stamina = Math.max(0, P.stamina - dt / 4.5);
   else P.stamina = Math.min(1, P.stamina + dt / (keys.ShiftLeft ? 6 : 3));
@@ -3087,6 +3156,7 @@ function update(dt) {
     else if (!triggerLatch) { SFX.click(); triggerLatch = true; }
   }
   if (!mouseL) triggerLatch = false;
+  if (IS_TOUCH && mouseR && P.sprinting) { mouseR = false; document.querySelector('.tb[data-act="ads"]').classList.remove('on'); }
   // the rest of a burst fires on its own once the trigger is pulled
   if (P.burstLeft > 0 && P.fireCD <= 0 && !busy && !P.sprinting) {
     if (w.mag > 0) { fire(); P.burstLeft--; if (!P.burstLeft) P.fireCD += .2; } else P.burstLeft = 0;
@@ -3336,7 +3406,7 @@ function startRange() {
   $('round').innerHTML = '<span style="font-size:46px;letter-spacing:3px">FIRING RANGE</span>';
   computeFlow();
   state = 'playing';
-  announce('PRESS B TO CHOOSE WEAPONS', '#ffd23f', 3.5);
+  announce(IS_TOUCH ? 'TAP GUNS TO CHOOSE WEAPONS' : 'PRESS B TO CHOOSE WEAPONS', '#ffd23f', 3.5);
   lockPointer();
 }
 function applyRangePerks() {
@@ -3414,7 +3484,7 @@ function gameOver() {
   $('over').classList.remove('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
 }
-function lockPointer() { try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+function lockPointer() { if (IS_TOUCH) return; try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 function pause() { if (state !== 'playing') return; state = 'paused'; $('pause').classList.remove('hidden'); mouseL = mouseR = false; for (const k in keys) keys[k] = false; }
 function resume() { if (state !== 'paused') return; state = 'playing'; $('pause').classList.add('hidden'); initAudio(); lockPointer(); }
 function toMenu() {
@@ -3476,6 +3546,83 @@ addEventListener('mousemove', (e) => {
   swayY = Math.max(-.03, Math.min(.03, swayY + e.movementY * .00015));
 });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseL = mouseR = false; });
+/* ---------- touch controls ---------- */
+const touch = { joyId: null, jx: 0, jy: 0, jcx: 0, jcy: 0, lookId: null, lx: 0, ly: 0, fireId: null, fx: 0, fy: 0, sprinted: false };
+function touchLook(dx, dy) {
+  if (state !== 'playing' || !player) return;
+  const sens = .0048 * (1 - player.ads * .5) * (statsOf(curW()).zoom && player.ads > .8 ? .35 : 1);
+  player.yaw -= dx * sens; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * sens));
+  swayX = Math.max(-.03, Math.min(.03, swayX + dx * .0002)); swayY = Math.max(-.03, Math.min(.03, swayY + dy * .0002));
+}
+function showTouch() {
+  $('touch').classList.toggle('hidden', !(IS_TOUCH && state === 'playing'));
+  document.querySelector('.tb[data-act="guns"]').style.display = mode === 'range' ? '' : 'none';
+  if (state !== 'playing') { touch.joyId = touch.lookId = touch.fireId = null; touch.jx = touch.jy = 0; $('joyBase').style.display = 'none'; }
+}
+if (IS_TOUCH) {
+  const T = $('touch'), jb = $('joyBase'), jk = $('joyKnob');
+  const press = (act, el) => {
+    if (act === 'fire') mouseL = true;
+    else if (act === 'ads') { mouseR = !mouseR; el.classList.toggle('on', mouseR); }
+    else if (act === 'reload') rPressed = true;
+    else if (act === 'jump') keys.Space = true;
+    else if (act === 'use') { fPressed = true; keys.KeyF = true; }
+    else if (act === 'knife') vPressed = true;
+    else if (act === 'nade') gPressed = true;
+    else if (act === 'swap') swapReq = 99;
+    else if (act === 'pause') pause();
+    else if (act === 'guns') openLoadout();
+  };
+  const release = (act) => {
+    if (act === 'fire') mouseL = false;
+    else if (act === 'jump') keys.Space = false;
+    else if (act === 'use') keys.KeyF = false;
+  };
+  const held = {};
+  T.addEventListener('touchstart', (e) => {
+    e.preventDefault(); initAudio();
+    for (const t of e.changedTouches) {
+      const btn = t.target.closest && t.target.closest('.tb');
+      if (btn) {
+        const act = btn.dataset.act; held[t.identifier] = { act, btn }; btn.classList.add('down'); press(act, btn);
+        if (act === 'fire') { touch.fireId = t.identifier; touch.fx = t.clientX; touch.fy = t.clientY; }
+      } else if (t.target.id === 'tMove' && touch.joyId === null) {
+        touch.joyId = t.identifier; touch.jcx = t.clientX; touch.jcy = t.clientY; touch.jx = touch.jy = 0;
+        jb.style.display = 'block'; jb.style.left = t.clientX + 'px'; jb.style.top = t.clientY + 'px'; jk.style.transform = '';
+      } else if (touch.lookId === null) { touch.lookId = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; }
+    }
+  }, { passive: false });
+  T.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === touch.joyId) {
+        let dx = t.clientX - touch.jcx, dy = t.clientY - touch.jcy; const d = Math.hypot(dx, dy), R = 55;
+        if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+        touch.jx = dx / R; touch.jy = dy / R; jk.style.transform = `translate(${dx}px,${dy}px)`;
+      } else if (t.identifier === touch.lookId) { touchLook(t.clientX - touch.lx, t.clientY - touch.ly); touch.lx = t.clientX; touch.ly = t.clientY; }
+      else if (t.identifier === touch.fireId) { touchLook(t.clientX - touch.fx, t.clientY - touch.fy); touch.fx = t.clientX; touch.fy = t.clientY; }
+    }
+  }, { passive: false });
+  const end = (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === touch.joyId) { touch.joyId = null; touch.jx = touch.jy = 0; jb.style.display = 'none'; }
+      if (t.identifier === touch.lookId) touch.lookId = null;
+      if (t.identifier === touch.fireId) touch.fireId = null;
+      const h = held[t.identifier]; if (h) { h.btn.classList.remove('down'); release(h.act); delete held[t.identifier]; }
+    }
+  };
+  T.addEventListener('touchend', end, { passive: false }); T.addEventListener('touchcancel', end, { passive: false });
+  $('loKeys').textContent = 'Tap a weapon to put it in the selected slot.';
+}
+// the Android app's back button
+window.__appBack = () => {
+  if (state === 'loadout') { closeLoadout(); return 'ok'; }
+  if (state === 'playing') { pause(); return 'ok'; }
+  if (state === 'paused' || state === 'over') { toMenu(); return 'ok'; }
+  return 'exit';
+};
+window.__appPause = () => { if (state === 'playing') pause(); };
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = vmCam.aspect = innerWidth / innerHeight;
@@ -3489,6 +3636,7 @@ let last = performance.now(), testHold = false;
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (IS_TOUCH && (loop.lastState !== state || loop.lastMode !== mode)) { loop.lastState = state; loop.lastMode = mode; showTouch(); }
   if (state === 'playing' && !testHold) { update(dt); updateHUD(dt); }
   else if (state === 'menu') { time += dt; player.yaw += dt * .12; player.pitch = -.05; }
   updateVisuals(dt);
