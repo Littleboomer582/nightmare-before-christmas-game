@@ -91,6 +91,41 @@
   .best{color:#ffd23f;margin-top:12px;font-size:18px;letter-spacing:2px}
   .stats{font-size:22px;line-height:1.7;margin:10px 0 18px;color:#ddd}
   .stats span{color:#ffd23f}
+  #loadout{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);padding:16px;box-sizing:border-box;z-index:5}
+  .lo-panel{width:min(1100px,100%);height:min(720px,100%);display:flex;flex-direction:column;background:#140c0b;border:2px solid #6a0000;border-radius:6px;box-shadow:0 0 40px rgba(160,0,0,.35);overflow:hidden}
+  .lo-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid #3a1a16;background:#1d1210}
+  .lo-head h3{margin:0;font-family:'Creepster',cursive;font-weight:400;font-size:34px;color:#c00000;letter-spacing:2px}
+  .lo-keys{color:#a99;font-size:14px}.lo-keys b,.lo-check b{color:#ffd23f}
+  .lo-body{flex:1;min-height:0;display:grid;grid-template-columns:1fr 270px}
+  .lo-guns{display:flex;flex-direction:column;min-width:0;min-height:0;padding:12px 14px;gap:10px}
+  .lo-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  #loSearch{flex:1;min-width:160px;font:inherit;font-size:16px;padding:8px 10px;background:#0b0706;color:#eee;border:1px solid #4a2420;border-radius:4px}
+  #loSearch:focus-visible,.lo-btn:focus-visible,.lo-seg button:focus-visible,.lo-tabs button:focus-visible,.lo-card:focus-visible{outline:2px solid #ffd23f;outline-offset:1px}
+  .lo-seg{display:flex;border:1px solid #6a0000;border-radius:4px;overflow:hidden}
+  .lo-seg button,.lo-tabs button{font:inherit;font-size:14px;letter-spacing:1px;padding:7px 12px;background:#1d1210;color:#caa;border:0;cursor:pointer}
+  .lo-seg button.on{background:#7a0000;color:#fff}
+  .lo-tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .lo-tabs button{border:1px solid #3a1a16;border-radius:20px;padding:5px 12px}
+  .lo-tabs button.on{background:#ffd23f;color:#1a0d00;border-color:#ffd23f}
+  .lo-list{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;align-content:start;padding-right:4px}
+  .lo-card{font:inherit;text-align:left;cursor:pointer;background:#1d1210;color:#eee;border:1px solid #3a1a16;border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+  .lo-card:hover{border-color:#b00000;background:#2a1412}
+  .lo-card.eq{border-color:#ffd23f;box-shadow:inset 3px 0 0 #ffd23f}
+  .lo-card .n{font-size:16px;font-weight:600;letter-spacing:.5px}
+  .lo-card .t{font-size:12px;color:#c9a;text-transform:uppercase;letter-spacing:1px}
+  .lo-card .st{font-size:12px;color:#988;font-variant-numeric:tabular-nums}
+  .lo-side{border-left:1px solid #3a1a16;padding:12px 14px;display:flex;flex-direction:column;gap:9px;overflow:auto;background:#170e0d}
+  .lo-side h4{margin:6px 0 0;font-size:13px;letter-spacing:2px;color:#ffd23f;text-transform:uppercase}
+  .lo-row{display:flex;gap:6px;flex-wrap:wrap}
+  .lo-btn{font:inherit;font-size:14px;letter-spacing:.5px;padding:8px 6px;flex:1 1 0;white-space:nowrap;background:#2a1412;color:#eee;border:1px solid #6a0000;border-radius:4px;cursor:pointer}
+  .lo-btn:hover{background:#4a0000}.lo-btn.primary{background:#7a0000}.lo-btn.wide{flex:none;width:100%}
+  .lo-check{display:flex;gap:8px;align-items:center;font-size:15px;color:#ddd;cursor:pointer}
+  .lo-check input{accent-color:#b00000;width:16px;height:16px}
+  .lo-range{font-size:15px;color:#ddd}.lo-range b{color:#ffd23f}.lo-range small{color:#988;margin-left:6px}
+  #loLevel{width:100%;accent-color:#b00000}
+  .lo-foot{margin-top:auto;padding-top:8px}
+  .lo-empty{grid-column:1/-1;color:#988;padding:20px 4px}
+  @media (max-width:760px){.lo-body{grid-template-columns:1fr;overflow:auto}.lo-side{border-left:0;border-top:1px solid #3a1a16}.lo-guns{min-height:420px}}
 </style>
 </head>
 <body>
@@ -117,7 +152,7 @@
 <div id="menu" class="overlay">
   <h1>Dead Reckoning</h1>
   <h2>ROUND-BASED ZOMBIE SURVIVAL</h2>
-  <button class="btn" id="playBtn">Play</button>
+  <div><button class="btn" id="playBtn">Play</button><button class="btn" id="rangeBtn">Firing Range</button></div>
   <div class="controls">
     <b>WASD</b><span>Move</span>
     <b>Mouse</b><span>Look / Left-click shoot / Right-click aim down sights</span>
@@ -133,6 +168,41 @@
     the Mystery Box (over 120 weapons from World War II to the near future), opening new areas and perk machines. Find the power switch to activate the perks and the Upgrade Machine.
     Survive as many rounds as you can.</div>
   <div class="best" id="bestMenu"></div>
+</div>
+
+<div id="loadout" class="hidden">
+  <div class="lo-panel" role="dialog" aria-labelledby="loTitle">
+    <div class="lo-head">
+      <h3 id="loTitle">Firing Range</h3>
+      <span class="lo-keys">Pick a weapon for a slot. <b>B</b> or <b>Esc</b> closes this panel.</span>
+    </div>
+    <div class="lo-body">
+      <section class="lo-guns">
+        <div class="lo-bar">
+          <input id="loSearch" type="search" placeholder="Search 127 weapons" aria-label="Search weapons" autocomplete="off">
+          <div class="lo-seg" id="loSlot" role="radiogroup" aria-label="Weapon slot">
+            <button data-slot="0" class="on" role="radio" aria-checked="true">Slot 1</button><button data-slot="1" role="radio" aria-checked="false">Slot 2</button>
+          </div>
+          <label class="lo-check"><input type="checkbox" id="loUp"> Upgraded</label>
+        </div>
+        <div class="lo-tabs" id="loTabs"></div>
+        <div class="lo-list" id="loList"></div>
+      </section>
+      <aside class="lo-side">
+        <h4>Zombies</h4>
+        <div class="lo-row"><button class="lo-btn" data-spawn="1">Spawn 1</button><button class="lo-btn" data-spawn="5">Spawn 5</button><button class="lo-btn" data-spawn="15">Spawn 15</button></div>
+        <button class="lo-btn wide" id="loClear">Clear all zombies</button>
+        <label class="lo-check"><input type="checkbox" id="loStill" checked> Stand still (target practice)</label>
+        <label class="lo-range" for="loLevel">Zombie strength: round <b id="loLevelV">1</b> <small id="loHp">150 HP</small></label>
+        <input type="range" id="loLevel" min="1" max="50" value="1">
+        <h4>Player</h4>
+        <label class="lo-check"><input type="checkbox" id="loGod" checked> God mode</label>
+        <label class="lo-check"><input type="checkbox" id="loAmmo" checked> Infinite ammo and grenades</label>
+        <label class="lo-check"><input type="checkbox" id="loPerks"> All perks</label>
+        <div class="lo-row lo-foot"><button class="lo-btn primary" id="loResume">Back to range</button><button class="lo-btn" id="loQuit">Quit to menu</button></div>
+      </aside>
+    </div>
+  </div>
 </div>
 
 <div id="pause" class="overlay hidden">
@@ -193,6 +263,18 @@ const MAP_SRC = [
 "#######W##d#####b###W##g#####",
 "#######s############s########",
 "#############################",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#...........................#",
+"#############################",
 ];
 const CS = 3, WH = 4;
 const R = MAP_SRC.length, C = MAP_SRC[0].length;
@@ -209,7 +291,10 @@ const DOOR_COST = { '1': 750, '2': 1000, '3': 1250 };
 const ZONES = [
   { c0: 3, c1: 12, r0: 10, r1: 17 }, { c0: 14, c1: 25, r0: 10, r1: 17 },
   { c0: 3, c1: 12, r0: 3, r1: 8 },   { c0: 14, c1: 25, r0: 3, r1: 8 },
+  // firing range hall
+  { c0: 1, c1: 9, r0: 21, r1: 31 }, { c0: 10, c1: 18, r0: 21, r1: 31 }, { c0: 19, c1: 27, r0: 21, r1: 31 },
 ];
+const RANGE_START = { r: 30, c: 14 };
 const DECOR = [
   { t: 'crate', r: 10, c: 3 }, { t: 'crates', r: 10, c: 12 }, { t: 'barrel', r: 17, c: 12 }, { t: 'sandbags', r: 15, c: 3 },
   { t: 'crates', r: 17, c: 25 }, { t: 'barrel', r: 17, c: 14 }, { t: 'table', r: 15, c: 25 },
@@ -375,7 +460,12 @@ const ARCH = {
   bow:      { kind: 'rifle', spread: .004, head: 3, recoil: .03, snd: 'bow', pierce: 4 },
   wonder:   { kind: 'wonder', spread: .01, head: 1, recoil: .02, snd: 'wonder' },
 };
+const WEAPON_ERA = {};
 const UP_PREFIX = ['Hellfire', 'Bloodhound', 'Nightfall', 'Grim', 'Inferno', 'Wrath', 'Vengeance', 'Havoc', 'Doombringer', 'Phantom', 'Banshee', 'Tempest', 'Venom', 'Oblivion', 'Requiem', 'Ragnarok', 'Brimstone', 'Reaver'];
+for (const id in WEAPONS) WEAPON_ERA[id] = id === 'ion' ? 'Wonder' : 'World at War';
+{ let era = 'World at War';
+  const MARK = { python: 'Black Ops', beretta93r: 'Black Ops II', vanguard: 'BO3-style', storm: 'Wonder' };
+  for (const row of ARSENAL) { era = MARK[row[0]] || era; WEAPON_ERA[row[0]] = era; } }
 for (const [id, name, arch, dmg, rpm, mag, res, reload, traits, cost] of ARSENAL) {
   const o = new Set(traits.split(' ')), A = ARCH[arch];
   const d = Object.assign({}, A, { name, arch, opt: o, dmg, rpm, mag, res, reload, auto: o.has('auto') });
@@ -1643,6 +1733,19 @@ for (const wb of wallbuys) {
     wb.faces.push({ x: cx(wb.c) + dc * (CS / 2 + .8), z: cz(wb.r) + dr * (CS / 2 + .8) });
   }
 }
+// firing range: lane stripes, a firing line and distance markers painted on the floor
+{
+  const r0 = 21 * CS, r1 = 32 * CS, fz = cz(RANGE_START.r) - 2;
+  const paint = new THREE.MeshBasicMaterial({ color: 0xb8b090, transparent: true, opacity: .55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  for (let c = 2; c <= 26; c += 3) { const m = new THREE.Mesh(new THREE.PlaneGeometry(.07, fz - r0), paint); m.rotation.x = -Math.PI / 2; m.position.set(c * CS + CS / 2, .014, (r0 + fz) / 2); scene.add(m); }
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(27 * CS, .18), new THREE.MeshBasicMaterial({ color: 0xd8b020, transparent: true, opacity: .7, depthWrite: false })); line.rotation.x = -Math.PI / 2; line.position.set(14.5 * CS, .015, fz); scene.add(line);
+  for (const dist of [10, 20, 30]) {
+    const tex = canvasTex(256, 96, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(220,210,170,.8)'; g.font = 'bold 72px Impact, sans-serif'; g.textAlign = 'center'; g.fillText(dist + ' M', w / 2, 76); });
+    for (const c of [5, 14, 23]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(2, .75), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.set(cx(c), .016, fz - dist); if (fz - dist > r0) scene.add(m); }
+  }
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.3), new THREE.MeshBasicMaterial({ map: labelTex([['FIRING RANGE', 64, 84]], 512, 120, '#1a0f0a', '#d8c090'), toneMapped: false }));
+  sign.position.set(cx(14), 3.1, r0 + .02); scene.add(sign);
+}
 // zone lights: bare bulbs on cords
 const zoneLights = [];
 const coneTex = canvasTex(4, 128, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.6, 'rgba(255,255,255,.25)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
@@ -1669,7 +1772,8 @@ const dust = (() => {
 /* ===================================================================
    STATE
    =================================================================== */
-let state = 'menu', time = 0, round = 0, power = false;
+let state = 'menu', time = 0, round = 0, power = false, mode = 'survival';
+const rangeOpts = { still: true, god: true, ammo: true, perks: false, level: 1, slot: 0, up: false, era: 'All', q: '' };
 let player, zombies = [], grenades = [], powerups = [], parts = [], tracers = [], booms = [];
 let toSpawn = 0, spawnT = 0, roundBreak = 0, zHp = 150, puThisRound = 0, boardPts = 0;
 let insta = 0, dbl = 0, shakeT = 0, flowT = 0, hurtFx = 0;
@@ -2152,11 +2256,14 @@ function rollType() {
   if (round <= 8) return r < .25 ? 'sprint' : r < .92 ? 'run' : 'walk';
   return r < .6 ? 'sprint' : 'run';
 }
-function spawnZombie() {
-  const act = spawns.filter(s => s.active);
-  if (!act.length) return false;
-  act.sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z));
-  const s = act[Math.floor(Math.random() * Math.min(4, act.length))];
+function spawnZombie(at) {
+  let s = at;
+  if (!s) {
+    const act = spawns.filter(s => s.active);
+    if (!act.length) return false;
+    act.sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z));
+    s = act[Math.floor(Math.random() * Math.min(4, act.length))];
+  }
   const m = makeZombieModel(), sc = .94 + Math.random() * .14; m.g.scale.setScalar(sc);
   const type = rollType();
   const z = {
@@ -2167,7 +2274,7 @@ function spawnZombie() {
     limp: Math.random() < .3 ? .5 + Math.random() * .4 : 0, fallDir: 1, lostArm: 0,
     flinch: 0, crawler: false, kx: 0, kz: 0, dtype: 'back', side: 1,
   };
-  z.sx = z.x; z.sz = z.z;
+  z.sx = z.x; z.sz = z.z; z.dummy = mode === 'range' && rangeOpts.still;
   m.g.position.set(z.x, -1.9, z.z); scene.add(m.g);
   zombies.push(z); return true;
 }
@@ -2248,7 +2355,7 @@ function killZombie(z, kind) {
   if (pts) addPoints(pts);
   const ch = cell(toR(z.z), toC(z.x));
   if (isFloor(ch)) addPool(z.x + (Math.random() - .5) * .5, z.z + (Math.random() - .5) * .5, 1 + Math.random() * .8);
-  if (kind !== 'nuke' && isFloor(ch) && puThisRound < 4 && Math.random() < .03) dropPowerup(z.x, z.z);
+  if (kind !== 'nuke' && mode !== 'range' && isFloor(ch) && puThisRound < 4 && Math.random() < .03) dropPowerup(z.x, z.z);
 }
 function updateZombies(dt) {
   flowT -= dt; if (flowT <= 0) { computeFlow(); flowT = .2; }
@@ -2312,7 +2419,7 @@ function updateZombies(dt) {
       z.losT = .25;
       z.los = dp < 18 && rayGrid(z.x, z.z, dxp / dp, dzp / dp, dp, zombieSolid) >= dp - .01;
     }
-    let tx = z.x, tz = z.z, move = true, atWindow = false;
+    let tx = z.x, tz = z.z, move = !z.dummy, atWindow = false;
     const win = ch === 's' ? closetWin[r * C + c] : null;
     if (win && win.boards > 0) {
       tx = win.ox; tz = win.oz;
@@ -2340,7 +2447,7 @@ function updateZombies(dt) {
         else { tx = player.x; tz = player.z; }
       }
     }
-    if (!atWindow) {
+    if (!atWindow && !z.dummy) {
       if (dp < 1.3) {
         z.atkT += dt;
         if (z.atkT > .55) { z.atkT = -.5; if (dp < 1.7) hurtPlayer(50, z.x, z.z); }
@@ -2362,7 +2469,7 @@ function updateZombies(dt) {
     z.stuckT += dt;
     if (z.stuckT > 5) {
       const moved = Math.hypot(z.x - z.sx, z.z - z.sz);
-      if (moved < .6 && !atWindow && dp > 2.5) respawnZombie(z);
+      if (moved < .6 && !atWindow && dp > 2.5 && !z.dummy && mode !== 'range') respawnZombie(z);
       z.stuckT = 0; z.sx = z.x; z.sz = z.z;
     }
     // facing & animation
@@ -2372,7 +2479,7 @@ function updateZombies(dt) {
     z.face += da * Math.min(1, dt * 8);
     m.g.position.set(z.x, 0, z.z); m.g.rotation.y = z.face;
     const rate = z.type === 'walk' ? 4.2 : z.type === 'run' ? 8 : 11;
-    z.animT += dt * rate * (z.frozen > 0 ? .25 : 1);
+    z.animT += dt * rate * (z.frozen > 0 ? .25 : 1) * (z.dummy ? .12 : 1);
     const s = Math.sin(z.animT), cS = Math.cos(z.animT), amp = z.type === 'walk' ? .45 : .85;
     m.legL.hip.rotation.x = s * amp; m.legR.hip.rotation.x = -s * amp * (1 - z.limp * .6);
     m.legL.kn.rotation.x = Math.max(0, cS) * amp * 1.3; m.legR.kn.rotation.x = Math.max(0, -cS) * amp * 1.3;
@@ -2821,6 +2928,7 @@ function hurtPlayer(dmg, fx, fz) {
   if (player.hp <= 0) playerDown();
 }
 function playerDown() {
+  if (mode === 'range') { player.hp = player.maxHp; player.invuln = 2; flashScreen(.6); announce('DOWNED - BACK ON YOUR FEET', '#ff6060', 2); return; }
   if (player.perks.has('wind')) {
     player.perks.clear(); player.maxHp = 100; player.hp = 100; player.invuln = 4;
     renderPerks(); SFX.down(); flashScreen(.8); announce('SECOND WIND!', '#5aa8ff', 3);
@@ -2887,6 +2995,7 @@ function startRound(n) {
   renderRound(n, true); SFX.roundStart();
 }
 function updateRounds(dt) {
+  if (mode === 'range') return;
   if (roundBreak > 0) {
     roundBreak -= dt;
     if (roundBreak <= 0) startRound(round + 1);
@@ -2953,6 +3062,10 @@ function update(dt) {
       const cw = curW(); cw.up = true; const us = statsOf(cw); cw.mag = us.mag; cw.res = us.res;
       equip(); announce(us.name.toUpperCase(), '#d58cff', 2.5); SFX.pickup();
     }
+  }
+  if (mode === 'range') {
+    if (rangeOpts.god) P.invuln = 1;
+    if (rangeOpts.ammo) { for (const ww of P.weapons) ww.res = statsOf(ww).res; P.grenades = 4; }
   }
   advanceReload(dt);
   // reload cancel: once the new rounds are in (or at least one shell), firing ends the animation early
@@ -3198,14 +3311,97 @@ function resetWorld() {
   recomputeSpawns(); computeFlow();
 }
 function startGame() {
+  mode = 'survival';
   initAudio();
   resetWorld();
   $('menu').classList.add('hidden'); $('over').classList.add('hidden'); $('pause').classList.add('hidden');
-  $('hud').classList.remove('hidden');
+  $('hud').classList.remove('hidden'); $('hint').textContent = 'ESC: pause';
   state = 'playing';
   startRound(1);
   lockPointer();
 }
+/* ---------- firing range ---------- */
+function startRange() {
+  mode = 'range';
+  initAudio();
+  resetWorld();
+  setPower(true);
+  const P = player;
+  P.x = cx(RANGE_START.c); P.z = cz(RANGE_START.r); P.yaw = 0; P.pitch = 0;
+  P.weapons = [{ id: 'm1911', up: false, mag: 8, res: 80 }, { id: 'mp40', up: false, mag: 32, res: 192 }]; P.cur = 1; equip();
+  round = rangeOpts.level; zHp = zombieHp(round); toSpawn = 0;
+  applyRangePerks();
+  $('menu').classList.add('hidden'); $('over').classList.add('hidden'); $('pause').classList.add('hidden');
+  $('hud').classList.remove('hidden'); $('hint').textContent = 'ESC: pause  \u00b7  B: choose weapons';
+  $('round').innerHTML = '<span style="font-size:46px;letter-spacing:3px">FIRING RANGE</span>';
+  computeFlow();
+  state = 'playing';
+  announce('PRESS B TO CHOOSE WEAPONS', '#ffd23f', 3.5);
+  lockPointer();
+}
+function applyRangePerks() {
+  const P = player;
+  if (rangeOpts.perks) { for (const k in PERKS) P.perks.add(PERKS[k].id); P.maxHp = 250; P.hp = 250; }
+  else { P.perks.clear(); P.maxHp = 100; P.hp = Math.min(P.hp, 100); }
+  renderPerks();
+}
+function rangeSpawn(n) {
+  zHp = zombieHp(rangeOpts.level); round = rangeOpts.level;
+  for (let i = 0; i < n; i++) {
+    const x = cx(3) + Math.random() * (cx(25) - cx(3)), z = cz(22) + Math.random() * (cz(27) - cz(22));
+    spawnZombie({ x, z, win: { ox: player.x, oz: player.z } });
+  }
+  flowT = 0;
+}
+function rangeClear() { for (const z of zombies) scene.remove(z.m.g); zombies = []; }
+function openLoadout() {
+  if (mode !== 'range' || state !== 'playing') return;
+  state = 'loadout'; mouseL = mouseR = false; for (const k in keys) keys[k] = false;
+  $('loadout').classList.remove('hidden'); renderLoadout();
+  if (document.pointerLockElement) document.exitPointerLock();
+  setTimeout(() => $('loSearch').focus(), 0);
+}
+function closeLoadout() {
+  if (state !== 'loadout') return;
+  $('loadout').classList.add('hidden'); state = 'playing'; initAudio(); lockPointer();
+}
+const KIND_LABEL = { pistol: 'Pistol', smg: 'SMG', rifle: 'Rifle', ar: 'Rifle', lmg: 'LMG', shotgun: 'Shotgun', sniper: 'Sniper', launcher: 'Launcher', flame: 'Flamethrower', wonder: 'Wonder weapon' };
+const ERAS = ['All', 'World at War', 'Black Ops', 'Black Ops II', 'BO3-style', 'Wonder'];
+function renderLoadout() {
+  $('loTabs').innerHTML = ERAS.map(e => `<button data-era="${e}" class="${e === rangeOpts.era ? 'on' : ''}">${e}</button>`).join('');
+  const q = rangeOpts.q.trim().toLowerCase(), cur = player.weapons[rangeOpts.slot];
+  const ids = Object.keys(WEAPONS).filter(id => (rangeOpts.era === 'All' || WEAPON_ERA[id] === rangeOpts.era) && (!q || WEAPONS[id].name.toLowerCase().includes(q)));
+  $('loList').innerHTML = ids.length ? ids.map(id => {
+    const d = WEAPONS[id], eq = cur && cur.id === id;
+    const type = d.arch === 'bow' ? 'Crossbow' : d.arch === 'revolver' ? 'Revolver' : d.arch === 'bullpup' ? 'Bullpup rifle' : KIND_LABEL[d.kind] || 'Weapon';
+    return `<button class="lo-card${eq ? ' eq' : ''}" data-id="${id}"><span class="n">${d.name}</span><span class="t">${type} \u00b7 ${WEAPON_ERA[id]}</span>` +
+      `<span class="st">${Math.round(d.dmg)} dmg${d.pellets ? ' \u00d7' + d.pellets : ''} \u00b7 ${d.burst ? '3-round burst' : d.auto ? d.rpm + ' rpm' : 'semi'} \u00b7 ${d.mag} rounds</span></button>`;
+  }).join('') : '<div class="lo-empty">No weapons match that search.</div>';
+  $('loSlot').querySelectorAll('button').forEach(b => { const on = +b.dataset.slot === rangeOpts.slot; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+  $('loLevelV').textContent = rangeOpts.level; $('loHp').textContent = zombieHp(rangeOpts.level).toLocaleString() + ' HP';
+}
+function pickWeapon(id) {
+  const P = player, d = rangeOpts.up ? UP[id] : WEAPONS[id], nw = { id, up: rangeOpts.up, mag: d.mag, res: d.res };
+  if (rangeOpts.slot >= P.weapons.length) P.weapons.push(nw); else P.weapons[rangeOpts.slot] = nw;
+  P.cur = Math.min(rangeOpts.slot, P.weapons.length - 1); equip(); SFX.pickup();
+  announce(d.name.toUpperCase(), rangeOpts.up ? '#d58cff' : '#fff', 1.6);
+  renderLoadout();
+}
+$('loList').addEventListener('click', (e) => { const c = e.target.closest('.lo-card'); if (c) pickWeapon(c.dataset.id); });
+$('loTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { rangeOpts.era = b.dataset.era; renderLoadout(); } });
+$('loSlot').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { rangeOpts.slot = +b.dataset.slot; renderLoadout(); } });
+$('loSearch').addEventListener('input', (e) => { rangeOpts.q = e.target.value; renderLoadout(); });
+$('loUp').addEventListener('change', (e) => { rangeOpts.up = e.target.checked; });
+$('loStill').addEventListener('change', (e) => { rangeOpts.still = e.target.checked; for (const z of zombies) z.dummy = rangeOpts.still; });
+$('loGod').addEventListener('change', (e) => { rangeOpts.god = e.target.checked; if (!rangeOpts.god) player.invuln = 0; });
+$('loAmmo').addEventListener('change', (e) => { rangeOpts.ammo = e.target.checked; });
+$('loPerks').addEventListener('change', (e) => { rangeOpts.perks = e.target.checked; applyRangePerks(); });
+$('loLevel').addEventListener('input', (e) => { rangeOpts.level = +e.target.value; renderLoadout(); });
+document.querySelectorAll('[data-spawn]').forEach(b => b.addEventListener('click', () => { rangeSpawn(+b.dataset.spawn); closeLoadout(); }));
+$('loClear').addEventListener('click', () => { rangeClear(); });
+$('loResume').addEventListener('click', closeLoadout);
+$('loQuit').addEventListener('click', () => { $('loadout').classList.add('hidden'); toMenu(); });
+$('rangeBtn').onclick = startRange;
 function readBest() { try { return +(localStorage.getItem('dr_best') || 0); } catch (e) { return 0; } }
 function gameOver() {
   state = 'over';
@@ -3222,7 +3418,7 @@ function lockPointer() { try { const p = renderer.domElement.requestPointerLock(
 function pause() { if (state !== 'playing') return; state = 'paused'; $('pause').classList.remove('hidden'); mouseL = mouseR = false; for (const k in keys) keys[k] = false; }
 function resume() { if (state !== 'paused') return; state = 'playing'; $('pause').classList.add('hidden'); initAudio(); lockPointer(); }
 function toMenu() {
-  state = 'menu'; $('pause').classList.add('hidden'); $('over').classList.add('hidden'); $('hud').classList.add('hidden');
+  state = 'menu'; mode = 'survival'; $('loadout').classList.add('hidden'); $('pause').classList.add('hidden'); $('over').classList.add('hidden'); $('hud').classList.add('hidden');
   $('menu').classList.remove('hidden'); showBest();
 }
 function showBest() { const b = readBest(); $('bestMenu').textContent = b ? 'BEST: ROUND ' + b : ''; }
@@ -3241,7 +3437,12 @@ renderer.domElement.addEventListener('click', () => { if (state === 'playing' &&
 
 /* ---------- input ---------- */
 addEventListener('keydown', (e) => {
+  if (state === 'loadout') {
+    if (e.code === 'Escape' || (e.code === 'KeyB' && document.activeElement !== $('loSearch'))) { e.preventDefault(); closeLoadout(); }
+    return;
+  }
   if (state !== 'playing') return;
+  if (e.code === 'KeyB' && mode === 'range') { e.preventDefault(); openLoadout(); return; }
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
   if (!keys[e.code]) {
     if (e.code === 'KeyF' || e.code === 'KeyE') fPressed = true;
@@ -3299,7 +3500,7 @@ requestAnimationFrame(loop);
 window.__dr = { get state() { return state; }, get player() { return player; }, get zombies() { return zombies; }, get round() { return round; },
   startGame, equip, step: (n = 60, dt = 1 / 60, draw = true) => { for (let i = 0; i < n; i++) { if (state === 'playing') { update(dt); updateHUD(dt); } updateVisuals(dt); } if (draw) render(); },
   input: { keys, set mouseL(v) { mouseL = v; }, set mouseR(v) { mouseR = v; }, press(k) { if (k === 'F') fPressed = true; if (k === 'R') rPressed = true; if (k === 'V') vPressed = true; if (k === 'G') gPressed = true; } },
-  set hold(v) { testHold = v; }, spawnTest(n) { for (let i = 0; i < n; i++) spawnZombie(); }, weaponIds: Object.keys(WEAPONS), weaponMag: (id) => WEAPONS[id].mag, explodeAt(x, y, z) { explode(x, y, z, 3, 1, false, 0xff8030); }, vmProps, clearZombies() { toSpawn = 0; spawnT = 1e9; for (const z of zombies) scene.remove(z.m.g); zombies = []; }, setPower, doors, windows, mysteryBox, props, hasPost: !!composer };
+  set hold(v) { testHold = v; }, startRange, openLoadout, closeLoadout, rangeSpawn, get mode() { return mode; }, spawnTest(n) { for (let i = 0; i < n; i++) spawnZombie(); }, weaponIds: Object.keys(WEAPONS), weaponMag: (id) => WEAPONS[id].mag, explodeAt(x, y, z) { explode(x, y, z, 3, 1, false, 0xff8030); }, vmProps, clearZombies() { toSpawn = 0; spawnT = 1e9; for (const z of zombies) scene.remove(z.m.g); zombies = []; }, setPower, doors, windows, mysteryBox, props, hasPost: !!composer };
 })();
 </script>
 </body>
