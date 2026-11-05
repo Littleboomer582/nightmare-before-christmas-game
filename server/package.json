@@ -1,0 +1,18 @@
+{
+  "name": "dead-end-depot-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Online co-op server for Dead End Depot: a small MQTT broker over WebSocket.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "aedes": "1.2.0",
+    "ws": "8.18.3"
+  }
+}
