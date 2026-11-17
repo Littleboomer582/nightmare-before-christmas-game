@@ -1582,6 +1582,7 @@ function tone(freq, dur, { type = 'sine', vol = 0.3, when = 0, slide = 0, attack
 }
 const SFX = {
   shot(kind) {
+    if (kind === 'nail') { noiseHit({ dur: .05, freq: 3200, type: 'bandpass', q: 2, vol: .35 }); tone(170, .07, { type: 'square', vol: .1, slide: .5 }); return; }   // pneumatic thwack
     const p = { pistol: [1800, .12, .45], smg: [2200, .09, .35], rifle: [1500, .14, .45], shotgun: [900, .3, .7], lmg: [1300, .13, .45], sniper: [800, .45, .8], cannon: [700, .35, .7] }[kind];
     if (kind === 'ray') { tone(1500, .22, { type: 'square', vol: .14, slide: .18 }); tone(760, .26, { type: 'sawtooth', vol: .12, slide: .25 }); tone(90, .2, { type: 'sine', vol: .3, slide: .5 }); return; }
     if (kind === 'arc') { noiseHit({ dur: .35, freq: 3000, type: 'highpass', vol: .4 }); tone(120, .3, { type: 'sawtooth', vol: .25, slide: 2 }); return; }
@@ -1683,7 +1684,7 @@ function playSample(name, { vol = 1, at = null, rev = 0, rate = 1 } = {}) {
 }
 // Each sound tries its recording first and falls back to the synthesized version.
 const SAMPLE_OF = {
-  shot: kind => ['shot-' + kind, { rev: roomReverb() }],
+  shot: kind => [kind === 'nail' ? 'none' : 'shot-' + kind, { rev: roomReverb() }],
   step: (surface, vol = 1) => ['step-' + surface, { vol: .55 * vol }],
   groan: (vol, at) => ['groan', { vol: 1, at }],
   shuffle: at => ['shuffle', { vol: .6, at }],
@@ -1728,9 +1729,11 @@ const W = {
   // this game's own wonder weapons
   ray:      { name: 'Ray Pistol', up: 'Ray Pistol Supernova', kind: 'ray', dmg: 1000, head: 1, rpm: 180, auto: false, mag: 20, reserve: 160, reload: 2.6, spread: .006, splash: 2.4, len: .3, color: 0xb8733f, box: 2 },
   gale:     { name: 'Gale Cannon', up: 'Gale Cannon', kind: 'gale', dmg: 0, head: 1, rpm: 60, auto: true, mag: 0, reserve: 0, reload: 1, spread: 0, len: .5, color: 0x7a4a2a },
+  nail:     { name: 'Nail Gun', up: 'Nail Gun Railspike', kind: 'nail', dmg: 150, head: 2.5, rpm: 520, auto: true, mag: 40, reserve: 200, reload: 2.2, spread: .022, pierce: 3, len: .3, color: 0xd8a21e, built: true },
   arc:      { name: 'Arc Thrower', up: 'Arc Storm', kind: 'arc', dmg: 1500, head: 1, rpm: 90, auto: false, mag: 6, reserve: 36, reload: 3, spread: .01, chain: 5, len: .45, color: 0x2b2f3a, box: 1 },
 };
 for (const k in W) W[k].id = k;
+W.gale.built = true;
 for (const k of ['m14', 'dbl', 'mp5', 'ak74u', 'm16', 'r870']) W[k].box = 2;
 
 function makeWeapon(id, upgraded = false) {
@@ -1778,7 +1781,8 @@ function buildGale() {
 function buildGun(def, up) {
   if (def.kind === 'gale') return buildGale();
   const g = new THREE.Group();
-  const body = def.kind === 'ray'
+  const body = def.kind === 'nail' ? pbr({ color: up ? 0x6a2a8a : def.color, roughness: .5, metalness: .08 })
+    : def.kind === 'ray'
     ? pbr({ color: up ? 0x8a7ad8 : 0xb8733f, roughness: .28, metalness: .92 })
     : pbr({ color: up ? 0x4a1f7a : def.color, emissive: up ? 0x220733 : 0x000000, roughness: .42, metalness: .65 });
   const poly = pbr({ color: up ? 0x2a1240 : 0x17181a, roughness: .7, metalness: .05 });
@@ -1805,6 +1809,7 @@ function buildGun(def, up) {
     shotgun: [[0, -.036], [0, .032], [.34, .036], [.4, .02], [.4, -.036]],
     ray:     [[-.07, -.015], [-.07, .03], [-.02, .052], [.55, .05], [.9, .035], [1, .022], [1, -.018], [.55, -.038], [.1, -.035]],
     arc:     [[0, -.045], [0, .035], [.3, .055], [.85, .045], [1, .015], [1, -.035], [.45, -.06]],
+    nail:    [[0, -.05], [0, .05], [.62, .062], [.8, .035], [1, .022], [1, -.03], [.45, -.05]],
   };
   // receiver / slide
   add(sideProfile(P(profiles[k]), thick, .005), body);
@@ -1813,7 +1818,7 @@ function buildGun(def, up) {
     for (let i = 0; i < 6; i++) add(new THREE.BoxGeometry(thick + .002, .028, .004), dark, 0, .024, .03 - i * .009); // slide serrations
   }
   // barrel + muzzle
-  const bl = k === 'pistol' ? .02 : k === 'cannon' ? .1 : k === 'sniper' ? .38 : k === 'shotgun' ? .3 : k === 'lmg' ? .25 : .2;
+  const bl = k === 'nail' ? .03 : k === 'pistol' ? .02 : k === 'cannon' ? .1 : k === 'sniper' ? .38 : k === 'shotgun' ? .3 : k === 'lmg' ? .25 : .2;
   const br = k === 'shotgun' || k === 'cannon' ? .02 : k === 'lmg' ? .017 : .013;
   const by = k === 'pistol' || k === 'cannon' ? .018 : .006;
   const brl = def.twin ? part('barrels', 0, -.03, -L * .42) : g;   // a double-barrel breaks open at this hinge
@@ -1870,6 +1875,14 @@ function buildGun(def, up) {
     add(new THREE.SphereGeometry(.012, 10, 8), glow, 0, .004, -L - .02);
   }
   if (k === 'arc') for (let i = 0; i < 4; i++) add(new THREE.TorusGeometry(.058, .012, 8, 18), glow, 0, .0, -L * .3 - i * .08);
+  if (k === 'nail') {
+    cyl(.016, .024, .08, dark, 0, -.008, -L - .02, 10);                                       // safety nose
+    const strip = part('mag', 0, -.08, -L * .5);
+    const sm = add(new THREE.BoxGeometry(.026, .03, L * .85), brass, 0, -.08, -L * .5, 0, strip); sm.rotation.x = -.3;   // the strip of nails
+    add(new THREE.BoxGeometry(.03, .045, L * .85), poly, 0, -.07, -L * .5, 0, strip).rotation.x = -.3;
+    add(new THREE.BoxGeometry(thick + .012, .06, .09), poly, 0, .07, -.05);                     // cylinder cap
+    cyl(.011, .011, .05, dark, 0, -.155, .05, 8);                                              // air fitting under the grip
+  }
   if (up) add(new THREE.BoxGeometry(thick + .012, .012, L * .7), new THREE.MeshBasicMaterial({ color: 0xd36bff }), 0, .02, -L / 2);
   // sights, top rail, ejection port
   add(new THREE.BoxGeometry(.01, .024, .01), dark, 0, .052, -L + .02);
@@ -2320,6 +2333,7 @@ const QUOTE_LINES = {
   start_depot: ["Gate's chained. So it's me and the waiting room.", "No way out. Fine. Nobody gets in, either.", "Waiting room. Waiting for what, exactly?"],
   start_pier: ["Smells like low tide and bad decisions.", "Fog this thick, they could be standing right next to me.", "Anything comes out of that water, it gets shot."],
   start_mine: ["Cold enough to freeze the dead. Apparently not cold enough.", "Snowed in with the walking dead. Great week.", "Keep moving. Keep warm. Keep shooting."],
+  start_store: ["Attention shoppers. Everything must go.", "Open twenty-four hours. Lucky me.", "Clean-up on every aisle. Starting now."],
   start_farm: ["Nobody's farmed here in fifty years. Something's still growing, though.", "Board up the windows. Hold the kitchen. Easy.", "Nice place. Needs a roof. And fewer corpses."],
   round: ["Here they come again.", "Another round. Sure. Why not.", "I can hear them shuffling.", "Reload. Breathe. Aim for the head.", "They just keep coming.", "Okay, okay. I'm ready. Mostly.", "Smell that? Yeah. They're close."],
   roundBig: ["Round {round}. Still standing. Still angry.", "{round} rounds. Somebody write that down.", "Round {round}, and I'm just getting warmed up.", "Another five rounds down. Still breathing.", "Still standing. Still angry."],
@@ -2365,6 +2379,9 @@ const QUOTE_LINES = {
   build_shield: ["A car door on a hand truck. Engineering!", "Shield's up. Come on, try me."],
   build_turret: ["Turret's up. Let the robot do the work.", "Somebody else is shooting for a change."],
   build_trap: ["Shock trap's ready. Come on in, folks.", "Step right up. Get a little buzz."],
+  build_nail: ["Nail gun. Time for some home improvement.", "Hold still. This won't hurt. Much."],
+  build_lure: ["Boombox and a propane tank. Party at my place.", "Turn it up. Let them come to the music."],
+  build_spikes: ["Spike strip. Watch your step, fellas.", "Wipe your feet on that."],
   build_gale: ["Built a cannon out of a fan. My shop teacher would be proud.", "Gale Cannon. Time to clear the room."],
   pu_ammo: ["Max ammo! Yes!", "Full reload. Christmas came early."],
   pu_insta: ["One hit, one kill. Let's go!", "Everything dies in one hit? Perfect.", "One kill."],
@@ -2538,10 +2555,12 @@ const SECRETS = [
   { id: 'song_pier', name: 'Tide Wrack', hint: 'Blackwater Pier: three rubber ducks washed up where they shouldn\'t be.' },
   { id: 'song_mine', name: 'Hollow Ground', hint: 'Cold Hollow Mine: three lucky horseshoes around the camp.' },
   { id: 'song_farm', name: 'Marsh Lullaby', hint: 'Ashgrove Farmhouse: three porcelain dolls, one in every room.' },
+  { id: 'song_store', name: 'Price Check', hint: 'Penny Mile: three gold price tags. One is on top of the shelves.' },
   { id: 'radio_route9', name: 'Dispatch: Bus 31', hint: 'Somebody left the dispatch radio on in the depot.' },
   { id: 'radio_pier', name: 'Harbormaster\'s Log', hint: 'A radio crackles near the water on the boardwalk.' },
   { id: 'radio_mine', name: 'Shaft Three', hint: 'A radio sits on a crate at the edge of the mining camp.' },
   { id: 'radio_farm', name: 'Grandmother\'s House', hint: 'There\'s a radio in the farmhouse kitchen.' },
+  { id: 'radio_store', name: 'Night Manager', hint: 'Somebody left a radio on at customer service.' },
   { id: 'clock_farm', name: 'Midnight', hint: 'Some clocks should never strike twelve.' },
   { id: 'cheat_bighead', name: 'Big Heads', hint: 'Type what zombies want on the main menu. On a phone, tap the title five times.' },
   { id: 'cheat_confetti', name: 'Party Time', hint: 'Type something festive on the main menu. On a phone, tap the word ZOMBIES five times.' },
@@ -2596,6 +2615,8 @@ const SONGS = {
     riff: [0, 'x', 'x', 1, 'x', 'x', 3, 'x', 1, 0, 'x', null], prog: [0, 1, 6, 0] },
   mine: { title: 'Hollow Ground', bpm: 84, root: 36, scale: [0, 2, 3, 5, 7, 8, 11], steps: 16, seed: 3,
     riff: [0, null, null, 'x', 'x', null, 6, null, 5, null, 3, null, 1, null, 'x', null], prog: [0, 5, 6, 4] },
+  store: { title: 'Price Check', bpm: 138, root: 42, scale: [0, 2, 3, 5, 7, 9, 10], steps: 16, seed: 21,
+    riff: ['x', 0, 'x', 3, 'x', 0, 5, 'x', 'x', 7, 'x', 5, 3, 'x', 0, null], prog: [0, 3, 4, 6] },
   farm: { title: 'Marsh Lullaby', bpm: 104, root: 45, scale: [0, 2, 3, 5, 7, 8, 11], steps: 12, seed: 13,
     riff: [0, 'x', 'x', 7, 'x', 'x', 8, 'x', 'x', 7, 3, 'x'], prog: [0, 3, 5, 4] },
 };
@@ -2668,6 +2689,7 @@ const RADIO_TALK = {
   route9: ['DISPATCH', 'Dispatch to all units. Bus thirty-one never made the Pine Hollow stop. The driver keeps calling in. He says the passengers are standing up again. Whatever you do, don\'t open the doors.'],
   pier: ['HARBORMASTER', 'Harbormaster\'s log, November first. The fog came in at eleven and the tide went out the wrong way. Something is walking up out of the water, and the lighthouse won\'t turn off. If you hear the bell, you\'re already too late.'],
   mine: ['FOREMAN PRUITT', 'Foreman Dale Pruitt, shaft three. We broke into a cave that isn\'t on any survey. It\'s warm down there. The men who went in came back out, but they don\'t talk anymore. Seal the tunnel.'],
+  store: ['NIGHT MANAGER', 'Attention Penny Mile associates, this is your night manager. Lock the front doors. Do not let the customers back in. I repeat: the customers are not customers anymore. Everybody to the stockroom. And somebody turn off those TVs.'],
   farm: ['THE RADIO', 'If you found this, you\'re in my grandmother\'s house. She said the marsh keeps what it takes. Board the windows, keep the fire lit, and don\'t let anyone hear that clock strike midnight.'],
 };
 const EGG_SPOTS = {   // [x, y, z] for three collectibles, then the radio
@@ -2676,6 +2698,7 @@ const EGG_SPOTS = {   // [x, y, z] for three collectibles, then the radio
   pier: { key: 'pier', kind: 'duck', items: [[14.7, 1.31, -18.6], [-20, .04, -44.6], [2, .04, 45.4]], radio: [17.5, 1.11, 2] },
   mine: { key: 'mine', kind: 'horseshoe', items: [[-26, .04, 26], [0, 1.16, -45], [1, .04, 26.7]], radio: [-24, 1.21, 2] },
   farm: { key: 'farm', kind: 'doll', items: [[-12, 1.01, 6.6], [4.2, 2.41, 7.3], [10.2, .83, 5.9]], radio: [-6, .96, -7.45] },
+  store: { key: 'store', kind: 'tag', items: [[-15, 2.37, .75], [-12, 1.47, -27], [41.4, .82, -6]], radio: [-26.4, 1.16, 15.5] },
 };
 const EGG = { found: 0, items: [], radio: null, song: null, cueT: 0 };
 function eggMesh(kind) {
@@ -2691,6 +2714,10 @@ function eggMesh(kind) {
     const beak = new THREE.Mesh(new THREE.ConeGeometry(.025, .06, 8), mat(0xff7a1a)); beak.rotation.z = -Math.PI / 2; beak.position.set(.14, .165, 0); g.add(beak);
   } else if (kind === 'horseshoe') {
     const hs = new THREE.Mesh(new THREE.TorusGeometry(.09, .018, 8, 18, Math.PI * 1.35), shine(0xb0b4b8, 0x101418)); hs.rotation.set(-Math.PI / 2, 0, Math.PI * .82); hs.position.y = .02; g.add(hs);
+  } else if (kind === 'tag') {   // a gold price tag on a loop of string
+    const tag = new THREE.Mesh(new THREE.BoxGeometry(.16, .09, .008), shine(0xe0b23a, 0x3a2a00)); tag.position.y = .1; tag.rotation.z = .3; g.add(tag); g.userData.spin = tag;
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .01, 10), mat(0x111111)); hole.rotation.x = Math.PI / 2; hole.position.set(-.06, .02, 0); tag.add(hole);
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(.035, .003, 4, 12), mat(0xd8d4c4)); loop.position.set(-.09, .03, 0); tag.add(loop);
   } else {   // a porcelain doll, staring
     const dress = new THREE.Mesh(new THREE.ConeGeometry(.08, .2, 12), mat(0xe8e2d6, { roughness: .5 })); dress.position.y = .1; g.add(dress);
     const head = new THREE.Mesh(new THREE.SphereGeometry(.055, 14, 10), mat(0xf4ece4, { roughness: .2 })); head.position.y = .25; g.add(head);
@@ -2714,7 +2741,7 @@ function setupEggs(mode) {
   const spots = EGG_SPOTS[mode]; if (!spots) return;
   const ox = activeMap ? activeMap.ox : 0, song = spots.key;
   Object.assign(EGG, { found: 0, items: [], song, cueT: 0 });
-  const label = { token: 'the bus token', duck: 'the rubber duck', horseshoe: 'the horseshoe', doll: 'the doll' }[spots.kind];
+  const label = { token: 'the bus token', duck: 'the rubber duck', horseshoe: 'the horseshoe', doll: 'the doll', tag: 'the gold price tag' }[spots.kind];
   spots.items.forEach(([x, y, z], i) => {
     const m = eggMesh(spots.kind); m.position.set(ox + x, y, z); m.rotation.y = i * 2.1 + .4; scene.add(m);
     const item = { m, got: false };
@@ -3427,6 +3454,15 @@ function zLook() {
       g.fillStyle = '#d9b44a'; g.fillRect(w * .365, h * .295, w * .03, h * .012);
       g.fillStyle = '#b8b0a0'; g.fillRect(w * .6, h * .28, w * .05, h * .018);                                         // name badge
     },
+    polo: o => (g, w, h, H, Rg, torso) => {   // store staff: a red polo and a name tag
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .06, 2); speckle(g, w, h, w * h / 30, .04);
+      if (!torso) return;
+      g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(0, 0, w, h * .05); H.fillStyle = 'rgba(255,255,255,.5)'; H.fillRect(0, h * .02, w, h * .03);   // collar
+      H.fillStyle = 'rgba(255,255,255,.4)'; H.fillRect(w * .49, 0, w * .02, h * .18);
+      for (const y of [.06, .12]) { g.fillStyle = '#d8d0c0'; g.beginPath(); g.arc(w * .5, h * y, 3 * w / 512, 0, 7); g.fill(); }
+      g.fillStyle = '#f2f0e8'; g.fillRect(w * .58, h * .26, w * .07, h * .03); g.fillStyle = '#8a1e1e'; g.fillRect(w * .58, h * .26, w * .07, h * .008);   // name tag
+      g.fillStyle = '#c87a2a'; g.beginPath(); g.arc(w * .4, h * .28, w * .012, 0, 7); g.fill();                                                   // penny logo
+    },
     scrubs: o => (g, w, h, H, Rg, torso) => {
       g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .05);
       if (torso) { g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.moveTo(w * .42, 0); g.lineTo(w * .5, h * .14); g.lineTo(w * .58, 0); g.fill(); H.strokeStyle = 'rgba(0,0,0,.5)'; H.strokeRect(w * .58, h * .3, w * .09, h * .09); }
@@ -3463,6 +3499,8 @@ function zLook() {
     farm: [['flannel', { col: '#7a1e1e', a: 'rgba(20,10,10,.55)', b: 'rgba(240,220,200,.25)' }, 3], ['flannel', { col: '#2e4a2a', a: 'rgba(10,15,10,.5)', b: 'rgba(220,200,90,.3)' }, 2],
       ['overalls', { shirt: '#7c7468', a: 'rgba(60,40,30,.3)', b: 'rgba(255,255,255,.1)' }, 3], ['tank', { col: '#b5ad98' }, 2], ['tee', { col: '#8a7432' }, 1]],
     pier: [['slicker', { col: '#c9a020' }, 3], ['sweater', { col: '#8c8577' }, 2], ['sweater', { col: '#2f3a4a' }, 1], ['tee', { col: '#2b3445', print: '#b0b8c0' }, 1], ['hoodie', { col: '#4a4f45' }, 1]],
+    store: [['polo', { col: '#8a1e1e' }, 4], ['tee', { col: '#5b5f63', print: '#c9c3b5' }, 2], ['hoodie', { col: '#2a2b2e' }, 2], ['tee', { col: '#2b3445', print: '#e0a028' }, 1],
+      ['button', { col: '#b9b6ad', tie: '#2a2a40' }, 1], ['scrubs', { col: '#3e6a8a' }, 1], ['hivis', { col: '#2b2f33' }, 1]],
     mine: [['coverall', { col: '#5a5550' }, 3], ['coverall', { col: '#8a4a1c' }, 2], ['flannel', { col: '#3a3f5a', a: 'rgba(10,10,20,.5)', b: 'rgba(200,60,40,.3)' }, 2], ['tank', { col: '#8f887a' }, 1]],
   };
   const PANTS = {
@@ -3479,7 +3517,7 @@ function zLook() {
     coverall: (g, w, h, H, Rg) => { g.fillStyle = '#4f4b46'; g.fillRect(0, 0, w, h); zWeave(g, w, h, .08, 3); g.fillStyle = '#a9a9a2'; g.fillRect(0, h * .3, w, h * .04); zBlobs(g, w, h, 20, 'rgba(20,20,20,.35)', .03, .1); },
     slicker: (g, w, h, H, Rg) => { g.fillStyle = '#b8901c'; g.fillRect(0, 0, w, h); Rg.fillStyle = '#5e5e5e'; Rg.fillRect(0, 0, w, h); },
   };
-  const pantsFor = { driver: 'slacks', button: 'slacks', hivis: 'work', scrubs: 'scrubs', overalls: 'overalls', coverall: 'coverall', slicker: 'slicker' };
+  const pantsFor = { driver: 'slacks', button: 'slacks', hivis: 'work', scrubs: 'scrubs', overalls: 'overalls', coverall: 'coverall', slicker: 'slicker', polo: 'work' };
   const dress = (paint, torso, skinCol) => zTexSet(torso ? BIG : MID, torso ? BIG : MID, (g, w, h, H, Rg) => {
     paint(g, w, h, H, Rg, torso); zFolds(g, H, w, h, torso ? 14 : 6); wear(g, w, h, H, Rg, torso ? 1 : .6, torso ? 2 : 1, skinCol);
   }, { normal: 3, rough: false });
@@ -3792,6 +3830,8 @@ const dPlayer = z => Math.hypot(z.pos.x - P.pos.x, z.pos.z - P.pos.z);
 function updateZombies(dt) {
   const targets = zTargets();
   for (const T of targets) { T.zone = zoneOf(T.pos); T.vis = visFrom(T.pos); }
+  const lures = B.placed.filter(o => o.k === 'lure' && o.life > 0).map(o => o.T);
+  for (const L of lures) L.vis = visFrom(L.pos);
   playerVis = (targets.find(T => T.local) || targets[0]).vis;
   for (let i = zombies.length - 1; i >= 0; i--) {
     const z = zombies[i], g = z.g;
@@ -3836,6 +3876,7 @@ function updateZombies(dt) {
     if (!z.remote) {
       if (!z.tgt || !targets.includes(z.tgt) || (z.tgtT = (z.tgtT || 0) - dt) <= 0) { z.tgt = nearestTarget(targets, z.pos); z.tgtT = rand(.6, 1.2); }
       T = z.tgt; tp = T.pos; pz = T.zone; dP = Math.hypot(z.pos.x - tp.x, z.pos.z - tp.z);
+      for (const L of lures) { const dl = Math.hypot(z.pos.x - L.pos.x, z.pos.z - L.pos.z); if (dl < 24) { T = L; tp = L.pos; pz = L.zone; dP = dl; break; } }
     }
     const near = dL < 14;   // level of detail: small parts only up close
     if (near !== z.near) { z.near = near; for (const o of z.detail) o.visible = near; }
@@ -4029,6 +4070,7 @@ function updateHitArcs(dt) {
 function attackPlayer(z) { attackTarget(z, LOCAL_T); }
 function attackTarget(z, T) {
   z.atkCd = 1.0; z.swing = .3;
+  if (T && T.lure) return;   // pawing at the boombox
   if (Math.random() < .7) SFX.zattack(z.pos.clone().setY(1.6));
   if (!T || T.local) hurtLocal(z);
   else netSend({ t: 'hu', to: T.pid, i: z.id, x: Math.round(z.pos.x * 100), z: Math.round(z.pos.z * 100) });
@@ -4169,11 +4211,11 @@ function spend(cost) {
 }
 function giveWeapon(id, upgraded = false) {
   const w = makeWeapon(id, upgraded);
-  const guns = P.weapons.filter(x => x.def.id !== 'gale');
+  const guns = P.weapons.filter(x => !x.def.built);   // built weapons (Gale Cannon, Nail Gun) don't take a gun slot
   if (guns.length < (P.perks.has('holster') ? 3 : 2)) { P.weapons.push(w); P.cur = P.weapons.length - 1; }
   else {
     let idx = P.cur;
-    if (P.weapons[idx].def.id === 'gale') idx = P.weapons.map(x => x.def.id).lastIndexOf(guns[guns.length - 1].def.id);
+    if (P.weapons[idx].def.built) idx = P.weapons.map(x => x.def.id).lastIndexOf(guns[guns.length - 1].def.id);
     P.weapons[idx] = w; P.cur = idx;
   }
   vm.swap = .5; vm.reload = 0;
@@ -4435,21 +4477,31 @@ const BUILDS = {
   turret: { name: 'Sentry Turret', parts: ['Gun Mount', 'Ammo Belt', 'Car Battery'], color: 0xffb85a },
   trap:   { name: 'Shock Trap', parts: ['Copper Coil', 'Jumper Cables', 'Transformer'], color: 0x7de8ff },
   gale:   { name: 'Gale Cannon', parts: ['Engine', 'Fan Housing', 'Handle', 'Pressure Gauge'], color: 0xff9a5a },
+  nail:   { name: 'Nail Gun', parts: ['Nail Gun', 'Air Compressor', 'Air Hose'], color: 0xffd04a },
+  lure:   { name: 'Boombox Lure', parts: ['Boombox', 'Propane Tank', 'Duct Tape'], color: 0xff6ad5 },
+  spikes: { name: 'Spike Strip', parts: ['Rake Heads', 'Rubber Mat', 'Zip Ties'], color: 0xb0ffa0 },
 };
-const B = { have: { shield: new Set(), turret: new Set(), trap: new Set(), gale: new Set() }, built: {}, cool: { shield: 0, turret: 0, trap: 0, gale: 0 }, carry: null, placed: [], partMeshes: [] };
+const B = { have: {}, built: {}, cool: {}, carry: null, placed: [], partMeshes: [] };
+for (const k in BUILDS) { B.have[k] = new Set(); B.cool[k] = 0; }
+// which buildables a map has: the depot keeps it simple, the supercenter has every one
+function activeBuilds() {
+  const def = MAPDEFS[MODES[G.mode].map];
+  if (def) return def.classic ? [] : (def.builds || ['shield', 'turret', 'trap', 'gale']);
+  return G.mode === 'depot' ? ['shield', 'turret', 'trap'] : ['shield', 'turret', 'trap', 'gale', 'nail'];
+}
 const SHIELD_HITS = 8;
 
 function buildParts() {
   // five spots inside the depot, four in the bus lot; parts are shuffled each game
   // five inside the depot, four in the bus lot, two at the gas station, two at the mill
-  const mapDef = MAPDEFS[MODES[G.mode].map];
-  if (mapDef && mapDef.classic) return;   // classic maps: no buildables
+  const mapDef = MAPDEFS[MODES[G.mode].map], builds = activeBuilds();
+  if (!builds.length) return;   // classic maps: no buildables
   const spots = mapDef ? mapDef.spots.map(([x, z]) => [x + mapDef.ox, z]) : [[-10.8, -1.6], [-4.2, -6.9], [4.4, 6.9], [11.2, -5], [-1.5, 3.8], [-14, 20], [15, 21.5], [-8, 24.6], [3.2, 12.6],
-    [-88, 25], [-104, 22], [74, 51.5], [91, 47]];
-  if (G.mode === 'depot') { delete BUILDS.gale; spots.length = 9; }
+    [-88, 25], [-104, 22], [74, 51.5], [91, 47], [7.4, -2.2], [-11, 15.5], [-96, 12]];
+  if (G.mode === 'depot') spots.length = 9;
   for (let i = spots.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [spots[i], spots[j]] = [spots[j], spots[i]]; }
   let n = 0;
-  for (const k in BUILDS) BUILDS[k].parts.forEach(part => {
+  for (const k of builds) BUILDS[k].parts.forEach(part => {
     const [x, z] = spots[n++];
     const g = new THREE.Group(); g.position.set(x, .35, z); scene.add(g);
     const m = mat(0x5a5d62, { roughness: .5, metalness: .6 });
@@ -4457,6 +4509,9 @@ function buildParts() {
     if (k === 'turret') { const c = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .45, 10), m); c.rotation.z = Math.PI / 2; g.add(c); g.add(new THREE.Mesh(new THREE.BoxGeometry(.18, .14, .14), m)); }
     if (k === 'trap') g.add(new THREE.Mesh(new THREE.TorusGeometry(.13, .04, 8, 16), mat(0xb87333, { roughness: .35, metalness: .9 })));
     if (k === 'gale') { const c = new THREE.Mesh(new THREE.CylinderGeometry(.16, .14, .25, 14, 1, true), pbr({ color: 0x7a4a2a, roughness: .8, metalness: .45, side: THREE.DoubleSide })); c.rotation.x = Math.PI / 2; g.add(c); g.add(new THREE.Mesh(new THREE.BoxGeometry(.12, .12, .12), m)); }
+    if (k === 'nail') { g.add(new THREE.Mesh(new THREE.BoxGeometry(.32, .16, .08), mat(0xd8a21e, { roughness: .5 }))); const nose = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .1, 8), M.darkMetal); nose.rotation.z = Math.PI / 2; nose.position.x = .2; g.add(nose); }
+    if (k === 'lure') { g.add(new THREE.Mesh(new THREE.BoxGeometry(.4, .22, .14), mat(0x2a2a2e, { roughness: .5 }))); for (const s of [-1, 1]) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, .02, 14), mat(0x111111)); sp.rotation.x = Math.PI / 2; sp.position.set(s * .11, 0, .075); g.add(sp); } }
+    if (k === 'spikes') { g.add(new THREE.Mesh(new THREE.BoxGeometry(.5, .03, .22), mat(0x1a1a1a, { roughness: .9 }))); for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(.018, .09, 6), M.metal); sp.position.set(-.2 + i * .08, .06, 0); g.add(sp); } }
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: moteTex, color: BUILDS[k].color, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false }));
     halo.scale.set(1.1, 1.1, 1); g.add(halo);
     const item = { k, part, g, taken: false };
@@ -4479,11 +4534,12 @@ function canTake(k) {
   if (!B.built[k] || B.cool[k] > 0) return false;
   if (k === 'shield') return P.shieldHp <= 0;
   if (k === 'gale') return !P.weapons.some(w => w.def.id === 'gale');
+  if (k === 'nail') return !P.weapons.some(w => w.def.id === 'nail' && w.mag + w.reserve > 0);   // an empty one can be swapped for a fresh one
   return !B.carry && !B.placed.some(o => o.k === k);
 }
 function benchAction() {
-  for (const k in BUILDS) if (!B.built[k] && B.have[k].size === BUILDS[k].parts.length) return { type: 'build', k };
-  for (const k in BUILDS) if (canTake(k)) return { type: 'take', k };
+  for (const k of activeBuilds()) if (!B.built[k] && B.have[k].size === BUILDS[k].parts.length) return { type: 'build', k };
+  for (const k of activeBuilds()) if (canTake(k)) return { type: 'take', k };
   return null;
 }
 function workbench(x, z, rotY) {
@@ -4505,8 +4561,8 @@ function workbench(x, z, rotY) {
     prompt() {
       const a = benchAction();
       if (!a) {
-        const any = Object.keys(BUILDS).some(k => !B.built[k]);
-        return any ? 'Workbench — find parts around the depot and bus lot to build equipment' : null;
+        const any = activeBuilds().some(k => !B.built[k]);
+        return any ? `Workbench — find parts around ${activeMap ? 'the map' : 'the depot and bus lot'} to build equipment` : null;
       }
       const name = BUILDS[a.k].name;
       if (a.type === 'build') return `Hold <b>F</b> to build ${name}` + (this.t > 0 ? ` <b>${Math.round(this.t / 2.5 * 100)}%</b>` : '');
@@ -4516,7 +4572,10 @@ function workbench(x, z, rotY) {
       const a = benchAction();
       if (!a || a.type !== 'take') return;
       if (a.k === 'shield') { P.shieldHp = SHIELD_HITS; shieldVm.visible = true; }
-      else if (a.k === 'gale') { P.weapons.push(makeWeapon('gale')); P.cur = P.weapons.length - 1; vm.swap = .5; W_STATE.reloading = 0; refreshViewModel(); }
+      else if (a.k === 'gale' || a.k === 'nail') {
+        P.weapons = P.weapons.filter(w => w.def.id !== a.k);   // swap an empty nail gun for a full one
+        P.weapons.push(makeWeapon(a.k)); P.cur = P.weapons.length - 1; vm.swap = .5; W_STATE.reloading = 0; refreshViewModel();
+      }
       else B.carry = a.k;
       SFX.buy(); announce(BUILDS[a.k].name.toUpperCase(), '#9cf', 1.4); updateEquipHud();
     },
@@ -4556,7 +4615,7 @@ function placeEquipment() {
   resolve(pos, .45, 0, 1);
   if (zoneOf(pos) === 'out') { SFX.deny(); return; }
   const g = new THREE.Group(); g.position.copy(pos); scene.add(g);
-  const o = { k, g, life: k === 'turret' ? 90 : 60, cd: 0, kills: 0 };
+  const o = { k, g, life: { turret: 90, trap: 60, lure: 14, spikes: 90 }[k], cd: 0, kills: 0 };
   if (k === 'turret') {
     for (let i = 0; i < 3; i++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .8, 6), M.darkMetal); const a = i / 3 * Math.PI * 2; leg.position.set(Math.cos(a) * .22, .35, Math.sin(a) * .22); leg.rotation.set(Math.sin(a) * .5, 0, -Math.cos(a) * .5); g.add(leg); }
     o.head = new THREE.Group(); o.head.position.y = .82; g.add(o.head);
@@ -4564,6 +4623,24 @@ function placeEquipment() {
     const bar = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .5, 8), M.gunMetal); bar.rotation.x = Math.PI / 2; bar.position.set(0, .03, .4); o.head.add(bar);
     const can = new THREE.Mesh(new THREE.BoxGeometry(.12, .14, .18), mat(0x3d4a2c)); can.position.set(.17, -.04, 0); o.head.add(can);
     o.light = anchor(pos.x, 1, pos.z, 0xffb050, 0, 5);
+  } else if (k === 'lure') {   // a boombox taped to a propane tank: it plays, they come, it blows
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .5, 16), mat(0xd8d8d0, { roughness: .4, metalness: .4 })); tank.position.y = .25; g.add(tank);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.05, .07, .08, 10), M.metal); cap.position.y = .54; g.add(cap);
+    const bb = new THREE.Group(); bb.position.set(.3, .17, 0); g.add(bb);
+    bb.add(new THREE.Mesh(new THREE.BoxGeometry(.46, .26, .16), mat(0x2a2a2e, { roughness: .45 })));
+    o.cones = [-1, 1].map(s => { const c = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .03, 16), mat(0x111111)); c.rotation.x = Math.PI / 2; c.position.set(s * .12, 0, .085); bb.add(c); return c; });
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(.12, .012, 6, 16, Math.PI), M.metal); handle.position.y = .13; bb.add(handle);
+    const tape = new THREE.Mesh(new THREE.CylinderGeometry(.165, .165, .07, 16, 1, true), mat(0x8a8a86, { roughness: .6, side: THREE.DoubleSide })); tape.position.y = .2; g.add(tape);
+    o.glow = anchor(pos.x, .6, pos.z, 0xff6ad5, .9, 6); o.beat = 0; o.step = 0;
+    o.T = { lure: true, pos: g.position, zone: zoneOf(pos), vis: [] };
+    announce('BOOMBOX LURE · 12 SECONDS', '#ff9ae6', 1.6);
+  } else if (k === 'spikes') {   // a rubber mat bristling with spikes, laid across your path
+    g.rotation.y = P.yaw;
+    const matM = new THREE.Mesh(new THREE.BoxGeometry(2.4, .03, .55), mat(0x161616, { roughness: .95 })); matM.position.y = .015; g.add(matM);
+    const spike = new THREE.ConeGeometry(.02, .1, 6), list = [];
+    for (let i = 0; i < 16; i++) for (const r of [-.15, 0, .15]) list.push({ geo: spike, matrix: new THREE.Matrix4().makeTranslation(-1.1 + i * .147 + (r ? .07 : 0), .08, r) });
+    g.add(new THREE.Mesh(mergeGeometries(list), mat(0xa0a4a8, { roughness: .3, metalness: .9 })));
+    o.hits = 0; o.glow = anchor(pos.x, .4, pos.z, 0xb0ffa0, 0, 3);
   } else {
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.55, .6, .08, 20), M.darkMetal); base.position.y = .04; g.add(base);
     for (let i = 0; i < 3; i++) { const coil = new THREE.Mesh(new THREE.TorusGeometry(.38 - i * .1, .025, 6, 20), mat(0xb87333, { roughness: .35, metalness: .9 })); coil.rotation.x = Math.PI / 2; coil.position.y = .1 + i * .02; g.add(coil); }
@@ -4593,6 +4670,34 @@ function updateBuildables(dt) {
           if (Math.random() < .5) noiseHit({ dur: .06, freq: 2000, vol: .12 });
         }
       }
+    } else if (o.k === 'lure') {
+      o.beat -= dt;
+      if (o.beat <= 0) {   // a cheap four-on-the-floor loop, loud enough to carry across the map
+        o.beat = .23; const at = o.g.position.clone().setY(.4), n = o.step++ % 8;
+        tone(n % 2 ? 0 : 55, .12, { type: 'sine', vol: .45, slide: .5, at });
+        if (n % 4 === 2) noiseHit({ dur: .08, freq: 4500, type: 'highpass', vol: .25, at });
+        tone([330, 392, 440, 392, 330, 294, 330, 262][n], .18, { type: 'square', vol: .1, at });
+        for (const c of o.cones) c.scale.y = 1.6;
+        o.glow.intensity = 1.6;
+      }
+      for (const c of o.cones) c.scale.y += (1 - c.scale.y) * Math.min(1, dt * 10);
+      o.glow.intensity += (.5 - o.glow.intensity) * Math.min(1, dt * 6);
+      if (o.life <= 0) explode(o.g.position.clone().setY(.4), 5.5, 1e9, true);   // the propane goes up
+    } else if (o.k === 'spikes') {
+      const inv = new THREE.Matrix4().copy(o.g.matrixWorld).invert(), lp = new V3();
+      for (const z of zombies) {
+        if (z.dead || z.rise < 1 || z.state === 'climb' || (z.spikeT = (z.spikeT || 0) - dt) > 0) continue;
+        lp.copy(z.pos).setY(0).applyMatrix4(inv);
+        if (Math.abs(lp.x) < 1.25 && Math.abs(lp.z) < .4) {
+          z.spikeT = .5; z.flinch = Math.max(z.flinch || 0, .7); o.hits++;
+          burst(z.pos.clone().setY(.15), 'blood', 6, 2.2);
+          damageZombie(z, 150 + G.round * 45, 'body', null, Math.random() < .5 ? 'legL' : 'legR', null);
+          noiseHit({ dur: .06, freq: 1800, type: 'bandpass', vol: .2, at: z.pos.clone().setY(.2) });
+          o.glow.intensity = .8;
+        }
+      }
+      o.glow.intensity = Math.max(0, o.glow.intensity - dt * 4);
+      if (o.hits >= 40) o.life = 0;
     } else {
       o.glow.intensity = .6 + Math.random() * .6;
       if (Math.random() < dt * 8) bolt(o.g.position.clone().add(new V3(rand(-.4, .4), .1, rand(-.4, .4))), o.g.position.clone().add(new V3(rand(-.4, .4), rand(.3, .8), rand(-.4, .4))), 0x9ff0ff);
@@ -4608,7 +4713,8 @@ function updateBuildables(dt) {
     }
     if (o.life <= 0) {
       scene.remove(o.g); dropAnchor(o.light || o.glow); B.placed.splice(i, 1); B.cool[o.k] = 30;
-      announce(`${BUILDS[o.k].name.toUpperCase()} WORN OUT`, '#9cf', 1.4); updateEquipHud();
+      if (o.k !== 'lure') announce(`${BUILDS[o.k].name.toUpperCase()} WORN OUT`, '#9cf', 1.4);
+      updateEquipHud();
     }
   }
 }
@@ -4631,7 +4737,7 @@ function updateEquipHud() {
   if (P.shieldHp > 0) lines.push(`Riot Shield <span style="color:#8fc3ff">${'▮'.repeat(P.shieldHp)}${'▯'.repeat(SHIELD_HITS - P.shieldHp)}</span>`);
   if (B.carry) lines.push(`${BUILDS[B.carry].name} — ${TOUCH ? 'tap' : 'press'} <b style="color:#ffd24a">${TOUCH ? 'PLACE' : 'T'}</b> to place`);
   if (TOUCH) $('tPlace').hidden = !B.carry;
-  for (const k in BUILDS) {
+  for (const k of activeBuilds()) {
     if (B.built[k]) continue;
     const n = B.have[k].size;
     if (n) lines.push(`<span style="color:#9aa">${BUILDS[k].name} parts ${n}/${BUILDS[k].parts.length}</span>`);
@@ -4889,9 +4995,9 @@ function fire() {
   P.pitch = Math.min(1.5, P.pitch + climb); P.yaw += rand(-1, 1) * climb * .55;
   vm.rollKick = rand(-1, 1) * .05;
   puff(muzzleWorld(), 'smoke', d.kind === 'shotgun' ? .14 : .07, .9);
-  flashSprite.visible = d.kind !== 'ray' && d.kind !== 'arc'; flashSprite.material.rotation = Math.random() * 6;
+  flashSprite.visible = d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'nail'; flashSprite.material.rotation = Math.random() * 6;
   flashSprite.scale.setScalar(rand(.28, .4));
-  if (d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'shotgun') ejectCasing();
+  if (d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'shotgun' && d.kind !== 'nail') ejectCasing();
   muzzleLight.color.setHex(d.kind === 'ray' ? (w.up ? 0x9f7bff : 0xff7a2a) : d.kind === 'arc' ? 0x7fdcff : 0xffb050);
   muzzleLight.intensity = 2.5; gunFlashLight.intensity = 2; vm.flashT = .05;
 
@@ -4925,6 +5031,7 @@ function fire() {
       const isHead = h.object.userData.part === 'head';
       if (d.kind === 'arc') { end = h.point; arcChain(z, h.point, dmg, w.up); break; }
       damageZombie(z, dmg * (isHead ? d.head * (steady < 1 ? 1.25 : 1) : 1), isHead ? 'head' : 'body', h.point, h.object.userData.limb, dir);
+      if (d.kind === 'nail') z.flinch = Math.max(z.flinch || 0, .45);   // nails pin them for a moment
       if (isHead) SFX.head(); else SFX.hit();
       end = h.point;
       if (--pierce <= 0) break;
@@ -5849,12 +5956,315 @@ function buildFarm(def) {
   anchor(X(-20), 2.5, 11, 0x8fa0c0, .5, 10);
 }
 
+// ---------------------------------------------------------------------------------------------
+// PENNY MILE SUPERCENTER: a 24-hour big-box store, an original brand. A foggy parking lot, two
+// smashed entrances, checkout lanes, tall shelf aisles (general goods west, grocery east), a TV
+// wall, drink coolers, the pharmacy, an employees-only stockroom with an open loading dock, and a
+// fenced garden center. Zombies come in from the lot, the dock and the garden gate.
+// ---------------------------------------------------------------------------------------------
+MT.storeFloor = (rx, ry) => canvasTex(512, 512, (g, w, h) => {   // waxed vinyl tiles, scuffed
+  const n = 4, c = w / n;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const v = 196 + rand(-10, 8) | 0; g.fillStyle = `rgb(${v},${v - 2},${v - 6})`; g.fillRect(x * c, y * c, c, c); }
+  speckle(g, w, h, 9000, .08);
+  for (let i = 0; i < 260; i++) { const v = rand(60, 160) | 0; g.fillStyle = `rgba(${v},${v},${v},.5)`; g.fillRect(rand(0, w), rand(0, h), rand(1, 4), rand(1, 4)); }   // terrazzo chips
+  g.strokeStyle = 'rgba(40,40,40,.35)'; g.lineWidth = 2; for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * c, 0); g.lineTo(i * c, h); g.moveTo(0, i * c); g.lineTo(w, i * c); g.stroke(); }
+  for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(30,30,30,${rand(.08, .25)})`; g.lineWidth = rand(1, 3); g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y); g.lineTo(x + rand(-60, 60), y + rand(-20, 20)); g.stroke(); }   // cart and shoe scuffs
+  stains(g, w, h, 8, 'rgba(60,50,40,.12)');
+}, rx, ry);
+MT.shelf = (grocery, rx) => canvasTex(512, 512, (g, w, h) => {   // one 2.4 m bay of a gondola, five shelves of stock
+  g.fillStyle = '#26282b'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#9aa0a6'; g.fillRect(0, 0, w, 6);
+  const levels = 5, lh = (h - 40) / levels;
+  const pal = grocery ? ['#c23b2b', '#e0a028', '#2f7d3a', '#f2e6c8', '#3b6fb0', '#8a2a5a', '#d8d0b0', '#5a3a20', '#e86a1a'] : ['#3b6fb0', '#c23b2b', '#f2f2ee', '#2a2a2a', '#7a5ab0', '#e0a028', '#2f8a8a', '#b0b4b8', '#d85a8a'];
+  for (let l = 0; l < levels; l++) {
+    const y0 = 8 + l * lh, y1 = y0 + lh - 12;
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, y0, w, lh);   // shadowed back of the shelf
+    for (let x = 4; x < w - 4; ) {
+      if (Math.random() < .12) { x += rand(20, 60); continue; }   // emptied, looted
+      const kind = grocery ? pick(['can', 'box', 'box', 'bottle', 'bag']) : pick(['box', 'box', 'box', 'bottle', 'tote']);
+      const pw = kind === 'can' ? rand(18, 24) : kind === 'bottle' ? rand(16, 22) : rand(26, 52), ph = (y1 - y0) * (kind === 'can' ? rand(.45, .6) : kind === 'bottle' ? rand(.7, .95) : rand(.55, .95));
+      const col = pick(pal), n = kind === 'can' || kind === 'bottle' ? (Math.random() * 4 | 0) + 2 : 1, tilt = Math.random() < .08 ? rand(-.3, .3) : 0;
+      for (let k = 0; k < n && x < w - 4; k++) {
+        g.save(); g.translate(x + pw / 2, y1); g.rotate(tilt);
+        g.fillStyle = col; g.fillRect(-pw / 2, -ph, pw, ph);
+        const sh = g.createLinearGradient(-pw / 2, 0, pw / 2, 0); sh.addColorStop(0, 'rgba(255,255,255,.18)'); sh.addColorStop(.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)');
+        g.fillStyle = sh; g.fillRect(-pw / 2, -ph, pw, ph);
+        g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(-pw / 2 + 3, -ph * .62, pw - 6, ph * .16);                          // label band
+        g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(-pw / 2 + 5, -ph * .58, (pw - 10) * rand(.3, .9), 2);
+        if (kind === 'bottle') { g.fillStyle = col; g.fillRect(-pw / 6, -ph - 10, pw / 3, 10); }
+        if (kind === 'can') { g.fillStyle = 'rgba(220,220,220,.8)'; g.fillRect(-pw / 2, -ph, pw, 3); }
+        g.restore(); x += pw + 1;
+      }
+      x += rand(1, 4);
+    }
+    g.fillStyle = '#c9ccd0'; g.fillRect(0, y1, w, 7);                                          // shelf edge
+    for (let x = 10; x < w; x += rand(40, 80)) { g.fillStyle = Math.random() < .2 ? '#f2c81e' : '#f4f2ec'; g.fillRect(x, y1 + 1, 18, 5); }   // price tags
+  }
+  g.fillStyle = '#1c1d1f'; g.fillRect(0, h - 32, w, 32);                                       // kick plate
+  stains(g, w, h, 5, 'rgba(70,6,6,.25)');
+}, rx, 1);
+MT.coolerGlow = () => canvasTex(256, 256, (g, w, h) => {   // through the glass: lit shelves of drinks
+  g.fillStyle = '#c8dce6'; g.fillRect(0, 0, w, h);
+  for (let l = 0; l < 5; l++) {
+    const y1 = 30 + l * 46;
+    for (let x = 6; x < w - 6; x += 15) { if (Math.random() < .15) continue; const c = pick(['#2a6ab0', '#c23b2b', '#2f8a3a', '#e0a028', '#f2f2ee', '#5a2a1a']); g.fillStyle = c; g.fillRect(x, y1 - 34, 12, 34); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(x + 2, y1 - 30, 3, 26); }
+    g.fillStyle = '#e8eef2'; g.fillRect(0, y1, w, 4);
+  }
+  g.fillStyle = '#3a4248'; for (let x = 0; x <= w; x += w / 2) g.fillRect(x - 3, 0, 6, h);       // door frames
+}, 1, 1);
+MT.tvWall = () => canvasTex(512, 256, (g, w, h) => {   // a wall of display TVs, mostly static and blue screens
+  g.fillStyle = '#0c0d0f'; g.fillRect(0, 0, w, h);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) {
+    const x = 8 + c * 84, y = 10 + r * 80, sw = 74, shh = 62, kind = Math.random();
+    g.fillStyle = kind < .45 ? '#2a3a8a' : kind < .8 ? '#888' : '#0a0a0a'; g.fillRect(x, y, sw, shh);
+    if (kind >= .45 && kind < .8) for (let i = 0; i < 500; i++) { const v = Math.random() * 255 | 0; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x + Math.random() * sw, y + Math.random() * shh, 2, 1); }
+    if (kind < .45) { g.fillStyle = '#e8ecff'; g.font = '11px monospace'; g.fillText('NO SIGNAL', x + 9, y + 34); }
+    g.strokeStyle = '#222'; g.lineWidth = 3; g.strokeRect(x, y, sw, shh);
+  }
+}, 1, 1);
+function shoppingCart(x, z, rotY, tipped = false) {   // a wire cart: frame, basket, handle, casters
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  const wire = pbr({ map: T.chain(.5, .4), transparent: true, alphaTest: .2, side: THREE.DoubleSide, color: 0xb8bcc0, roughness: .35, metalness: .9 });
+  const frame = mat(0xb0b4b8, { roughness: .3, metalness: .9 }), red = mat(0xb02a22, { roughness: .5 });
+  const sides = [[.9, .45, 0, .62, .3, 0], [.9, .45, 0, .62, -.3, 0], [.6, .45, .45, .62, 0, Math.PI / 2], [.6, .45, -.45, .62, 0, Math.PI / 2]];
+  for (const [w, h, px, py, pz, ry] of sides) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wire); m.position.set(px, py, pz); m.rotation.y = ry; g.add(m); }
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(.9, .6), wire); floor.rotation.x = -Math.PI / 2; floor.position.y = .4; g.add(floor);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .62, 8), red); handle.rotation.x = Math.PI / 2; handle.position.set(-.55, .95, 0); g.add(handle);
+  for (const s of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(.03, .38, .03), frame); leg.position.set(-.4, .2, s * .26); g.add(leg); const leg2 = leg.clone(); leg2.position.x = .4; g.add(leg2); }
+  for (const [px, pz] of [[-.4, -.26], [-.4, .26], [.4, -.26], [.4, .26]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .03, 10), M.tire); wh.rotation.x = Math.PI / 2; wh.position.set(px, .05, pz); g.add(wh); }
+  if (tipped) { g.rotation.z = Math.PI / 2 * .98; g.position.y = .32; }
+  return g;
+}
+function storeCar(x, z, rotY, color) {   // a parked sedan, long abandoned
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
+  const paint = mat(color, { roughness: .35, metalness: .6 }), glass = M.glass;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, .7, 4.4), paint); body.position.y = .65; g.add(body);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, .55, 2.2), glass); cab.position.set(0, 1.25, -.2); g.add(cab);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.62, .06, 1.9), paint); roof.position.set(0, 1.55, -.2); g.add(roof);
+  for (const [px, pz] of [[-.85, 1.4], [.85, 1.4], [-.85, -1.4], [.85, -1.4]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .22, 14), M.tire); w.rotation.z = Math.PI / 2; w.position.set(px, .34, pz); g.add(w); }
+  for (const s of [-1, 1]) { const hl = new THREE.Mesh(new THREE.BoxGeometry(.3, .12, .04), mat(0xd8d4c0, { emissive: 0x111108 })); hl.position.set(s * .6, .75, 2.21); g.add(hl); }
+  const c = Math.abs(Math.cos(rotY)) > .5;
+  addCollider(x - (c ? 1 : 2.3), x + (c ? 1 : 2.3), z - (c ? 2.3 : 1), z + (c ? 2.3 : 1), 0, 1.6);
+  return g;
+}
+function buildStore(def) {
+  const K = mapKit(def.ox), { X, bx, plane, lamp, sign } = K;
+  const c0 = colliders.length;
+  const H = 7, WT = .4;
+  // ---- the lot: asphalt, painted bays, light poles, abandoned cars and carts
+  const lotM = weather(mat(0xffffff, { map: T.asphalt(14, 10), roughness: .9 }), .3, .7);
+  plane(110, 112, 3, 2, -.01, lotM);
+  const paintM = mat(0xd8d4c4, { roughness: .8 });
+  for (const row of [30, 41]) for (let x = -44; x <= 50; x += 3) { if (Math.abs(x - 3) < 4) continue; bx(.1, .02, 5, x, .01, row, paintM, { collide: false, shoot: false }); }
+  for (const [x, z] of [[-30, 35], [-6, 47], [30, 35], [44, 47], [-44, 47]]) lamp(x, z, 7.5, 0xffa040, 1.3, 20);
+  [[-27, 30.5, 0, 0x6a2a24], [-12, 41.5, Math.PI, 0x2a3a4a], [12, 30.5, .1, 0x8a8a84], [33, 41, Math.PI + .2, 0x1e2a22], [41, 30.5, 0, 0x4a4030]].forEach(([x, z, r, c]) => storeCar(X(x), z, r, c));
+  shoppingCart(X(-8), 27, .7); shoppingCart(X(6), 35, 2.1, true); shoppingCart(X(24), 26, -.4); shoppingCart(X(-36), 38, 1.2, true);
+  // cart corral
+  for (const s of [-1, 1]) bx(.06, 1, 6, -20 + s * .7, .5, 36, M.metal, { collide: false });
+  for (let i = 0; i < 3; i++) shoppingCart(X(-20), 34 + i * .7, Math.PI / 2);
+  // perimeter fence round the property, so nobody wanders off into the fog
+  const perim = (x0, z0, x1, z1) => {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 3), pbr({ map: T.chain(len / 1.2, 2.5), transparent: true, alphaTest: .08, side: THREE.DoubleSide, color: 0x9aa0a6 }));
+    m.position.set(X((x0 + x1) / 2), 1.5, (z0 + z1) / 2); m.rotation.y = -Math.atan2(z1 - z0, x1 - x0); scene.add(m);
+    K.wall(Math.min(x0, x1) - .15, Math.max(x0, x1) + .15, Math.min(z0, z1) - .15, Math.max(z0, z1) + .15, 3);
+  };
+  perim(-50, -52, 56, -52); perim(-50, 56, 56, 56); perim(-50, -52, -50, 56); perim(56, -52, 56, 56);
+  // ---- the building
+  const extM = mat(0xb8ab92, { map: T.concrete(10, 2, '#9a8f7a'), roughness: .9 });
+  const inM = mat(0xd8d4cc, { map: T.concrete(8, 2, '#c8c4bc'), roughness: .85 });
+  const wallSeg = (x0, x1, z0, z1, h = H, m = inM) => bx(x1 - x0, h, z1 - z0, (x0 + x1) / 2, h / 2, (z0 + z1) / 2, m, { uvWorld: true });
+  wallSeg(-30.4, -19.5, 20, 20.4); wallSeg(-14.5, 14.5, 20, 20.4); wallSeg(19.5, 30.4, 20, 20.4);                 // front, two entrances
+  for (const x of [-17, 17]) bx(5, H - 3.4, WT, x, 3.4 + (H - 3.4) / 2, 20.2, extM, { collide: false });        // over the doors
+  wallSeg(-30.4, -6.5, -24.4, -24); wallSeg(-2.5, 30.4, -24.4, -24);                                             // back, stockroom doors
+  bx(4, H - 3, WT, -4.5, 3 + (H - 3) / 2, -24.2, extM, { collide: false });
+  wallSeg(-30.4, -30, -24.4, 20.4);                                                                              // west
+  wallSeg(30, 30.4, -24.4, -2); wallSeg(30, 30.4, 2, 20.4);                                                       // east, opening to the garden
+  bx(WT, H - 3.2, 4, 30.2, 3.2 + (H - 3.2) / 2, 0, extM, { collide: false });
+  for (const [x0, x1] of [[-30.45, -19.5], [-14.5, 14.5], [19.5, 30.45]]) bx(x1 - x0, H, .06, (x0 + x1) / 2, H / 2, 20.43, extM, { collide: false, shoot: false, uvWorld: true });   // front facade
+  // floor, ceiling deck and trusses
+  plane(60, 44, 0, -2, .005, mat(0xffffff, { map: MT.storeFloor(15, 11), roughness: .32, envMapIntensity: .6 }));
+  bx(61, .3, 45, 0, H + .15, -2, mat(0x2a2c2e, { roughness: .8, metalness: .4 }), { collide: false });
+  for (let x = -27; x <= 27; x += 6) bx(.25, .5, 44, x, H - .25, -2, M.darkMetal, { collide: false, shoot: false });
+  // facade: red band, the sign, entrance canopies
+  bx(61, 1.4, .1, 0, H - .9, 20.46, mat(0x9a1e1e, { roughness: .6 }), { collide: false });
+  const logo = sign(['PENNY MILE'], 16, 2.6, 0, H + 1.6, 20.5, 0, { basic: true, bg: '#00000000', color: '#ff3a2a', size: 96, h: 160, glow: '#ff2010', w: 1024, font: 'Oswald' });
+  def.logo = logo;
+  sign(['SUPERCENTER · OPEN 24 HOURS'], 8, .7, 0, H + .1, 20.5, 0, { basic: true, bg: '#00000000', color: '#f2e6c8', size: 64, h: 96, w: 1024 });
+  const coin = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32), new THREE.MeshBasicMaterial({ color: 0xc87a2a })); coin.position.set(X(-10.5), H + 1.6, 20.52); scene.add(coin);
+  const coinIn = new THREE.Mesh(new THREE.RingGeometry(.85, 1, 32), new THREE.MeshBasicMaterial({ color: 0xffd08a })); coinIn.position.set(X(-10.5), H + 1.6, 20.53); scene.add(coinIn);
+  for (const x of [-17, 17]) {
+    bx(7, .25, 4, x, 3.6, 22.2, mat(0x7a1a1a, { roughness: .6 }), { collide: false });
+    for (const s of [-1, 1]) bx(.18, 3.6, .18, x + s * 3.3, 1.8, 24, M.metal, { collide: false });
+    sign([x < 0 ? 'ENTRANCE' : 'EXIT'], 2.6, .5, x, 3.2, 20.45, 0, { bg: '#7a1a1a', color: '#fff', size: 66 });
+    for (const s of [-1, 1]) {   // smashed sliding doors, one hanging open
+      const door = bx(1.2, 2.6, .06, x + s * 1.7, 1.3, 20.25, M.glass, { collide: false });
+      if (s > 0) { door.rotation.y = .5; door.position.z += .5; }
+    }
+    anchor(X(x), 3.2, 22, 0xfff0d0, .8, 9);
+  }
+  // ---- inside: lights in rows, some dead, some flickering
+  const fixtureM = mat(0xffffff, { emissive: 0xe8f0ff, roughness: .4 }), deadM = mat(0x8a8c8e, { roughness: .5 });
+  def.flicker = [];
+  for (let x = -24; x <= 24; x += 8) for (let z = -20; z <= 16; z += 6) {
+    const dead = Math.random() < .3, fl = !dead && Math.random() < .18;
+    bx(.3, .08, 3.4, x, 5.6, z, dead ? deadM : fixtureM, { collide: false, shoot: false });
+    for (const s of [-1, 1]) bx(.01, 1.3, .01, x, 6.3, z + s * 1.4, M.darkMetal, { collide: false, shoot: false });
+    if (!dead) { const a = anchor(X(x), 5.3, z, 0xdfe8ff, .9, 13); if (fl) def.flicker.push(a); }
+  }
+  // ---- shelving: general merchandise west, grocery east; each run broken by a cross aisle
+  const goodsTex = MT.shelf(false, 1), groceryTex = MT.shelf(true, 1);
+  const frameM = mat(0x3a3d42, { roughness: .6, metalness: .5 });
+  const shelfMats = new Map();
+  const shelfMat = (tex, len) => {
+    const k = tex.uuid + len; if (!shelfMats.has(k)) { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(len / 2.4, 1); t.wrapS = THREE.RepeatWrapping; shelfMats.set(k, mat(0xffffff, { map: t, roughness: .75 })); }
+    return shelfMats.get(k);
+  };
+  const gondola = (x, z0, z1, tex, label) => {
+    const len = z1 - z0, zc = (z0 + z1) / 2;
+    bx(1.3, 2.3, len, x, 1.15, zc, frameM);
+    for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(len, 2.3), shelfMat(tex, len)); p.position.set(X(x + s * .66), 1.15, zc); p.rotation.y = s * Math.PI / 2; scene.add(p); staticMeshes.push(p); }
+    for (const [zz, s] of [[z0, -1], [z1, 1]]) {   // endcaps: a stacked display and a sign
+      bx(1.3, .3, .02, x, 2.15, zz + s * .01, mat(0x9a1e1e), { collide: false });
+      const ec = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.8), shelfMat(tex, 1.25)); ec.position.set(X(x), .95, zz + s * .015); ec.rotation.y = s > 0 ? 0 : Math.PI; scene.add(ec); staticMeshes.push(ec);
+    }
+    bx(1.36, .06, len + .06, x, 2.33, zc, mat(0x9aa0a6, { roughness: .4, metalness: .6 }), { collide: false });
+    if (label) {   // hanging aisle marker
+      sign(label, 2.2, .9, x, 4.2, zc, Math.PI / 2, { bg: '#9a1e1e', color: '#fff', size: 56, h: 224, basic: true });
+      sign(label, 2.2, .9, x, 4.2, zc, -Math.PI / 2, { bg: '#9a1e1e', color: '#fff', size: 56, h: 224, basic: true });
+      for (const s of [-1, 1]) bx(.02, 2.4, .02, x, 5.85, zc + s * .9, M.darkMetal, { collide: false, shoot: false });
+    }
+  };
+  const west = [['1', 'TOYS'], ['2', 'HOUSEWARES'], ['3', 'HARDWARE'], ['4', 'SPORTS']], east = [['5', 'SNACKS'], ['6', 'CANNED'], ['7', 'CEREAL'], ['8', 'BAKING']];
+  [-25, -20, -15, -10].forEach((x, i) => { gondola(x, -16, -6.5, goodsTex, west[i]); gondola(x, -4, 5.5, goodsTex, null); });
+  [10, 15, 20, 25].forEach((x, i) => { gondola(x, -16, -6.5, groceryTex, east[i]); gondola(x, -4, 5.5, groceryTex, null); });
+  // grocery: drink coolers glowing along the back wall
+  const coolT = MT.coolerGlow(), coolM = mat(0xffffff, { map: coolT, emissive: 0xffffff, emissiveMap: coolT, emissiveIntensity: .55, roughness: .15 });
+  for (let x = 7; x < 29; x += 2.8) {
+    bx(2.7, 2.4, 1.1, x, 1.2, -23.4, mat(0x2a2d30, { roughness: .5, metalness: .4 }));
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.1), coolM); gl.position.set(X(x), 1.25, -22.84); scene.add(gl);
+  }
+  for (const x of [10, 22]) anchor(X(x), 1.6, -21.5, 0xbfe4ff, .6, 6);
+  sign(['GROCERY'], 7, 1.2, 18, 4.4, -23.9, 0, { bg: '#1e3a1e', color: '#f2e6c8', size: 80, h: 160 });
+  // pharmacy, back left
+  bx(9, 1.1, .9, -24.6, .55, -19.5, mat(0xe6e2d8, { roughness: .5 }));
+  bx(9.2, .06, 1.1, -24.6, 1.13, -19.5, mat(0x7a1a1a, { roughness: .4 }), { collide: false });
+  for (let x = -28.5; x < -21; x += 2.4) { bx(2.3, 2.2, .6, x, 1.1, -23.6, frameM); const p = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 2.2), shelfMat(goodsTex, 2.3)); p.position.set(X(x), 1.1, -23.29); scene.add(p); }
+  sign(['PHARMACY'], 6, 1, -24.6, 3.6, -23.9, 0, { bg: '#f2f0e8', color: '#1e5a8a', size: 76, h: 128 });
+  // electronics: a TV wall on the west side, screens flickering
+  const tvT = MT.tvWall(), tvM = new THREE.MeshBasicMaterial({ map: tvT });
+  def.tvTex = tvT;
+  for (let z = -14; z <= 2; z += 4) { const tv = new THREE.Mesh(new THREE.PlaneGeometry(4, 2), tvM); tv.position.set(X(-29.9), 2.2, z); tv.rotation.y = Math.PI / 2; scene.add(tv); }
+  anchor(X(-28.5), 2.2, -6, 0x8090ff, .7, 9);
+  sign(['ELECTRONICS'], 6, 1, -29.9, 4.4, -6, Math.PI / 2, { bg: '#1a1a2a', color: '#9ab4ff', size: 70, h: 128 });
+  // the centre aisle: seasonal pallets and clothing racks
+  const palletM = mat(0x8a6a3a, { map: T.wood(), roughness: .85 }), boxM = mat(0xb08a5a, { roughness: .9 });
+  for (const [x, z] of [[-5.6, -12], [5.6, -12], [-5.6, 2.5], [5.6, 2.5]]) { bx(1.4, .15, 1.2, x, .08, z, palletM, { collide: false }); bx(1.3, 1.1, 1.1, x, .7, z, boxM); }
+  const rackM = mat(0x8a8e94, { roughness: .4, metalness: .7 }), clothM = [0x3a4a6a, 0x6a2a2a, 0x2a2a2a, 0x7a7262].map(c => mat(c, { roughness: .95 }));
+  for (const [x, z] of [[-6, -18.5], [6, -18.5], [-14, 9]]) {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(.75, .025, 6, 24), rackM); r.rotation.x = Math.PI / 2; r.position.set(X(x), 1.35, z); scene.add(r);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, 1.35, 8), rackM); pole.position.set(X(x), .67, z); scene.add(pole);
+    for (let i = 0; i < 16; i++) {   // shirts and jackets on hangers, facing out
+      const a = i / 16 * Math.PI * 2, gm = new THREE.Mesh(new THREE.BoxGeometry(.045, rand(.7, .9), .42), pick(clothM));
+      gm.position.set(X(x + Math.cos(a) * .72), .9, z + Math.sin(a) * .72); gm.rotation.y = -a; scene.add(gm);
+    }
+    K.navCol(x - .85, x + .85, z - .85, z + .85, 1.4);
+  }
+  // checkouts: five lanes with conveyor counters, registers and lane lights
+  const counterM = mat(0x8a8a86, { roughness: .5, metalness: .3 }), beltM = mat(0x161616, { roughness: .8 });
+  [-12, -7, -2, 3, 8].forEach((x, i) => {
+    bx(.9, 1, 3, x, .5, 13, counterM);
+    bx(.7, .03, 2.2, x, 1.02, 12.6, beltM, { collide: false });
+    bx(.45, .35, .4, x, 1.2, 14.1, M.darkMetal, { collide: false });
+    const scr = bx(.35, .25, .03, x - .1, 1.48, 14.1, mat(0x0a1a2a, { emissive: 0x16304a }), { collide: false }); scr.rotation.y = -.4;
+    bx(.06, 1.6, .06, x + .4, 1.8, 14.4, M.darkMetal, { collide: false, shoot: false });
+    sign([String(i + 1)], .5, .5, x + .4, 2.75, 14.4, 0, { bg: Math.random() < .5 ? '#22aa44' : '#2a2a2a', color: '#fff', size: 90, h: 128, w: 128, basic: true });
+  });
+  sign(['CHECKOUT'], 6, .9, -2, 4.6, 14.2, 0, { bg: '#9a1e1e', color: '#fff', size: 70, h: 128, basic: true });
+  // customer service, front left
+  bx(7.5, 1.1, .9, -25.9, .55, 15.5, mat(0xd8d2c4, { roughness: .5 }));
+  bx(7.7, .06, 1.1, -25.9, 1.13, 15.5, mat(0x7a1a1a), { collide: false });
+  sign(['CUSTOMER SERVICE'], 6, .8, -25.9, 3.4, 19.95, Math.PI, { bg: '#f2f0e8', color: '#7a1a1a', size: 58, h: 112 });
+  // carts lined up inside the doors; a few abandoned in the aisles
+  for (let i = 0; i < 4; i++) shoppingCart(X(-22.2 + i * .65), 18.4, Math.PI / 2);
+  shoppingCart(X(-17.4), -1, .3); shoppingCart(X(12.6), -10, -.6); shoppingCart(X(2), 9, 1.9, true);
+  // ---- stockroom: pallet racking, cardboard, the breaker panel, the loading dock
+  const stkM = mat(0xb0aaa0, { map: T.concrete(6, 1, '#8a857c'), roughness: .9 });
+  wallSeg(-30.4, -16, -36.4, -36, 6, stkM); wallSeg(-10, 12.4, -36.4, -36, 6, stkM);                             // north wall, dock opening
+  bx(6, 2, WT, -13, 5, -36.2, stkM, { collide: false });
+  wallSeg(-30.4, -30, -36.4, -24.4, 6, stkM); wallSeg(12, 12.4, -36.4, -24.4, 6, stkM);
+  plane(42, 12, -9, -30, .004, mat(0x8a867e, { map: T.concrete(8, 3, '#76726a'), roughness: .9 }));
+  bx(43, .2, 12.4, -9, 6.1, -30.2, mat(0x2a2c2e), { collide: false });
+  for (const s of [-1, 1]) { bx(1.8, 2.4, .05, -4.5 + s * 1, 1.2, -24.2 + .02, mat(0x5a6a7a, { roughness: .4, metalness: .4 }), { collide: false }); }   // swing doors, held open
+  sign(['EMPLOYEES ONLY'], 3, .5, -4.5, 3.3, -23.95, 0, { bg: '#2a2a2a', color: '#ffcf4a', size: 60, h: 96 });
+  const rackFrame = mat(0x1e4a8a, { roughness: .5, metalness: .6 }), beamM = mat(0xd8721e, { roughness: .5, metalness: .5 });
+  for (const [x0, x1] of [[-28.5, -20], [-17.5, -9]]) {
+    const xc = (x0 + x1) / 2, len = x1 - x0;
+    K.wall(x0, x1, -33.15, -32.05, 4.5);
+    for (let x = x0; x <= x1 + .01; x += len / Math.round(len / 2.8)) for (const z of [-33.1, -32.1]) bx(.09, 4.5, .09, x, 2.25, z, rackFrame, { collide: false });
+    for (const y of [1.4, 2.8, 4.2]) { for (const z of [-33.1, -32.1]) bx(len, .12, .07, xc, y, z, beamM, { collide: false }); bx(len, .02, 1, xc, y + .06, -32.6, mat(0x7a7e84, { roughness: .5, metalness: .6, map: T.chain(len, 1), transparent: true, alphaTest: .2 }), { collide: false }); }
+    for (let x = x0 + .7; x < x1 - .5; x += 1.4) for (const y of [.42, 1.88, 3.28]) if (Math.random() < .8) bx(1.1, .8 + rand(-.15, .2), .9, x, y + .02, -32.6, pick([boxM, boxM, mat(0x9a7a4a, { roughness: .9 })]), { collide: false });
+  }
+  for (const [x, z] of [[-24, -27.5], [-12, -27], [3, -27.5], [8, -31]]) { bx(1.4, .15, 1.2, x, .08, z, palletM, { collide: false }); bx(1.2, 1.3, 1, x, .8, z, boxM); }
+  bx(1.6, 2.6, 1.4, 9.6, 1.3, -26.2, mat(0x3a5a3a, { roughness: .5, metalness: .5 }));                         // cardboard baler
+  sign(['DOCK 2'], 2.4, .5, -13, 3.7, -35.95, 0, { bg: '#2a2a2a', color: '#ffcf4a', size: 64, h: 96 });
+  for (const [x, z] of [[-20, -30], [-4, -30], [6, -30]]) { bx(.3, .08, 2.4, x, 5.6, z, fixtureM, { collide: false, shoot: false }); anchor(X(x), 5.3, z, 0xffe8c8, .8, 11); }
+  // outside the dock: a trailer backed up, its doors open
+  bx(3, 3.2, 10, -6, 1.9, -43, mat(0xd8d4cc, { roughness: .6, metalness: .3 }));
+  bx(3, .3, 10, -6, .2, -43, M.darkMetal, { collide: false });
+  plane(10, 3, -13, -37.5, .012, mat(0x5a5a58, { roughness: .9 }));
+  lamp(-20, -40, 5, 0xffa040, 1, 16);
+  // ---- garden centre: fenced, open to the sky, plant tables and mulch
+  const gf = (x0, z0, x1, z1) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), m = new THREE.Mesh(new THREE.PlaneGeometry(len, 3.2), pbr({ map: T.chain(len / 1.2, 2.6), transparent: true, alphaTest: .08, side: THREE.DoubleSide, color: 0x8a9096 }));
+    m.position.set(X((x0 + x1) / 2), 1.6, (z0 + z1) / 2); m.rotation.y = -Math.atan2(z1 - z0, x1 - x0); scene.add(m);
+    bx(Math.max(.06, Math.abs(x1 - x0)), .06, Math.max(.06, Math.abs(z1 - z0)), (x0 + x1) / 2, 3.2, (z0 + z1) / 2, M.metal, { collide: false });
+    K.wall(Math.min(x0, x1) - .1, Math.max(x0, x1) + .1, Math.min(z0, z1) - .1, Math.max(z0, z1) + .1, 3.2);
+  };
+  gf(30.4, -14, 44, -14); gf(30.4, 12, 44, 12); gf(44, -14, 44, -2); gf(44, 2, 44, 12);
+  plane(13.6, 26, 37.2, -1, .006, mat(0x8a8274, { map: T.concrete(5, 9, '#6a645a'), roughness: .95 }));
+  sign(['GARDEN CENTER'], 4.5, .8, 30.45, 3.7, 0, Math.PI / 2, { bg: '#1e3a1e', color: '#f2e6c8', size: 64, h: 112 });
+  const tableM = mat(0x6a6e72, { roughness: .5, metalness: .6 }), leafM = [0x2a4a22, 0x3a5a2a, 0x4a3a20].map(c => mat(c, { roughness: .9 })), potM = mat(0x7a3a20, { roughness: .8 });
+  for (const [x, z] of [[34, -9], [34, 6], [40.5, -6]]) {
+    bx(4, .8, 1.4, x, .4, z, tableM);
+    for (let i = 0; i < 5; i++) { const pot = new THREE.Mesh(new THREE.CylinderGeometry(.18, .14, .28, 10), potM); pot.position.set(X(x - 1.6 + i * .8), .94, z); scene.add(pot); const pl = new THREE.Mesh(new THREE.DodecahedronGeometry(.28, 0), pick(leafM)); pl.position.set(X(x - 1.6 + i * .8), 1.25, z); pl.scale.y = rand(.8, 1.4); scene.add(pl); }
+  }
+  for (const [x, z] of [[41, 7.5], [41, 9.5]]) { bx(1.4, .15, 1.2, x, .08, z, palletM, { collide: false }); bx(1.3, .9, 1.1, x, .6, z, mat(0x3a2a1a, { roughness: 1 })); }
+  lamp(37, -12, 5, 0xffb060, .9, 14); lamp(42.5, 9, 4.5, 0xffc070, .8, 12);
+  const bulbM = new THREE.MeshBasicMaterial({ color: 0xffd890 });
+  for (let x = 31; x <= 43; x += 1) for (const z of [-8, 5]) { const bulb = new THREE.Mesh(new THREE.SphereGeometry(.05, 6, 4), bulbM); bulb.position.set(X(x), 3.1 - Math.sin((x - 31) / 12 * Math.PI) * .5, z); scene.add(bulb); }
+  for (const [x, z] of [[34, -8], [40, -8], [34, 5], [40, 5]]) anchor(X(x), 2.7, z, 0xffc880, .5, 7);
+  // ---- everything solid in the store is a wall for the route finder (not the lintels)
+  for (let i = c0; i < colliders.length; i++) if (colliders[i].minY < 1) { colliders[i].wall = true; navObstacles.push(colliders[i]); }
+  // ---- the playable stuff
+  chalk('m14', X(-6), 1.7, 19.83, Math.PI);
+  chalk('dbl', X(6), 1.7, 19.83, Math.PI);
+  chalk('mp5', X(29.83), 1.7, -10, -Math.PI / 2);
+  chalk('r870', X(11.83), 1.7, -30, -Math.PI / 2);
+  chalk('ak74u', X(30.57), 1.7, 8, Math.PI / 2);
+  chalk('m16', X(-12), 1.7, -23.83, 0);
+  perkMachine('iron', X(-24), 19.15, Math.PI);
+  perkMachine('quick', X(24), 19.15, Math.PI);
+  perkMachine('dbl', X(29.15), 8, -Math.PI / 2);
+  perkMachine('wind', X(-17), -23.15, 0);
+  perkMachine('fleet', X(43.15), -9, -Math.PI / 2);
+  perkMachine('holster', X(6), -35.15, 0);
+  perkMachine('steady', X(-29.15), 10, Math.PI / 2);
+  perkMachine('spark', X(2.5), -23.15, 0);
+  perkMachine('blast', X(-29.15), -28, Math.PI / 2);
+  powerSwitch(X(-25), -35.6, 0);
+  buildForge(X(1), -33.6, 0);
+  workbench(X(-27.4), 8, Math.PI / 2);
+  workbench(X(37), 10.5, Math.PI);
+}
+
 const MAPDEFS = {
   pier: {
     ox: 600, build: buildPier, start: [0, -12], yaw: Math.PI,
     nav: [[0, -12], [-15, -20], [15, -20], [-15, 4], [0, 4], [9, 7], [9, 12], [9, 25], [9, 37.5], [9, 43], [-1, 43], [19, 43], [0, -34], [-26, -30], [26, -30]],
     fog: 0x111a1f, density: .048, zenith: 0x03060a,
-    spots: [[-25, -28], [2, -38], [26, -28], [5, -27.5], [-17, -24], [17, -24], [-2, 4], [16, 8], [-14, -10], [7.2, 18], [10.8, 33], [-2.5, 44.5], [20.5, 41.6]],
+    spots: [[-25, -28], [2, -38], [26, -28], [5, -27.5], [-17, -24], [17, -24], [-2, 4], [16, 8], [-14, -10], [7.2, 18], [10.8, 33], [-2.5, 44.5], [20.5, 41.6], [-8, -16], [9.5, 27], [-2, -30]],
+    builds: ['shield', 'turret', 'trap', 'gale', 'spikes'],
     spawns: [[-19.2, -20], [-19.2, -8], [-19.2, 4], [19.2, -18], [19.2, -4], [19.2, 6], [-12, 9.2], [16, 9.2], [6.8, 20], [11.2, 30], [-3.2, 43], [21.2, 45], [10, 45.2], [-20, -44], [0, -44.6], [20, -44]],
     box: [12, -12, 0], box_rot: 0,
     shots: [
@@ -5873,7 +6283,8 @@ const MAPDEFS = {
   mine: {
     ox: -600, build: buildMine, start: [0, 8], yaw: 0,
     fog: 0x262d36, density: .042, zenith: 0x080b10,
-    spots: [[-24, -4], [-12, -20], [0, -42], [-2.5, -49], [-28, 20], [-8, 30], [12, 28], [28, -26], [26, 4], [-26, -26], [8, -6], [-10, 14], [30, 24]],
+    spots: [[-24, -4], [-12, -20], [0, -42], [-2.5, -49], [-28, 20], [-8, 30], [12, 28], [28, -26], [26, 4], [-26, -26], [8, -6], [-10, 14], [30, 24], [-4, 10], [20, -22], [-18, 26]],
+    builds: ['shield', 'turret', 'trap', 'gale', 'lure'],
     spawns: [[0, -49], [2, -45], [-32, -30], [-32, 0], [-32, 28], [32, -30], [32, 2], [32, 28], [-15, 32], [15, 32], [-8, -32], [8, -32]],
     box: [-6, 17, 0],
     shots: [
@@ -5911,6 +6322,42 @@ const MAPDEFS = {
       this.fire.intensity = (1.2 + Math.sin(t * 11) * .2 + Math.random() * .3) * dark;
       if (dark === 1 && Math.random() < dt * 8) burst(new V3(this.ox + 4.2 + rand(-.4, .4), .6, 7.1), 'fire', 1, 1, .5);
       this.lanterns.forEach((l, i) => l.intensity = (.85 + Math.sin(t * 7 + i * 2) * .08 + (Math.random() < .02 ? -.5 : 0)) * dark);
+    },
+  },
+  store: {
+    ox: 1800, build: buildStore, start: [0, 16.5], yaw: 0,
+    fog: 0x101418, density: .032, zenith: 0x04060a,
+    builds: ['shield', 'turret', 'trap', 'gale', 'nail', 'lure', 'spikes'],
+    nav: [
+      // the lot, round the sides, the dock and the garden gate
+      [-17, 23], [17, 23], [0, 26], [-17, 30], [17, 30], [-36, 26], [40, 26], [-36, 46], [0, 48], [40, 46],
+      [-40, 10], [-40, -20], [-40, -44], [-13, -40], [-13, -47], [0, -50], [20, -30], [40, -24], [50, -16], [48, 0], [36, 16], [50, 16],
+      // entrances and the front of the store
+      [-17, 17.5], [17, 17.5], [-21, 17.5], [-10, 17.5], [0, 17.5], [10, 17.5], [26, 17.5],
+      [-16, 13], [-9.5, 13], [-4.5, 13], [.5, 13], [5.5, 13], [10.5, 13], [20, 13],
+      // the cross aisle in front of the shelves
+      [-26, 11], [-22.5, 8.2], [-17.5, 8.2], [-12.5, 8.2], [-7, 8.2], [0, 8.2], [7, 8.2], [12.5, 8.2], [17.5, 8.2], [22.5, 8.2], [27.6, 8.2],
+      // aisles: middle of the front runs, the cross aisle, middle of the back runs, the back aisle
+      ...[-27.8, -22.5, -17.5, -12.5, -7, 0, 7, 12.5, 17.5, 22.5, 27.6].flatMap(x => [[x, .75], [x, -5.25], [x, -11.25], [x, x < -20 ? -17.6 : Math.abs(x) === 7 ? -21 : -19]]),
+      // stockroom
+      [-4.5, -21.5], [-4.5, -26], [-27, -29.5], [-19, -29], [-12, -29.5], [-4.5, -29], [5, -29.5],
+      [-29.2, -34.5], [-25, -34.6], [-18.7, -34.5], [-13, -34.5], [-5, -34.5], [5, -33.5], [-13, -38.5],
+      // garden centre
+      [28.5, 0], [32, 0], [37, -2.5], [37, 2.5], [33, -11.5], [38, -11.5], [31.2, 9], [41, 0],
+    ],
+    spots: [[-27.6, -10], [-22.5, 1], [-17.5, -12], [-12.5, 2.5], [-7.2, -10], [4, -12], [12.5, -1], [17.5, -12], [22.5, 2], [27.6, -12.5], [-20, -17.6],
+      [0, -20], [20, -19.5], [-25, 12.5], [21, 16], [-14.8, 16.2], [-25, -29.8], [-10, -30.5], [4, -26.5], [33.5, -11.5], [39.5, 3.5], [-17, 26.5], [17, 31.5]],
+    spawns: [[-44, 50], [-20, 52], [0, 52], [22, 52], [48, 50], [-46, 28], [52, 28], [-40, -46], [-12, -48], [8, -46], [40, -40], [52, -20], [52, 4]],
+    box: [0, -1, 0],
+    shots: [
+      { from: [0, 3, 32], to: [0, 2.6, 26], look: [0, 5, 18] },
+      { from: [-12.5, 1.8, 6], to: [-12.5, 1.9, 0], look: [-12.5, 1.5, -16] },
+      { from: [-4.5, 1.8, -19], to: [-4.5, 1.9, -23], look: [-8, 1.5, -32] },
+    ],
+    update(dt, t) {
+      for (const a of this.flicker) a.intensity = Math.random() < .08 ? Math.random() * .2 : .9;   // dying ballasts
+      if (Math.random() < dt * 20) this.tvTex.offset.set(Math.random() * .01, Math.random() * .01);
+      this.logo.visible = Math.random() > .015;
     },
   },
 };
@@ -6010,6 +6457,10 @@ const MODES = {
     desc: 'Back to basics. A ruined farmhouse in the marsh, boarded windows and the guns on the walls: no power, no perks, no buildables. Open it up room by room and hold out.',
     bullets: ['Kitchen, parlor and barn, opened one at a time', 'Seven boarded windows: the only way in', 'Wall guns and the mystery box, nothing else'],
     intro: ['ASHGROVE FARMHOUSE', 'Blackmarsh Road, abandoned', 'November 3 · 12:20 AM'] },
+  store: { map: 'store', name: 'Penny Mile Supercenter', short: 'Penny Mile', tag: 'New map · Survival', title: 'Penny Mile Supercenter',
+    desc: 'A 24-hour superstore off the interstate, the lights still humming. They shamble in through the smashed front doors, the loading dock and the garden gate. Hold the aisles.',
+    bullets: ['Checkouts, shelf aisles, coolers, pharmacy and a wall of TVs', 'Stockroom with the power, the Punch Press and a loading dock', 'All seven buildables, including the three new ones'],
+    intro: ['PENNY MILE SUPERCENTER', 'Open 24 hours. Mostly.', 'November 4 · 2:05 AM'] },
 };
 const DIFFS = {
   easy:   { name: 'Casual', hp: .7, dmg: 40, run: -.1, desc: 'Weaker, slower zombies that hit softer.' },

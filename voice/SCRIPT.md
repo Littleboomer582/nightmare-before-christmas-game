@@ -1,6 +1,6 @@
 # Dead End Depot voice script
 
-186 lines in 10 sections, 16 recorded so far (marked ✅). The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.
+196 lines in 10 sections, 16 recorded so far (marked ✅). The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.
 Your own lines are welcome too: send them and say when each should play.
 Start with section 1: you hear those lines all game long.
 
@@ -229,6 +229,12 @@ One plays when a match begins, plus one for the map.
    <sub>Ashgrove Farmhouse · `start_farm--board-up-the-windows-hold-the.mp3`</sub>
 20. "Nice place. Needs a roof. And fewer corpses."  
    <sub>Ashgrove Farmhouse · `start_farm--nice-place-needs-a-roof-and.mp3`</sub>
+21. "Attention shoppers. Everything must go."  
+   <sub>Penny Mile Supercenter · `start_store--attention-shoppers-everything-must-go.mp3`</sub>
+22. "Open twenty-four hours. Lucky me."  
+   <sub>Penny Mile Supercenter · `start_store--open-twenty-four-hours-lucky-me.mp3`</sub>
+23. "Clean-up on every aisle. Starting now."  
+   <sub>Penny Mile Supercenter · `start_store--clean-up-on-every-aisle-starting.mp3`</sub>
 
 ## Section 6: Buying guns and the mystery box
 
@@ -409,9 +415,21 @@ One plays when a match begins, plus one for the map.
    <sub>building the Gale Cannon · `build_gale--built-a-cannon-out-of-a.mp3`</sub>
 22. "Gale Cannon. Time to clear the room."  
    <sub>building the Gale Cannon · `build_gale--gale-cannon-time-to-clear-the.mp3`</sub>
-23. "Wait! Hold the bus!"  
+23. "Nail gun. Time for some home improvement."  
+   <sub>building the Nail Gun · `build_nail--nail-gun-time-for-some-home.mp3`</sub>
+24. "Hold still. This won't hurt. Much."  
+   <sub>building the Nail Gun · `build_nail--hold-still-this-wont-hurt-much.mp3`</sub>
+25. "Boombox and a propane tank. Party at my place."  
+   <sub>building the Boombox Lure · `build_lure--boombox-and-a-propane-tank-party.mp3`</sub>
+26. "Turn it up. Let them come to the music."  
+   <sub>building the Boombox Lure · `build_lure--turn-it-up-let-them-come.mp3`</sub>
+27. "Spike strip. Watch your step, fellas."  
+   <sub>building the Spike Strip · `build_spikes--spike-strip-watch-your-step-fellas.mp3`</sub>
+28. "Wipe your feet on that."  
+   <sub>building the Spike Strip · `build_spikes--wipe-your-feet-on-that.mp3`</sub>
+29. "Wait! Hold the bus!"  
    <sub>the bus · `bus--wait-hold-the-bus.mp3`</sub>
-24. "Don't you dare leave without me!"  
+30. "Don't you dare leave without me!"  
    <sub>the bus · `bus--dont-you-dare-leave-without-me.mp3`</sub>
 
 ## Section 10: Other voices (optional)
@@ -424,9 +442,11 @@ Radio messages you find hidden on each map, read by other characters. Use a diff
    <sub>HARBORMASTER · `radio--pier.mp3`</sub>
 3. "Foreman Dale Pruitt, shaft three. We broke into a cave that isn't on any survey. It's warm down there. The men who went in came back out, but they don't talk anymore. Seal the tunnel."  
    <sub>FOREMAN PRUITT · `radio--mine.mp3`</sub>
-4. "If you found this, you're in my grandmother's house. She said the marsh keeps what it takes. Board the windows, keep the fire lit, and don't let anyone hear that clock strike midnight."  
+4. "Attention Penny Mile associates, this is your night manager. Lock the front doors. Do not let the customers back in. I repeat: the customers are not customers anymore. Everybody to the stockroom. And somebody turn off those TVs."  
+   <sub>NIGHT MANAGER · `radio--store.mp3`</sub>
+5. "If you found this, you're in my grandmother's house. She said the marsh keeps what it takes. Board the windows, keep the fire lit, and don't let anyone hear that clock strike midnight."  
    <sub>THE RADIO · `radio--farm.mp3`</sub>
-5. "The marsh remembers you. Take this, and stay alive."  
+6. "The marsh remembers you. Take this, and stay alive."  
    <sub>The whisper (after the farmhouse clock strikes midnight) · `whisper.mp3`</sub>
 
 ---

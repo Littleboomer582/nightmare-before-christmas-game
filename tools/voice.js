@@ -30,24 +30,24 @@ const SECTIONS = [
   ['Rounds', 'Every round starts and ends with one of these.', ['round', 'roundEnd', 'roundBig']],
   ['Getting hurt', '', ['hurt', 'lowHp', 'breakIn', 'death', 'revive']],
   ['Ammo', '', ['lastMag', 'noAmmo', 'ammo', 'overheat']],
-  ['Starting a match', 'One plays when a match begins, plus one for the map.', ['start', 'start_route9', 'start_depot', 'start_pier', 'start_mine', 'start_farm']],
+  ['Starting a match', 'One plays when a match begins, plus one for the map.', ['start', 'start_route9', 'start_depot', 'start_pier', 'start_mine', 'start_farm', 'start_store']],
   ['Buying guns and the mystery box', '', ['buy_rifle', 'buy_smg', 'buy_shotgun', 'boxSpin', 'boxBig', 'boxMeh', 'box_ray', 'box_arc', 'forge']],
   ['Perks', '', ['perk_iron', 'perk_quick', 'perk_dbl', 'perk_wind', 'perk_fleet', 'perk_holster', 'perk_steady', 'perk_spark', 'perk_blast']],
   ['Power-ups', '', ['pu_ammo', 'pu_insta', 'pu_dbl', 'pu_nuke', 'pu_carp']],
-  ['Doors, power, building and the bus', '', ['power', 'repair', 'door_lot', 'door_road', 'door_parlor', 'door_barn', 'build_shield', 'build_turret', 'build_trap', 'build_gale', 'bus']],
+  ['Doors, power, building and the bus', '', ['power', 'repair', 'door_lot', 'door_road', 'door_parlor', 'door_barn', 'build_shield', 'build_turret', 'build_trap', 'build_gale', 'build_nail', 'build_lure', 'build_spikes', 'bus']],
 ];
 const WHEN = {
   kill: 'killing a zombie', head: 'a headshot kill', multi: 'several kills at once', melee: 'a knife kill', crawler: 'a zombie loses its legs', crowd: 'a crowd is close',
   sparkKill: 'Spark Cider zaps zombies', round: 'a round starts', roundEnd: 'a round is cleared', roundBig: 'every fifth round', hurt: 'taking a hit',
   lowHp: 'almost dead', breakIn: 'a zombie tears a board off', death: 'going down', revive: 'getting back up', lastMag: 'on the last magazine',
   noAmmo: 'out of ammo', ammo: 'buying ammo', overheat: 'the Gale Cannon overheats', start: 'any map', start_route9: 'Route 9', start_depot: 'the depot',
-  start_pier: 'the pier', start_mine: 'the mine', start_farm: 'Ashgrove Farmhouse', buy_rifle: 'buying a rifle', buy_smg: 'buying an SMG', buy_shotgun: 'buying a shotgun',
+  start_pier: 'the pier', start_mine: 'the mine', start_farm: 'Ashgrove Farmhouse', start_store: 'Penny Mile Supercenter', buy_rifle: 'buying a rifle', buy_smg: 'buying an SMG', buy_shotgun: 'buying a shotgun',
   boxSpin: 'spinning the box', boxBig: 'a great gun from the box', boxMeh: 'a so-so gun from the box', box_ray: 'the ray gun from the box', box_arc: 'the arc gun from the box',
   forge: 'upgrading a gun', perk_iron: 'Ironhide Ale', perk_quick: 'Quickhands Cola', perk_dbl: 'Doubleshot Draught', perk_wind: 'Second Wind Soda', perk_fleet: 'Fleetfoot Fizz',
   perk_holster: 'Third Holster Tonic', perk_steady: 'Steady Hand Stout', perk_spark: 'Spark Cider', perk_blast: 'Blastproof Bitters', pu_ammo: 'Max Ammo',
   pu_insta: 'Insta-Kill', pu_dbl: 'Double Points', pu_nuke: 'the nuke', pu_carp: 'Carpenter', power: 'turning the power on', repair: 'rebuilding a board',
   door_lot: 'opening the lot', door_road: 'opening the road', door_parlor: 'opening the parlor', door_barn: 'opening the barn', build_shield: 'building the shield',
-  build_turret: 'building the turret', build_trap: 'building the trap', build_gale: 'building the Gale Cannon', bus: 'the bus',
+  build_turret: 'building the turret', build_trap: 'building the trap', build_gale: 'building the Gale Cannon', build_nail: 'building the Nail Gun', build_lure: 'building the Boombox Lure', build_spikes: 'building the Spike Strip', bus: 'the bus',
 };
 const OTHER = [   // lines spoken by someone else (the radios and the clock's whisper)
   ...Object.entries(RADIO).map(([k, [who, text]]) => ({ file: 'radio--' + k, who, text })),
