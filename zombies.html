@@ -820,13 +820,16 @@ const T = {
     for (let i = 0; i < 14; i++) { g.strokeStyle = `rgba(30,15,5,${rand(.15, .4)})`; g.beginPath(); g.moveTo(0, rand(0, h)); g.bezierCurveTo(40, rand(0, h), 80, rand(0, h), w, rand(0, h)); g.stroke(); }
     speckle(g, w, h, 300, 0.1);
   }),
-  chain: (rx, ry) => {
-    const t = canvasTex(64, 64, (g, w, h) => {
-      g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(170,175,180,0.95)'; g.lineWidth = 3;
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(w, h); g.moveTo(w, 0); g.lineTo(0, h);
-      g.moveTo(-w / 2, h / 2); g.lineTo(w / 2, h * 1.5); g.moveTo(w / 2, -h / 2); g.lineTo(w * 1.5, h / 2);
-      g.moveTo(w / 2, -h / 2); g.lineTo(-w / 2, h / 2); g.moveTo(w * 1.5, h / 2); g.lineTo(w / 2, h * 1.5); g.stroke();
-    }, rx, ry);
+  chain: (rx, ry) => {   // galvanised chain-link: 10 cm diamonds of twisted wire, 4 x 4 per tile
+    const t = canvasTex(128, 128, (g, w, h) => {
+      g.clearRect(0, 0, w, h); const n = 4, c = w / n;
+      for (const [col, lw] of [['rgba(60,64,68,.9)', 5], ['rgba(178,182,186,1)', 3], ['rgba(225,228,232,.9)', 1]]) {
+        g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
+        for (let i = -n; i <= n * 2; i++) { g.moveTo(i * c, 0); g.lineTo(i * c + h, h); g.moveTo(i * c, 0); g.lineTo(i * c - h, h); }
+        g.stroke();
+      }
+      for (let y = 0; y <= h; y += c) for (let x = 0; x <= w; x += c) { g.fillStyle = 'rgba(205,208,212,1)'; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); }   // twisted knuckles
+    }, rx * 3, ry * 3);
     return t;
   },
 };
@@ -1138,16 +1141,17 @@ function buildMap() {
   // ---- fence around the lot ----
   const fence = (x0, z0, x1, z1) => {
     const len = Math.hypot(x1 - x0, z1 - z0);
-    const fm = pbr({ map: T.chain(len / 1.2, 2.5), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, color: 0x9aa0a6 });
+    const fm = pbr({ map: T.chain(len / 1.2, 2.5), transparent: true, alphaTest: .08, side: THREE.DoubleSide, color: 0x9aa0a6 });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 3), fm);
     m.position.set((x0 + x1) / 2, 1.5, (z0 + z1) / 2); m.rotation.y = -Math.atan2(z1 - z0, x1 - x0); scene.add(m);
     const n = Math.ceil(len / 3);
-    for (let i = 0; i <= n; i++) { const t = i / n; box(0.1, 3.2, 0.1, x0 + (x1 - x0) * t, 1.6, z0 + (z1 - z0) * t, M.metal, { collide: false }); }
+    for (let i = 0; i <= n; i++) { const t = i / n; box(0.075, 3.15, 0.075, x0 + (x1 - x0) * t, 1.575, z0 + (z1 - z0) * t, M.metal, { collide: false }); }
+    box(Math.max(.05, Math.abs(x1 - x0)), .05, Math.max(.05, Math.abs(z1 - z0)), (x0 + x1) / 2, 3.02, (z0 + z1) / 2, M.metal, { collide: false });   // top rail
     addCollider(Math.min(x0, x1) - 0.12, Math.max(x0, x1) + 0.12, Math.min(z0, z1) - 0.12, Math.max(z0, z1) + 0.12);
   };
   fence(-18, 8, -18, 26); fence(18, 8, 18, 26); fence(-18, 26, -2, 26); fence(2, 26, 18, 26);
   // lot gate onto the road (bought later)
-  const gateM = new THREE.MeshStandardMaterial({ map: T.chain(1.6, 2.5), transparent: true, alphaTest: .35, side: THREE.DoubleSide, color: 0x9aa0a6, roughness: .5, metalness: .6 });
+  const gateM = new THREE.MeshStandardMaterial({ map: T.chain(1.6, 2.5), transparent: true, alphaTest: .08, side: THREE.DoubleSide, color: 0x9aa0a6, roughness: .5, metalness: .6 });
   for (const sx of [-1, 1]) {
     const pivot = new THREE.Group(); pivot.position.set(sx * 2, 0, 26); scene.add(pivot);
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(2, 2.8), gateM); panel.position.set(-sx, 1.45, 0); pivot.add(panel);
@@ -3079,130 +3083,487 @@ function portalTarget(zp, zone, pz) {
    ===================================================================== */
 let shootables = [];
 const zombies = [];
-const eyeMat = new THREE.MeshBasicMaterial({ color: 0xc8801e });
-const socketMat = new THREE.MeshBasicMaterial({ color: 0x0a0505 });
-const bloodMat = pbr({ color: 0x4a0505, shininess: 60 });
+const bloodMat = pbr({ color: 0x3d0404, roughness: .22, envMapIntensity: .8 });   // wet
 
-// ---- sculpted, shared geometry (built once, reused by every zombie) ----
+/* ---- Zombies: realistic bodies ----
+   Shared, sculpted geometry (built once) dressed in painted skin and clothing: colour, a normal map
+   for pores, veins, wrinkles, seams and folds, and a roughness map so blood and wounds look wet.
+   Outfits suit each map (drivers and road crews on Route 9, flannel and overalls at the farm,
+   slickers on the pier, miners with hard hats). The joints match the animation rig. */
 const ZG = (() => {
-  const lathe = (pts, seg = 16) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
-  // rounded limb hanging from its pivot: cap, slight muscle bulge, taper, cap
-  const capsule = (r0, r1, len) => {
+  // lathe with its seam at the back, so u = .5 is the front of every body part
+  const lathe = (pts, seg = 16) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg, Math.PI);
+  const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  // a limb hanging from its pivot: rounded top, muscle bulge, taper, rounded end
+  const capsule = (r0, r1, len, bulge = 1.08, seg = 14, cap = 4) => {
     const pts = [];
-    for (let i = 0; i <= 4; i++) { const a = i / 4 * Math.PI / 2; pts.push([Math.sin(a) * r1, -len + r1 - Math.cos(a) * r1]); }
-    pts.push([r1 * 1.04, -len * .62], [r0 * 1.1, -len * .3]);
-    for (let i = 0; i <= 4; i++) { const a = i / 4 * Math.PI / 2; pts.push([Math.cos(a) * r0, Math.sin(a) * r0 * .9]); }
-    return lathe(pts, 12);
+    for (let i = 0; i <= cap; i++) { const a = i / cap * Math.PI / 2; pts.push([Math.sin(a) * r1, -len + r1 - Math.cos(a) * r1]); }
+    pts.push([r1 * 1.03, -len * .7], [r0 * bulge, -len * .35], [r0 * 1.02, -len * .12]);
+    for (let i = 0; i <= cap; i++) { const a = i / cap * Math.PI / 2; pts.push([Math.cos(a) * r0, Math.sin(a) * r0 * .8]); }
+    return lathe(pts, seg);
   };
   const h3 = (x, y, z) => { const v = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453; return v - Math.floor(v); };
-  // a gaunt head: long skull, sunken sockets, brow ridge, nose, hollow cheeks, slack mouth, asymmetry
-  const sculptHead = seed => {
-    const g = new THREE.SphereGeometry(.122, 30, 24), p = g.attributes.position, v = new V3(), n = new V3();
-    const dent = (c, r, amt) => { const d = n.distanceTo(c); return d < r ? amt * (1 - d / r) * (1 - d / r) : 0; };
-    const eyes = [-1, 1].map(sx => new V3(sx * .37, .1, .92).normalize());
+  const M4 = (x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => new THREE.Matrix4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz));
+  const flatUV = (geo, u, v) => { const a = geo.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, u, v); return geo; };   // sample one spot of the face texture
+
+  // ---- the head: ~16 cm wide, 23 cm tall; sunken sockets, brow, cheekbones, hollow cheeks, lips, chin
+  const R = .1, HS = new V3(.8, 1.12, 1.03);
+  const EYES = [-1, 1].map(s => new V3(s * .44, .13, .89).normalize());
+  const MOUTH = new V3(0, -.36, .93).normalize();
+  const HINGE = new V3(0, -.03, -.004);
+  const sculptHead = (seed, noNose) => {
+    const g = new THREE.SphereGeometry(R, QUALITY === 'low' ? 36 : 48, QUALITY === 'low' ? 28 : 36), p = g.attributes.position, v = new V3(), n = new V3(), dirs = [];
+    const bump = (c, r, amt) => { const d = n.distanceTo(c); return d < r ? amt * (1 - d / r) * (1 - d / r) : 0; };
     for (let i = 0; i < p.count; i++) {
-      v.fromBufferAttribute(p, i); n.copy(v).normalize();
+      v.fromBufferAttribute(p, i); n.copy(v).normalize(); dirs.push(n.clone());
       let k = 1;
-      for (const e of eyes) k -= dent(e, .34, .24);
-      k += dent(new V3(0, .3, .95).normalize(), .5, .06);
-      k += dent(new V3(0, -.05, 1), .22, .2);
-      for (const sx of [-1, 1]) { k -= dent(new V3(sx * .6, -.25, .76).normalize(), .32, .12); k += dent(new V3(sx * .55, .02, .83).normalize(), .2, .05); }
-      k -= dent(new V3(0, -.45, .89).normalize(), .2, .14);
-      k += (h3(n.x * 6 + seed, n.y * 6, n.z * 6) - .5) * .045;
-      v.multiplyScalar(k); v.y *= 1.16; v.x *= .88;
-      if (n.y < -.15 && n.z > -.2) { v.z += .028 * -n.y; v.y -= .012 * -n.y; }    // jaw juts forward
-      if (n.z < -.3) v.z *= 1.06;                                                   // long back of the skull
+      for (const e of EYES) k -= bump(e, .3, .19);
+      for (const s of [-1, 1]) {
+        k += bump(new V3(s * .42, .33, .85).normalize(), .26, .055);     // brow ridge
+        k += bump(new V3(s * .66, -.04, .75).normalize(), .22, .05);     // cheekbones
+        k -= bump(new V3(s * .58, -.3, .76).normalize(), .3, .085);      // hollow cheeks
+        k -= bump(new V3(s * .86, .32, .4).normalize(), .26, .035);      // temples
+      }
+      k += bump(new V3(0, .28, .96).normalize(), .2, .025);              // between the brows
+      k -= bump(MOUTH, .2, .055);
+      k += bump(new V3(0, -.27, .96).normalize(), .11, .022) + bump(new V3(0, -.46, .89).normalize(), .11, .02);   // lips
+      k += bump(new V3(0, -.64, .77).normalize(), .2, .06);              // chin
+      if (noNose) k -= bump(new V3(0, -.08, 1).normalize(), .1, .05);    // rotted away
+      k += (h3(n.x * 5 + seed, n.y * 5, n.z * 5) - .5) * .022;
+      v.copy(n).multiplyScalar(R * k).multiply(HS);
+      if (n.y < -.25) v.x *= 1 - (-.25 - n.y) * .22;                    // the jaw narrows to the chin
+      if (n.z < -.3) v.z *= 1.07;                                        // long back of the skull
       p.setXYZ(i, v.x, v.y, v.z);
     }
-    g.computeVertexNormals(); return g;
+    g.computeVertexNormals();
+    // the lower face is a separate jaw that hangs open, hinged just in front of the ears
+    const idx = g.index.array, headIdx = [], jawIdx = [], c = new V3();
+    for (let t = 0; t < idx.length; t += 3) {
+      c.copy(dirs[idx[t]]).add(dirs[idx[t + 1]]).add(dirs[idx[t + 2]]).normalize();
+      const line = -.35 - Math.abs(c.x) * .9;   // opens in the middle, closed at the corners
+      (c.z > .3 && c.y < line ? jawIdx : headIdx).push(idx[t], idx[t + 1], idx[t + 2]);
+    }
+    const head = g.clone(); head.setIndex(headIdx);
+    const jaw = g.clone(); jaw.setIndex(jawIdx); jaw.translate(-HINGE.x, -HINGE.y, -HINGE.z);
+    // nose (bridge and tip) and ears, mapped to plain skin on the face texture
+    const parts = [{ geo: head, matrix: new THREE.Matrix4() }];
+    if (!noNose) {
+      const tip = flatUV(new THREE.SphereGeometry(.0165, 12, 8), .25, .46);
+      const bridge = flatUV(new THREE.CylinderGeometry(.0055, .012, .05, 8), .25, .5);
+      parts.push({ geo: tip, matrix: M4(0, -.016 * HS.y, R * HS.z * 1.02 + .006, 0, 0, 0, 1.3, .8, 1) });
+      parts.push({ geo: bridge, matrix: M4(0, .006, R * HS.z * .98 + .002, -.38, 0, 0, 1, 1, .9) });
+    }
+    for (const s of [-1, 1]) {
+      const ear = flatUV(new THREE.SphereGeometry(.03, 10, 8), s < 0 ? .02 : .5, .5);
+      parts.push({ geo: ear, matrix: M4(s * (R * HS.x + .002), -.006, -.012, 0, s * -.35, 0, .33, 1, .62) });
+    }
+    return { head: mergeGeometries(parts), jaw };
   };
+  // teeth: an uneven, gappy arc of yellowed teeth on the upper jaw and the hinged lower jaw
+  const teethRow = (y, up, seed) => {
+    const tooth = new THREE.CylinderGeometry(.0034, .0029, 1, 5), list = [];
+    for (let i = 0; i < 9; i++) {
+      if (h3(i, seed, up) < .16) continue;   // missing
+      const a = (i - 4) / 4 * .78, len = (.0085 + h3(seed, i, 2) * .005) * (Math.abs(i - 4) < 2 ? 1.15 : 1);
+      list.push({ geo: tooth, matrix: M4(Math.sin(a) * .031, y + (up ? -len / 2 : len / 2), .057 + Math.cos(a) * .031, (h3(i, 7, seed) - .5) * .3, -a, (h3(seed, 3, i) - .5) * .25, 1, len, .75) });
+    }
+    return mergeGeometries(list);
+  };
+  const eyePos = EYES.map(e => e.clone().multiplyScalar(R * .835).multiply(HS));
+  const hairCap = (() => { const g = new THREE.SphereGeometry(R * 1.055, 32, 14, 0, Math.PI * 2, 0, Math.PI * .6); g.scale(HS.x, HS.y, HS.z * 1.02); g.translate(0, .004, -.004); return g; })();
+  const hardHat = (() => {
+    const shell = new THREE.SphereGeometry(R * 1.2, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    const brim = new THREE.CylinderGeometry(R * 1.32, R * 1.36, .008, 24); const ridge = new THREE.BoxGeometry(.018, .02, R * 2.1);
+    const lamp = new THREE.CylinderGeometry(.016, .018, .022, 12);
+    return mergeGeometries([{ geo: shell, matrix: M4(0, .02, 0, 0, 0, 0, .9, .95, 1.08) }, { geo: brim, matrix: M4(0, .02, .008, 0, 0, 0, .9, 1, 1.12) },
+      { geo: ridge, matrix: M4(0, .02 + R * 1.12, 0) }, { geo: lamp, matrix: M4(0, .075, R * 1.24, Math.PI / 2, 0, 0) }]);
+  })();
+  const cap = (() => {
+    const crown = new THREE.SphereGeometry(R * 1.1, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    const bill = new THREE.CylinderGeometry(R * .9, R * .9, .006, 20, 1, false, -Math.PI / 2.6, Math.PI / 1.3);
+    return mergeGeometries([{ geo: crown, matrix: M4(0, .03, -.005, 0, 0, 0, .9, .78, 1.05) }, { geo: bill, matrix: M4(0, .04, .085, .12, 0, 0, 1, 1, .85) }]);
+  })();
+  const beanie = (() => { const g = new THREE.SphereGeometry(R * 1.12, 24, 12, 0, Math.PI * 2, 0, Math.PI * .55); g.scale(.88, 1.08, 1.05); g.translate(0, .022, -.006); return g; })();
+
+  // ---- body: lean, hunched, human proportions
+  const torso = (() => {
+    const g = lathe([[.138, 0], [.142, .08], [.148, .18], [.16, .3], [.168, .4], [.168, .48], [.158, .54], [.135, .6], [.095, .64], [.062, .662]], 22);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const sh = 1 + .2 * smooth(.38, .52, y) * (1 - smooth(.57, .66, y));     // shoulders and trapezius
+      p.setXYZ(i, x * sh, y - (Math.abs(x) > .1 ? smooth(.5, .62, y) * .015 : 0), z * (z < 0 ? .58 : .66) + smooth(.3, .6, y) * .02);
+    }
+    g.computeVertexNormals(); return g;
+  })();
+  const shoulder = new THREE.SphereGeometry(.056, 14, 10);
+  const upperArm = capsule(.046, .039, .3, 1.08, 12, 3), foreArm = capsule(.041, .031, .27, 1.12, 12, 3);
+  const palm = (() => { const g = new THREE.SphereGeometry(.042, 8, 6); g.scale(.95, 1.2, .42); return g; })();
+  const finger = capsule(.0095, .0075, .085, 1.02, 6, 2), thumb = capsule(.011, .009, .06, 1.08, 6, 2);
+  const hands = [-1, 1].map(s => mergeGeometries([
+    { geo: palm, matrix: M4(0, -.035, 0) },
+    ...[0, 1, 2, 3].map(f => ({ geo: finger, matrix: M4(-.028 + f * .019, -.072, .004, .3 + f * .12 + h3(f, s, 1) * .45, 0, (f - 1.5) * .09, .9, f === 3 ? .8 : 1, .9) })),
+    { geo: thumb, matrix: M4(s * -.035, -.03, .02, .5, 0, s * .65) },
+  ]));
+  const foot = (() => { const g = new THREE.SphereGeometry(.066, 14, 8); g.scale(.78, .52, 1.75); return g; })();
   return {
-    heads: [1, 2, 3, 4].map(sculptHead),
-    eyeSockets: [-1, 1].map(sx => new V3(sx * .37, .1, .92).normalize().multiplyScalar(.122 * .8).multiply(new V3(.88, 1.16, 1))),
-    torso: lathe([[.15, 0], [.168, .08], [.185, .2], [.212, .34], [.228, .45], [.222, .53], [.18, .6], [.085, .645], [.05, .66]], 18),
-    pelvis: lathe([[.05, -.13], [.14, -.11], [.178, -.02], [.17, .06], [.15, .1]], 16),
-    upperArm: capsule(.066, .052, .32), foreArm: capsule(.052, .04, .3),
-    thigh: capsule(.088, .066, .42), shin: capsule(.066, .05, .4),
-    neck: capsule(.055, .06, .14),
-    palm: (() => { const g = new THREE.SphereGeometry(.045, 10, 8); g.scale(.85, 1.25, .5); return g; })(),
-    finger: capsule(.012, .009, .075), thumb: capsule(.013, .01, .06),
-    foot: (() => { const g = new THREE.SphereGeometry(.07, 12, 8); g.scale(.85, .6, 1.8); return g; })(),
-    tooth: new THREE.BoxGeometry(.013, .019, .01),
-    eye: new THREE.SphereGeometry(.0085, 8, 6), socket: new THREE.SphereGeometry(.026, 10, 8),
-    hem: new THREE.CylinderGeometry(.205, .215, .16, 20, 1, true),
-    sleeveHem: new THREE.CylinderGeometry(.06, .068, .09, 12, 1, true),
-    stump: new THREE.CylinderGeometry(.05, .046, .03, 10),
+    heads: [1, 2, 3, 4].map(s => sculptHead(s, false)), noseless: sculptHead(9, true),
+    upperTeeth: [1, 2, 3].map(s => teethRow(-.035, true, s)), lowerTeeth: [1, 2, 3].map(s => teethRow(-.054 - HINGE.y, false, s).translate(0, 0, -HINGE.z)),
+    hinge: HINGE, eyePos, eye: new THREE.SphereGeometry(.0118, 10, 8),
+    mouth: (() => { const g = new THREE.SphereGeometry(.05, 12, 8); g.scale(.9, .42, 1); g.translate(0, -.045, .035); return g; })(),
+    hairCap, hardHat, cap, beanie,
+    torso, pelvis: lathe([[.05, -.13], [.14, -.11], [.168, -.02], [.162, .06], [.145, .1]], 18),
+    upperArms: [-1, 1].map(s => mergeGeometries([{ geo: shoulder, matrix: M4(-s * .012, -.012, 0, 0, 0, 0, 1, 1.05, .95) }, { geo: upperArm, matrix: new THREE.Matrix4() }])),
+    foreArm, hands,
+    thigh: capsule(.074, .056, .42, 1.08, 14, 3), shin: capsule(.056, .041, .4, 1.14, 14, 3), foot,
+    neck: capsule(.05, .056, .13),
+    hem: new THREE.CylinderGeometry(.166, .174, .14, 22, 1, true, Math.PI),
+    sleeveHem: new THREE.CylinderGeometry(.043, .049, .08, 12, 1, true, Math.PI),
+    belt: new THREE.TorusGeometry(.152, .016, 6, 20),
+    stump: new THREE.CylinderGeometry(.043, .04, .03, 10),
   };
 })();
-// ragged cloth edge: an alpha-tested strip with a torn bottom
-const tatterTex = canvasTex(256, 64, (g, w, h) => {
+
+// ---- painted skin, faces and clothes (made on the loading screen, shared by every zombie)
+const ZLook = { ready: false };
+function heightToNormal(src, strength) {   // grey height canvas -> tangent-space normal map canvas
+  const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h).data;
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  const o = out.getContext('2d'), img = o.createImageData(w, h), q = img.data;
+  const H = (x, y) => d[((((y + h) % h) * w) + ((x + w) % w)) * 4];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const nx = (H(x - 1, y) - H(x + 1, y)) / 255 * strength, ny = (H(x, y + 1) - H(x, y - 1)) / 255 * strength, l = Math.hypot(nx, ny, 1), i = (y * w + x) * 4;
+    q[i] = (nx / l * .5 + .5) * 255; q[i + 1] = (ny / l * .5 + .5) * 255; q[i + 2] = (1 / l * .5 + .5) * 255; q[i + 3] = 255;
+  }
+  o.putImageData(img, 0, 0); return out;
+}
+// paint(g, w, h, H, Rg): colour into g, height (grey, 128 = flat) into H, roughness (white = matte) into Rg
+function zTexSet(w, h, paint, { normal = 3, rough = true } = {}) {
+  const mk = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const C = mk(), Hc = mk(), Rc = rough ? mk() : null;
+  const g = C.getContext('2d'), H = Hc.getContext('2d'), Rg = Rc ? Rc.getContext('2d') : null;
+  H.fillStyle = '#808080'; H.fillRect(0, 0, w, h);
+  if (Rg) { Rg.fillStyle = '#d4d4d4'; Rg.fillRect(0, 0, w, h); }
+  paint(g, w, h, H, Rg || { fillRect() {}, beginPath() {}, ellipse() {}, fill() {}, save() {}, restore() {}, stroke() {}, moveTo() {}, lineTo() {}, arc() {}, translate() {}, scale() {}, createRadialGradient: () => ({ addColorStop() {} }) });
+  const tex = c => { const t = new THREE.CanvasTexture(c); t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+  return { map: tex(C), normalMap: tex(heightToNormal(Hc, normal)), roughnessMap: Rc ? tex(Rc) : null };
+}
+const wrapX = (w, f) => { f(0); f(-w); f(w); };   // draw across the left/right seam
+function zBlob(g, x, y, r, col, sy = 1) {
+  g.save(); g.translate(x, y); g.scale(1, sy);
+  const gr = g.createRadialGradient(0, 0, 0, 0, 0, r); gr.addColorStop(0, col); gr.addColorStop(1, col.replace(/[\d.]+\)$/, '0)'));
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.restore();
+}
+function zBlobs(g, w, h, n, col, r0, r1, area = [0, 0, 1, 1]) {
+  for (let i = 0; i < n; i++) { const x = rand(area[0], area[2]) * w, y = rand(area[1], area[3]) * h, r = rand(r0, r1) * w, sy = rand(.5, 1.3); wrapX(w, o => zBlob(g, x + o, y, r, col, sy)); }
+}
+function zLines(g, w, n, col, width, step, turn, len = 14, area = null) {   // veins, cracks, creases
+  g.strokeStyle = col; g.lineWidth = width; g.lineCap = g.lineJoin = 'round';
+  for (let i = 0; i < n; i++) {
+    let x = area ? rand(area[0], area[2]) * w : rand(0, w), y = area ? rand(area[1], area[3]) * w : rand(0, w), a = rand(0, 6.28);
+    g.beginPath(); g.moveTo(x, y);
+    for (let k = 0; k < len; k++) { a += rand(-turn, turn); x += Math.cos(a) * step; y += Math.sin(a) * step; g.lineTo(x, y); }
+    g.stroke();
+  }
+}
+function zWound(g, H, Rg, x, y, r, sy = .6, fresh = true) {   // a wet, sunken wound with a raised, torn rim
+  zBlob(g, x, y, r * 1.6, 'rgba(70,20,25,.45)', sy);
+  g.fillStyle = fresh ? 'rgba(85,6,8,.95)' : 'rgba(55,14,10,.9)'; g.beginPath(); g.ellipse(x, y, r, r * sy, rand(-.4, .4), 0, 7); g.fill();
+  g.fillStyle = 'rgba(150,40,45,.55)'; g.beginPath(); g.ellipse(x - r * .2, y - r * .1 * sy, r * .45, r * .25 * sy, 0, 0, 7); g.fill();
+  zBlob(H, x, y, r * 1.5, 'rgba(255,255,255,.35)', sy); zBlob(H, x, y, r, 'rgba(0,0,0,.9)', sy);
+  Rg.fillStyle = 'rgba(40,40,40,.95)'; Rg.beginPath(); Rg.ellipse(x, y, r * 1.1, r * sy * 1.1, 0, 0, 7); Rg.fill();
+}
+function zDrips(g, Rg, x, y, n, len, col = 'rgba(95,8,8,.85)') {   // blood running down
+  for (let i = 0; i < n; i++) {
+    const x0 = x + rand(-6, 6), l = len * rand(.4, 1), wd = rand(1.5, 4);
+    g.fillStyle = col; g.fillRect(x0 - wd / 2, y, wd, l); g.beginPath(); g.arc(x0, y + l, wd * .8, 0, 7); g.fill();
+    Rg.fillStyle = 'rgba(55,55,55,.9)'; Rg.fillRect(x0 - wd / 2, y, wd, l);
+  }
+}
+function zWeave(g, w, h, a = .06, step = 2) {   // fine fabric texture
+  for (let y = 0; y < h; y += step) { g.fillStyle = `rgba(0,0,0,${rand(a * .3, a)})`; g.fillRect(0, y, w, 1); }
+  for (let x = 0; x < w; x += step + 1) { g.fillStyle = `rgba(255,255,255,${rand(0, a * .5)})`; g.fillRect(x, 0, 1, h); }
+}
+function zFolds(g, H, w, h, n) {   // soft creases: diagonal from the armpits, rings at the waist
+  for (let i = 0; i < n; i++) {
+    const x = rand(0, w), y = rand(.1, .95) * h, l = rand(.08, .25) * w, a = rand(-1.2, 1.2) + (Math.random() < .5 ? 0 : Math.PI / 2 * .3);
+    for (const [c, lw, al] of [[g, 3, .1], [H, 4, .5]]) {
+      c.strokeStyle = `rgba(0,0,0,${al})`; c.lineWidth = lw * w / 256; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + Math.cos(a) * l * .5 + rand(-8, 8), y + Math.sin(a) * l * .5, x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke();
+      c.strokeStyle = `rgba(255,255,255,${al * .7})`; c.lineWidth = lw * .6 * w / 256; c.beginPath(); c.moveTo(x + 2, y - 2); c.quadraticCurveTo(x + Math.cos(a) * l * .5 + 2, y + Math.sin(a) * l * .5 - 2, x + Math.cos(a) * l + 2, y + Math.sin(a) * l - 2); c.stroke();
+    }
+  }
+}
+function zLook() {
+  if (ZLook.ready) return ZLook;
+  const BIG = QUALITY === 'low' ? 256 : 512, MID = QUALITY === 'low' ? 128 : 256, k = BIG / 512;
+  const TONES = [
+    { base: '#6f7262', mot: 'rgba(58,70,48,.32)' }, { base: '#7a7264', mot: 'rgba(90,72,60,.3)' }, { base: '#626a5a', mot: 'rgba(50,62,48,.34)' },
+    { base: '#5c4e43', mot: 'rgba(48,36,30,.34)' }, { base: '#827d70', mot: 'rgba(96,98,84,.3)' }, { base: '#4a3e36', mot: 'rgba(32,24,22,.34)' },
+  ];
+  const skinBase = (g, w, h, H, Rg, tone) => {
+    g.fillStyle = tone.base; g.fillRect(0, 0, w, h);
+    zBlobs(g, w, h, 46, tone.mot, .03, .13);
+    zBlobs(g, w, h, 16, 'rgba(85,45,95,.2)', .03, .09);           // bruising
+    zBlobs(g, w, h, 12, 'rgba(130,128,50,.16)', .03, .08);        // yellowing
+    zBlobs(g, w, h, 10, 'rgba(60,45,30,.2)', .04, .1);            // grime
+    speckle(g, w, h, w * h / 25, .05);
+    zLines(g, w, 30, 'rgba(55,45,90,.38)', 1.4 * k + .4, 7 * k, .7, 12);      // veins
+    zLines(H, w, 30, 'rgba(255,255,255,.4)', 2 * k + .5, 7 * k, .7, 12);
+    speckle(H, w, h, w * h / 12, .12);                                       // pores
+    zLines(H, w, 60, 'rgba(0,0,0,.25)', 1, 4 * k, .25, 5);                   // fine wrinkles
+    Rg.fillStyle = '#b8b8b8'; Rg.fillRect(0, 0, w, h);
+  };
+  // body skin: arms, hands, neck, bare legs
+  const skins = TONES.map(tone => zTexSet(MID, MID, (g, w, h, H, Rg) => {
+    skinBase(g, w, h, H, Rg, tone);
+    for (let i = 0; i < 6; i++) zWound(g, H, Rg, rand(.1, .9) * w, rand(.1, .9) * h, rand(6, 16) * k, rand(.4, .8), Math.random() < .6);
+    for (let i = 0; i < 3; i++) zDrips(g, Rg, rand(0, w), rand(0, h * .6), 3, 60 * k);
+  }));
+  // faces, painted to match the sculpt (sphere UVs: x is the angle around, y runs top to bottom)
+  const uvOf = (d, w, h) => { const n = d.clone().normalize(); let ph = Math.atan2(n.z, -n.x); if (ph < 0) ph += Math.PI * 2; return [ph / (Math.PI * 2) * w, Math.acos(clamp(n.y, -1, 1)) / Math.PI * h]; };
+  const faces = TONES.slice(0, 5).flatMap((tone, ti) => [0, 1].map(variant => zTexSet(BIG, BIG / 2, (g, w, h, H, Rg) => {
+    skinBase(g, w, h, H, Rg, tone);
+    const at = (x, y, z) => uvOf(new V3(x, y, z), w, h), s = w / 512;
+    const [mx, my] = at(0, -.36, .93), [nx, ny] = at(0, -.1, 1);
+    for (const e of [-1, 1]) {
+      const [ex, ey] = at(e * .44, .13, .89);
+      zBlob(g, ex, ey, 26 * s, 'rgba(25,10,22,.9)', .7);                       // dark, sunken sockets
+      zBlob(g, ex, ey + 9 * s, 20 * s, 'rgba(120,35,40,.45)', .45);           // raw lower lids
+      zBlob(H, ex, ey, 22 * s, 'rgba(0,0,0,.5)', .7);
+      for (let i = 0; i < 4; i++) { H.strokeStyle = 'rgba(0,0,0,.35)'; H.lineWidth = s; H.beginPath(); H.moveTo(ex + e * 18 * s, ey - 6 * s + i * 4 * s); H.lineTo(ex + e * 30 * s, ey - 10 * s + i * 6 * s); H.stroke(); }   // crow's feet
+      const [bx, by] = at(e * .42, .33, .85);
+      g.strokeStyle = 'rgba(30,24,20,.75)'; g.lineWidth = 1.6 * s;
+      for (let i = 0; i < 26; i++) { const x = bx + rand(-16, 16) * s, y = by + rand(-3, 3) * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x + e * 4 * s, y - 2 * s); g.stroke(); }   // brows
+      const [fx, fy] = at(e * .33, -.22, .9);
+      H.strokeStyle = 'rgba(0,0,0,.4)'; H.lineWidth = 2 * s; H.beginPath(); H.moveTo(fx - e * 8 * s, fy - 18 * s); H.quadraticCurveTo(fx, fy, fx + e * 3 * s, fy + 16 * s); H.stroke();   // lines nose to mouth
+    }
+    for (let i = 0; i < 4; i++) { const [fx, fy] = at(0, .5 + i * .06, .85); H.strokeStyle = 'rgba(0,0,0,.3)'; H.lineWidth = 1.5 * s; H.beginPath(); H.moveTo(fx - 40 * s, fy); H.quadraticCurveTo(fx, fy - 4 * s, fx + 40 * s, fy); H.stroke(); }   // forehead
+    // mouth: cracked dark lips around a black slit, blood down the chin
+    g.fillStyle = 'rgba(72,30,32,.8)'; g.beginPath(); g.ellipse(mx, my, 21 * s, 7 * s, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(12,4,4,.95)'; g.beginPath(); g.ellipse(mx, my, 15 * s, 2.2 * s, 0, 0, 7); g.fill();
+    zLines(H, w, 10, 'rgba(0,0,0,.6)', 1, 3 * s, .5, 3, [(mx - 25 * s) / w, (my - 8 * s) / w, (mx + 25 * s) / w, (my + 8 * s) / w]);
+    Rg.fillStyle = '#4a4a4a'; Rg.beginPath(); Rg.ellipse(mx, my, 30 * s, 10 * s, 0, 0, 7); Rg.fill();
+    zDrips(g, Rg, mx, my + 4 * s, 5, 46 * s); zDrips(g, Rg, mx - 18 * s, my + 2 * s, 2, 30 * s, 'rgba(60,10,8,.8)');
+    zBlob(g, nx, ny + 6 * s, 10 * s, 'rgba(110,40,45,.5)');                     // raw nose tip
+    for (const e of [-1, 1]) { const [qx, qy] = at(e * .07, -.17, .98); zBlob(g, qx, qy, 4 * s, 'rgba(10,4,4,.9)'); }   // nostrils
+    if (variant) {   // stubble, and a bite out of one cheek
+      for (let i = 0; i < 900 * s; i++) { const [cx, cy] = at(rand(-.6, .6), rand(-.75, -.2), .8); g.fillStyle = 'rgba(25,22,20,.5)'; g.fillRect(cx + rand(-30, 30) * s, cy + rand(-8, 8) * s, 1.2 * s, 1.2 * s); }
+      const side = Math.random() < .5 ? -1 : 1, [cx, cy] = at(side * .65, -.22, .72);
+      zWound(g, H, Rg, cx, cy, 15 * s, .8);
+    } else {   // a gash across the scalp
+      const [cx, cy] = at(rand(-.4, .4), .75, .3);
+      zWound(g, H, Rg, cx, cy, 13 * s, .35); zDrips(g, Rg, cx, cy, 3, 40 * s);
+    }
+    g.fillStyle = 'rgba(30,26,22,.35)'; g.fillRect(0, 0, w, h * .14);                // scalp under the hair
+  }, { normal: 4 })));
+  // cloth: fabric for sleeves and legs, and a dressed version for the torso (front is the middle)
+  const wear = (g, w, h, H, Rg, blood = 1, tears = 2, skinCol = '#857f6e') => {
+    zBlobs(g, w, h, 14, 'rgba(40,30,18,.3)', .04, .12, [0, .6, 1, 1]);             // grime low down
+    zBlobs(g, w, h, 6, 'rgba(60,50,35,.25)', .05, .14);
+    zBlobs(g, w, h, Math.round(8 * blood), 'rgba(70,6,6,.55)', .03, .1);           // old blood
+    zBlobs(g, w, h, Math.round(4 * blood), 'rgba(110,8,8,.6)', .015, .04);         // fresh
+    for (let i = 0; i < 3 * blood; i++) zDrips(g, Rg, rand(0, w), rand(0, h * .5), 3, 50 * w / 512, 'rgba(80,6,6,.7)');
+    for (let i = 0; i < tears; i++) {   // torn holes showing skin
+      const x = rand(.05, .95) * w, y = rand(.1, .9) * h, r = rand(10, 26) * w / 512;
+      g.fillStyle = skinCol; H.fillStyle = 'rgba(0,0,0,.8)'; Rg.fillStyle = 'rgba(150,150,150,1)';
+      for (const c of [g, H, Rg]) { c.beginPath(); for (let a = 0; a < 6.28; a += .5) c.lineTo(x + Math.cos(a) * r * rand(.5, 1.2), y + Math.sin(a) * r * rand(.5, 1.2)); c.fill(); }
+      zBlob(g, x, y, r * 1.2, 'rgba(90,10,10,.45)'); g.strokeStyle = 'rgba(200,190,170,.5)'; g.lineWidth = 1;
+      for (let a = 0; a < 6.28; a += .35) { g.beginPath(); g.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); g.lineTo(x + Math.cos(a) * r * 1.25, y + Math.sin(a) * r * 1.3); g.stroke(); }   // frayed threads
+    }
+  };
+  const plaid = (g, w, h, base, a, b) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h); const u = w / 8;
+    for (let i = 0; i < 8; i++) { g.fillStyle = a; g.fillRect(i * u, 0, u * .45, h); g.fillRect(0, i * u, w, u * .45); g.fillStyle = b; g.fillRect(i * u + u * .62, 0, u * .08, h); g.fillRect(0, i * u + u * .62, w, u * .08); }
+  };
+  const knit = (g, H, w, h, base) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h); const c = w / 32;
+    for (let y = 0; y < h; y += c) for (let x = 0; x < w; x += c) for (const s of [-1, 1]) {
+      H.fillStyle = 'rgba(255,255,255,.35)'; H.beginPath(); H.ellipse(x + c / 2 + s * c / 4, y + c / 2, c / 5, c / 2.2, s * .5, 0, 7); H.fill();
+      g.fillStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.ellipse(x + c / 2 + s * c / 4, y + c / 2, c / 5, c / 2.2, s * .5, 0, 7); g.fill();
+    }
+  };
+  const OUTFITS = {
+    tee: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .07);
+      if (torso && o.print) {   // a faded print on the chest
+        g.globalAlpha = .45; g.fillStyle = o.print; g.beginPath(); g.arc(w * .5, h * .4, w * .06, 0, 7); g.fill();
+        g.fillRect(w * .42, h * .3, w * .16, h * .025); g.fillRect(w * .44, h * .48, w * .12, h * .02); g.globalAlpha = 1;
+      }
+      if (torso) { g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, w, h * .05); H.fillStyle = 'rgba(255,255,255,.5)'; H.fillRect(0, h * .03, w, h * .02); }   // collar
+    },
+    button: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .05);
+      if (o.stripe) for (let x = 0; x < w; x += w / 40) { g.fillStyle = o.stripe; g.fillRect(x, 0, 1.5 * w / 512, h); }
+      if (!torso) return;
+      H.fillStyle = 'rgba(255,255,255,.4)'; H.fillRect(w * .49, 0, w * .02, h);                       // placket
+      for (let y = h * .08; y < h; y += h * .11) { g.fillStyle = '#d8d4c8'; g.beginPath(); g.arc(w * .5, y, 3.5 * w / 512, 0, 7); g.fill(); zBlob(H, w * .5, y, 4 * w / 512, 'rgba(255,255,255,.8)'); }
+      if (o.tie) { g.fillStyle = o.tie; g.beginPath(); g.moveTo(w * .485, 0); g.lineTo(w * .515, 0); g.lineTo(w * .53, h * .55); g.lineTo(w * .5, h * .6); g.lineTo(w * .47, h * .55); g.fill(); zBlob(H, w * .5, h * .3, w * .03, 'rgba(255,255,255,.4)', 8); }
+      g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(0, 0, w, h * .04);
+    },
+    flannel: o => (g, w, h, H, Rg, torso) => {
+      plaid(g, w, h, o.col, o.a, o.b); zWeave(g, w, h, .08);
+      if (torso) { H.fillStyle = 'rgba(255,255,255,.4)'; H.fillRect(w * .49, 0, w * .02, h); for (const x of [.36, .64]) { H.strokeStyle = 'rgba(0,0,0,.5)'; H.strokeRect(w * (x - .05), h * .25, w * .1, h * .1); } }   // placket, pockets
+    },
+    hoodie: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); speckle(g, w, h, w * h / 20, .05);
+      if (!torso) return;
+      H.strokeStyle = 'rgba(0,0,0,.6)'; H.lineWidth = 3 * w / 512; H.strokeRect(w * .38, h * .62, w * .24, h * .22);   // kangaroo pocket
+      g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(w * .38, h * .62, w * .24, h * .22);
+      for (const x of [.47, .53]) { g.fillStyle = '#c9c5ba'; g.fillRect(w * x, 0, 3 * w / 512, h * .2); }            // drawstrings
+    },
+    hivis: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = torso ? '#c8641e' : o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .06, 3);
+      if (!torso) return;
+      for (const y of [.42, .62]) { g.fillStyle = '#b8b8b0'; g.fillRect(0, h * y, w, h * .05); Rg.fillStyle = '#505050'; Rg.fillRect(0, h * y, w, h * .05); H.fillStyle = 'rgba(255,255,255,.3)'; H.fillRect(0, h * y, w, h * .05); }
+      for (const x of [.42, .58]) { g.fillStyle = '#b8b8b0'; g.fillRect(w * x - w * .02, 0, w * .04, h * .42); }
+      H.fillStyle = 'rgba(0,0,0,.5)'; H.fillRect(w * .495, 0, w * .01, h);                                              // zip
+    },
+    driver: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .05);
+      if (!torso) return;
+      H.fillStyle = 'rgba(255,255,255,.4)'; H.fillRect(w * .49, 0, w * .02, h);
+      for (let y = h * .1; y < h; y += h * .12) { g.fillStyle = '#c8c0a0'; g.beginPath(); g.arc(w * .5, y, 3.5 * w / 512, 0, 7); g.fill(); }
+      g.fillStyle = '#20324a'; g.beginPath(); g.arc(w * .38, h * .3, w * .028, 0, 7); g.fill();                      // transit patch
+      g.fillStyle = '#d9b44a'; g.fillRect(w * .365, h * .295, w * .03, h * .012);
+      g.fillStyle = '#b8b0a0'; g.fillRect(w * .6, h * .28, w * .05, h * .018);                                         // name badge
+    },
+    scrubs: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .05);
+      if (torso) { g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.moveTo(w * .42, 0); g.lineTo(w * .5, h * .14); g.lineTo(w * .58, 0); g.fill(); H.strokeStyle = 'rgba(0,0,0,.5)'; H.strokeRect(w * .58, h * .3, w * .09, h * .09); }
+    },
+    tank: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 3) { g.fillStyle = `rgba(0,0,0,${rand(.03, .09)})`; g.fillRect(x, 0, 1, h); }                // rib knit
+      for (let x = 0; x < w; x += 3) { H.fillStyle = 'rgba(255,255,255,.25)'; H.fillRect(x, 0, 1, h); }
+    },
+    slicker: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); Rg.fillStyle = '#5e5e5e'; Rg.fillRect(0, 0, w, h);                  // glossy rubber
+      zBlobs(H, w, h, 30, 'rgba(255,255,255,.15)', .05, .15);
+      if (torso) { for (let y = h * .1; y < h; y += h * .14) { g.fillStyle = '#2a2a2a'; g.fillRect(w * .48, y, w * .04, h * .015); } H.fillStyle = 'rgba(255,255,255,.45)'; H.fillRect(w * .495, 0, w * .01, h); }
+    },
+    sweater: o => (g, w, h, H) => { knit(g, H, w, h, o.col); },
+    overalls: o => (g, w, h, H, Rg, torso) => {   // bib overalls over a shirt
+      plaid(g, w, h, o.shirt, o.a, o.b); zWeave(g, w, h, .07);
+      if (!torso) return;
+      g.fillStyle = '#3b4f6d'; g.fillRect(w * .36, h * .25, w * .28, h * .75);                                       // denim bib
+      for (const x of [.34, .62]) { g.fillStyle = '#3b4f6d'; g.fillRect(w * x, 0, w * .04, h * .3); g.fillRect(w * (x < .5 ? .1 : .86), 0, w * .04, h * .3); }   // straps over the shoulders
+      for (const x of [.39, .61]) { g.fillStyle = '#b9a35c'; g.beginPath(); g.arc(w * x, h * .28, 5 * w / 512, 0, 7); g.fill(); }
+      H.strokeStyle = 'rgba(0,0,0,.6)'; H.lineWidth = 2; H.strokeRect(w * .36, h * .25, w * .28, h * .75); H.strokeRect(w * .43, h * .38, w * .14, h * .12);
+    },
+    coverall: o => (g, w, h, H, Rg, torso) => {
+      g.fillStyle = o.col; g.fillRect(0, 0, w, h); zWeave(g, w, h, .08, 3);
+      for (const y of torso ? [.45, .7] : [.4]) { g.fillStyle = '#a9a9a2'; g.fillRect(0, h * y, w, h * .04); Rg.fillStyle = '#555'; Rg.fillRect(0, h * y, w, h * .04); }   // reflective tape
+      zBlobs(g, w, h, 30, 'rgba(20,20,20,.35)', .03, .1);                                                              // coal dust
+      if (torso) { H.fillStyle = 'rgba(0,0,0,.5)'; H.fillRect(w * .495, 0, w * .01, h); }
+    },
+  };
+  const LOOKS = {   // outfit, colours and accessories per map
+    route: [['driver', { col: '#4e5d70' }, 3], ['hivis', { col: '#2b2f33' }, 2], ['button', { col: '#b9b6ad', tie: '#5a1e22' }, 2], ['button', { col: '#8fa3b8', stripe: 'rgba(255,255,255,.25)' }, 1],
+      ['tee', { col: '#5b5f63', print: '#c9c3b5' }, 2], ['hoodie', { col: '#2a2b2e' }, 2], ['scrubs', { col: '#3e7a74' }, 1], ['tee', { col: '#5a2a2a', print: '#d8c070' }, 1]],
+    farm: [['flannel', { col: '#7a1e1e', a: 'rgba(20,10,10,.55)', b: 'rgba(240,220,200,.25)' }, 3], ['flannel', { col: '#2e4a2a', a: 'rgba(10,15,10,.5)', b: 'rgba(220,200,90,.3)' }, 2],
+      ['overalls', { shirt: '#7c7468', a: 'rgba(60,40,30,.3)', b: 'rgba(255,255,255,.1)' }, 3], ['tank', { col: '#b5ad98' }, 2], ['tee', { col: '#8a7432' }, 1]],
+    pier: [['slicker', { col: '#c9a020' }, 3], ['sweater', { col: '#8c8577' }, 2], ['sweater', { col: '#2f3a4a' }, 1], ['tee', { col: '#2b3445', print: '#b0b8c0' }, 1], ['hoodie', { col: '#4a4f45' }, 1]],
+    mine: [['coverall', { col: '#5a5550' }, 3], ['coverall', { col: '#8a4a1c' }, 2], ['flannel', { col: '#3a3f5a', a: 'rgba(10,10,20,.5)', b: 'rgba(200,60,40,.3)' }, 2], ['tank', { col: '#8f887a' }, 1]],
+  };
+  const PANTS = {
+    jeans: (g, w, h, H, Rg) => {
+      g.fillStyle = '#3d4f6b'; g.fillRect(0, 0, w, h);
+      for (let i = -h; i < w; i += 3) { g.strokeStyle = 'rgba(255,255,255,.07)'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + h, h); g.stroke(); }   // twill
+      zBlob(g, w * .5, h * .55, w * .2, 'rgba(170,185,200,.35)', 1.6);                                                   // worn front
+      for (const x of [.25, .75]) { g.fillStyle = 'rgba(190,130,60,.6)'; g.fillRect(w * x, 0, 1.5, h); H.fillStyle = 'rgba(255,255,255,.5)'; H.fillRect(w * x - 1, 0, 3, h); }   // seams
+    },
+    work: (g, w, h) => { g.fillStyle = pick(['#6b6248', '#4d5338', '#4a4038']); g.fillRect(0, 0, w, h); zWeave(g, w, h, .08); },
+    slacks: (g, w, h, H) => { g.fillStyle = pick(['#2d2f33', '#3a3530', '#262a33']); g.fillRect(0, 0, w, h); zWeave(g, w, h, .04); H.fillStyle = 'rgba(255,255,255,.5)'; H.fillRect(w * .495, 0, w * .01, h); },   // crease
+    scrubs: (g, w, h) => { g.fillStyle = '#3e7a74'; g.fillRect(0, 0, w, h); zWeave(g, w, h, .05); },
+    overalls: (g, w, h, H) => { PANTS.jeans(g, w, h, H); },
+    coverall: (g, w, h, H, Rg) => { g.fillStyle = '#4f4b46'; g.fillRect(0, 0, w, h); zWeave(g, w, h, .08, 3); g.fillStyle = '#a9a9a2'; g.fillRect(0, h * .3, w, h * .04); zBlobs(g, w, h, 20, 'rgba(20,20,20,.35)', .03, .1); },
+    slicker: (g, w, h, H, Rg) => { g.fillStyle = '#b8901c'; g.fillRect(0, 0, w, h); Rg.fillStyle = '#5e5e5e'; Rg.fillRect(0, 0, w, h); },
+  };
+  const pantsFor = { driver: 'slacks', button: 'slacks', hivis: 'work', scrubs: 'scrubs', overalls: 'overalls', coverall: 'coverall', slicker: 'slicker' };
+  const dress = (paint, torso, skinCol) => zTexSet(torso ? BIG : MID, torso ? BIG : MID, (g, w, h, H, Rg) => {
+    paint(g, w, h, H, Rg, torso); zFolds(g, H, w, h, torso ? 14 : 6); wear(g, w, h, H, Rg, torso ? 1 : .6, torso ? 2 : 1, skinCol);
+  }, { normal: 3, rough: false });
+  const outfitCache = new Map();
+  const outfitOf = (list, entry) => {
+    const [kind, opts] = entry, key = list.indexOf(entry) + '|' + JSON.stringify(entry);
+    if (!outfitCache.has(key)) {
+      const paint = OUTFITS[kind](opts), skinCol = pick(TONES).base;
+      const pk = pantsFor[kind] || pick(['jeans', 'jeans', 'work', 'slacks']);
+      outfitCache.set(key, { kind, torso: dress(paint, true, skinCol), sleeve: dress(paint, false, skinCol), pants: zTexSet(MID, MID, (g, w, h, H, Rg) => { PANTS[pk](g, w, h, H, Rg); zFolds(g, H, w, h, 5); wear(g, w, h, H, Rg, .5, 1, skinCol); }, { normal: 3, rough: false }),
+        bareArms: kind === 'tank', rubber: kind === 'slicker' });
+    }
+    return outfitCache.get(key);
+  };
+  ZLook.outfit = mode => {   // one of the map's outfits, weighted
+    const list = LOOKS[mode] || LOOKS.route, tot = list.reduce((s, l) => s + l[2], 0);
+    let r = Math.random() * tot;
+    for (const l of list) { r -= l[2]; if (r <= 0) return outfitOf(list, l); }
+    return outfitOf(list, list[0]);
+  };
+  ZLook.prepare = mode => { const list = LOOKS[mode] || LOOKS.route; for (const l of list) outfitOf(list, l); };
+  // hair: strands on an alpha-tested cap, with a ragged hairline
+  const hair = (() => {
+    const c = document.createElement('canvas'), w = 256, h = 256; c.width = w; c.height = h; const g = c.getContext('2d');
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) {   // strands run from the crown (top) toward the edge
+      const x = rand(0, w), y = rand(-20, h), l = rand(14, 40), v = rand(120, 255) | 0;
+      g.strokeStyle = `rgb(${v},${v},${v})`; g.lineWidth = rand(.8, 2); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + rand(-6, 6), y + l / 2, x + rand(-8, 8), y + l); g.stroke();
+    }
+    const a = document.createElement('canvas'); a.width = w; a.height = h; const ag = a.getContext('2d');
+    ag.fillStyle = '#fff'; ag.fillRect(0, 0, w, h); ag.fillStyle = '#000';
+    for (let x = 0; x <= w; x += 2) {   // hairline: high over the face (u = .25), low at the back
+      const u = x / w, front = Math.max(0, 1 - Math.abs(((u - .25 + 1.5) % 1) - .5) / .17);
+      const edge = h * (1 - (.12 + front * .5)) + rand(-10, 10);
+      ag.fillRect(x, edge, 3, h);
+    }
+    for (let i = 0; i < 3; i++) zBlob(ag, rand(0, w), rand(h * .3, h * .8), rand(6, 14), 'rgba(0,0,0,.9)');   // a few torn patches
+    const t = new THREE.CanvasTexture(c), at = new THREE.CanvasTexture(a); t.anisotropy = 4;
+    return ['#1b1714', '#3a2a1c', '#6d6458', '#8a7a52', '#2a2622'].map(col => new THREE.MeshStandardMaterial({ map: t, alphaMap: at, color: col, alphaTest: .5, side: THREE.DoubleSide, roughness: .75, metalness: 0 }));
+  })();
+  // eyes: cloudy, bloodshot, with a faint shine so they still catch the light in the dark
+  const eyes = ['#9a9c86', '#b7a98a', '#8a3a30'].map(iris => {
+    const t = canvasTex(64, 32, (g, w, h) => {
+      g.fillStyle = '#a9a184'; g.fillRect(0, 0, w, h);
+      zLines(g, w, 14, 'rgba(140,30,30,.7)', .7, 1.5, .8, 6);
+      zBlob(g, w * .25, h * .5, 8, 'rgba(70,60,50,.6)');
+      g.fillStyle = iris; g.beginPath(); g.ellipse(w * .25, h * .5, 5, 8, 0, 0, 7); g.fill();
+      zBlob(g, w * .25, h * .5, 5, 'rgba(230,230,215,.6)', 1.5);   // milky film
+    });
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0x16120c, roughness: .08, metalness: 0, envMapIntensity: 1.4 });
+  });
+  Object.assign(ZLook, {
+    ready: true, faces, skins, hair, eyes,
+    teeth: new THREE.MeshStandardMaterial({ color: 0xa08c60, roughness: .35, metalness: 0 }),
+    mouth: new THREE.MeshBasicMaterial({ color: 0x140404 }),
+    shoes: [mat(0x8a8780, { roughness: .8 }), mat(0x3b2a1d, { roughness: .6 }), mat(0x141414, { roughness: .35 }), mat(0x2a2620, { roughness: .9 })],
+    belt: mat(0x2a2018, { roughness: .55 }),
+    hats: { hard: mat(0xd8b41e, { roughness: .4 }), hardDirty: mat(0xa8a49a, { roughness: .5 }), cap: mat(0x7a2020, { roughness: .9 }), cap2: mat(0x2a3a50, { roughness: .9 }), beanie: mat(0x30302c, { roughness: 1 }) },
+    lampLens: new THREE.MeshBasicMaterial({ color: 0xfff2c0 }),
+  });
+  return ZLook;
+}
+// materials shared from the painted sets
+const zMatCache = new Map();
+function zMat(set, o = {}, tag = '') {
+  const k = set.map.uuid + '|' + tag;
+  if (!zMatCache.has(k)) zMatCache.set(k, new THREE.MeshStandardMaterial(Object.assign({
+    map: set.map, normalMap: set.normalMap, roughnessMap: set.roughnessMap, roughness: set.roughnessMap ? 1 : .92, metalness: 0, envMapIntensity: .35,
+  }, o)));
+  return zMatCache.get(k);
+}
+const tatterTex = canvasTex(256, 64, (g, w, h) => {   // a ragged bottom edge for shirt hems
   g.clearRect(0, 0, w, h); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0);
   for (let x = w; x >= 0; x -= rand(4, 14)) g.lineTo(x, rand(h * .25, h));
   g.closePath(); g.fill();
 }, 1, 1);
-// rotting skin with veins, bruises, wounds (glossy blood) and wrinkles for the bump map
-const skinTex = ['#7d8672', '#8c8a7a', '#6f7a68', '#958b7c'].map(base => canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = base; g.fillRect(0, 0, w, h); speckle(g, w, h, 9000, .12);
-  stains(g, w, h, 16, 'rgba(70,50,70,.26)'); stains(g, w, h, 10, 'rgba(60,80,40,.24)'); stains(g, w, h, 6, 'rgba(120,110,80,.2)');
-  g.strokeStyle = 'rgba(40,30,55,.5)'; g.lineWidth = 1.2;
-  for (let i = 0; i < 22; i++) { g.beginPath(); let x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += rand(-12, 12); y += rand(-12, 12); g.lineTo(x, y); } g.stroke(); }
-  g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1;
-  for (let i = 0; i < 60; i++) { const x = rand(0, w), y = rand(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(8, 20), y + rand(-2, 2)); g.stroke(); }   // wrinkles
-  for (let i = 0; i < 4; i++) {   // open wounds
-    const x = rand(20, w - 20), y = rand(20, h - 20), r = rand(6, 16);
-    g.fillStyle = 'rgba(60,4,4,.9)'; g.beginPath(); g.ellipse(x, y, r, r * rand(.4, .8), rand(0, 3), 0, 7); g.fill();
-    g.fillStyle = 'rgba(150,40,40,.6)'; g.beginPath(); g.ellipse(x - 2, y - 1, r * .5, r * .3, 0, 0, 7); g.fill();
-  }
-}));
-const clothTex = ['#3a4652', '#4a3b2c', '#2e3a2e', '#5a4a3a', '#2a3f5c', '#6a6458', '#3b3b3b'].map(base => canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = base; g.fillRect(0, 0, w, h);
-  for (let y = 0; y < h; y += 2) { g.fillStyle = `rgba(0,0,0,${rand(.02, .09)})`; g.fillRect(0, y, w, 1); }
-  for (let x = 0; x < w; x += 3) { g.fillStyle = `rgba(255,255,255,${rand(0, .03)})`; g.fillRect(x, 0, 1, h); }
-  speckle(g, w, h, 5000, .1);
-  stains(g, w, h, 12, 'rgba(30,20,10,.35)'); stains(g, w, h, 4, 'rgba(70,6,6,.45)');
-  for (let i = 0; i < 3; i++) { g.fillStyle = 'rgba(110,112,96,.85)'; g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 7; k++) g.lineTo(x + rand(-22, 22), y + rand(-16, 16)); g.fill(); }
-}));
-// Pre-merged detail pieces: one mesh (one draw) where there used to be several.
-(() => {
-  const M4 = (x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => new THREE.Matrix4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz));
-  const ear = new THREE.SphereGeometry(.026, 8, 6), eye = new THREE.SphereGeometry(.0085, 8, 6), socket = new THREE.SphereGeometry(.026, 10, 8);
-  ZG.heads = ZG.heads.map(h => mergeGeometries([{ geo: h, matrix: new THREE.Matrix4() }, ...[-1, 1].map(s => ({ geo: ear, matrix: M4(s * .108, 0, -.01, 0, 0, 0, .45, 1, .8) }))]));
-  ZG.eyes = mergeGeometries(ZG.eyeSockets.map(e => ({ geo: eye, matrix: M4(e.x, e.y, e.z + .016) })));
-  ZG.sockets = mergeGeometries(ZG.eyeSockets.map(e => ({ geo: socket, matrix: M4(e.x, e.y, e.z - .004) })));
-  ZG.upperTeeth = mergeGeometries([0, 1, 2, 3, 4, 5].map(i => ({ geo: ZG.tooth, matrix: M4(-.04 + i * .016, -.058, .108) })));
-  ZG.lowerTeeth = mergeGeometries([0, 1, 2, 3, 4, 5].map(i => ({ geo: ZG.tooth, matrix: M4(-.04 + i * .016, 0, .085) })));
-  ZG.jaw = mergeGeometries([{ geo: new THREE.SphereGeometry(.06, 12, 8), matrix: M4(0, -.025, .04, 0, 0, 0, 1.1, .55, 1) }]);
-  ZG.hands = [-1, 1].map(s => mergeGeometries([
-    { geo: ZG.palm, matrix: M4(0, -.03, 0) },
-    ...[0, 1, 2, 3].map(f => ({ geo: ZG.finger, matrix: M4(-.027 + f * .018, -.075, 0, .4 + f * .12) })),
-    { geo: ZG.thumb, matrix: M4(s * -.04, -.03, .02, .5, 0, s * .6) },
-  ]));
-  const shoulder = new THREE.SphereGeometry(.068, 12, 8);
-  ZG.upperArms = [-1, 1].map(s => mergeGeometries([{ geo: shoulder, matrix: M4(-s * .015, -.01, 0) }, { geo: ZG.upperArm, matrix: new THREE.Matrix4() }]));
-  const rib = new THREE.CylinderGeometry(.008, .008, 1, 6);
-  ZG.gash = new THREE.SphereGeometry(.09, 10, 8);
-  ZG.ribs = mergeGeometries([0, 1, 2].map(i => ({ geo: rib, matrix: M4(0, .04 - i * .04, .06, 0, 0, Math.PI / 2, 1, .12 - i * .015, 1) })));
-  ZG.belt = new THREE.TorusGeometry(.18, .022, 6, 18);
-  ZG.hair = new THREE.SphereGeometry(.13, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2.3);
-})();
-// Zombie materials are shared from a small palette instead of made fresh for every zombie.
-const zMatCache = new Map();
-const zMat = (map, tint = 0xffffff, rough = .85) => {
-  const k = `${map.uuid}|${tint}|${rough}`;
-  if (!zMatCache.has(k)) zMatCache.set(k, pbr({ map, color: tint, roughness: rough, bumpMap: map, bumpScale: .03 }));
-  return zMatCache.get(k);
-};
-const hemMat = map => {
-  const k = 'hem|' + map.uuid;
-  if (!zMatCache.has(k)) zMatCache.set(k, pbr({ map, color: 0xffffff, alphaMap: tatterTex, alphaTest: .5, side: THREE.DoubleSide, roughness: .9 }));
-  return zMatCache.get(k);
-};
-const zShared = { shoe: mat(0x1d1a17, { roughness: .7 }), belt: mat(0x2a2018, { roughness: .6 }), bone: mat(0x7d725c, { roughness: .7 }), teeth: mat(0x9c8f6a, { roughness: .4 }), hair: mat(0x1c1914, { roughness: .95 }) };
 
 function buildZombieBody() {
-  const g = new THREE.Group(), parts = [], detail = [];
-  const shirtTex = pick(clothTex);
-  const skin = zMat(pick(skinTex), 0xa8a89c, .62), shirt = zMat(shirtTex), pants = zMat(pick(clothTex), 0xbbbbbb), shirtHem = hemMat(shirtTex);
+  const L = zLook(), g = new THREE.Group(), parts = [], detail = [];
+  const look = L.outfit(G.mode), ti = Math.random() * 5 | 0;
+  const skin = zMat(L.skins[ti]), face = zMat(pick([L.faces[ti * 2], L.faces[ti * 2 + 1]]));
+  const shirt = zMat(look.torso, look.rubber ? { roughness: .35, envMapIntensity: .7 } : {}, look.rubber ? 'rubber' : ''), sleeve = look.bareArms ? skin : zMat(look.sleeve, look.rubber ? { roughness: .35, envMapIntensity: .7 } : {}, look.rubber ? 'rubber' : ''), pants = zMat(look.pants);
+  const hem = zMat(look.sleeve, { alphaMap: tatterTex, alphaTest: .5, side: THREE.DoubleSide }, 'hem');
   // kind/limb make a mesh a hit target; shadow=false for small bits; far=true hides it beyond 14 m
   const add = (geo, m, parent, x, y, z, kind, limb, { shadow = true, far = false } = {}) => {
     const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; o.userData.zombie = true; parent.add(o);
@@ -3211,50 +3572,55 @@ function buildZombieBody() {
     return o;
   };
   // hips & legs
-  add(ZG.pelvis, pants, g, 0, .9, 0, 'body', 'torso').scale.z = .74;
-  add(ZG.belt, zShared.belt, g, 0, .95, 0, null, null, { shadow: false, far: true }).scale.set(1, 1, .72);
+  add(ZG.pelvis, pants, g, 0, .9, 0, 'body', 'torso').scale.z = .72;
+  if (look.kind !== 'overalls' && look.kind !== 'coverall' && look.kind !== 'slicker') add(ZG.belt, L.belt, g, 0, .97, 0, null, null, { shadow: false, far: true }).scale.set(1, 1, .7);
+  const barefoot = look.kind === 'tank' && Math.random() < .5, shoe = barefoot ? skin : pick(L.shoes);
   const legs = [], knees = [];
   for (const s of [-1, 1]) {
     const limb = s < 0 ? 'legL' : 'legR';
-    const hip = new THREE.Group(); hip.position.set(s * .1, .86, 0); g.add(hip);
+    const hip = new THREE.Group(); hip.position.set(s * .092, .86, 0); g.add(hip);
     add(ZG.thigh, pants, hip, 0, 0, 0, 'body', limb);
     const knee = new THREE.Group(); knee.position.y = -.42; hip.add(knee);
-    add(ZG.shin, Math.random() < .2 ? skin : pants, knee, 0, 0, 0, 'body', limb);
-    add(ZG.foot, zShared.shoe, knee, 0, -.42, .06, 'body', limb);
+    add(ZG.shin, pants, knee, 0, 0, 0, 'body', limb);
+    add(ZG.foot, shoe, knee, 0, -.392, .052, 'body', limb);
     legs.push(hip); knees.push(knee);
   }
-  // hunched ribcage torso
+  // hunched torso
   const torso = new THREE.Group(); torso.position.y = .96; g.add(torso);
-  add(ZG.torso, shirt, torso, 0, -.04, 0, 'body', 'torso').scale.set(1, 1, .66);
-  add(ZG.hem, shirtHem, torso, 0, -.08, 0, null, null, { shadow: false, far: true }).scale.z = .7;
-  if (Math.random() < .3) {   // shirt ripped open: rotten flesh and exposed ribs
-    const gash = add(ZG.gash, bloodMat, torso, rand(-.07, .07), rand(.25, .4), .12, 'body', 'torso', { shadow: false }); gash.scale.set(1, 1.2, .3);
-    add(ZG.ribs, zShared.bone, gash, 0, 0, 0, null, null, { shadow: false, far: true });
-  }
-  // neck & sculpted head (ears merged in)
-  const neck = new THREE.Group(); neck.position.y = .6; torso.add(neck);
+  add(ZG.torso, shirt, torso, 0, -.04, 0, 'body', 'torso');
+  if (!look.rubber && look.kind !== 'overalls') add(ZG.hem, hem, torso, 0, -.06, 0, null, null, { shadow: false, far: true }).scale.z = .64;
+  // neck & head: sculpted face, hinged jaw, teeth, cloudy eyes, hair or a hat
+  const neck = new THREE.Group(); neck.position.y = .575; torso.add(neck);
   add(ZG.neck, skin, neck, 0, .12, 0, 'head', 'head');
-  const head = add(pick(ZG.heads), skin, neck, 0, .2, .015, 'head', 'head');
-  const jaw = new THREE.Group(); jaw.position.set(0, -.045, .03); head.add(jaw); jaw.rotation.x = rand(.15, .4);
-  add(ZG.jaw, skin, jaw, 0, 0, 0, 'head', 'head', { shadow: false });
-  add(ZG.lowerTeeth, zShared.teeth, jaw, 0, 0, 0, null, null, { shadow: false, far: true });
-  add(ZG.upperTeeth, zShared.teeth, head, 0, 0, 0, null, null, { shadow: false, far: true });
-  add(ZG.sockets, socketMat, head, 0, 0, 0, null, null, { shadow: false, far: true });
-  add(ZG.eyes, eyeMat, head, 0, 0, 0, null, null, { shadow: false });
-  if (Math.random() < .55) { const hair = add(ZG.hair, zShared.hair, head, 0, .03, -.015, null, null, { shadow: false }); hair.scale.set(.9, 1.15, 1.05); hair.rotation.x = -.35; }
-  // arms with elbows, ragged sleeves and one-piece hands; sometimes a forearm is already gone
+  const noNose = Math.random() < .12, hv = noNose ? ZG.noseless : pick(ZG.heads);
+  const head = add(hv.head, face, neck, 0, .155, .016, 'head', 'head');
+  const jaw = new THREE.Group(); jaw.position.copy(ZG.hinge); head.add(jaw); jaw.rotation.x = rand(.04, .2);
+  add(hv.jaw, face, jaw, 0, 0, 0, 'head', 'head', { shadow: false });
+  add(ZG.mouth, L.mouth, head, 0, 0, 0, null, null, { shadow: false, far: true });
+  const tv = Math.random() * 3 | 0;
+  add(ZG.upperTeeth[tv], L.teeth, head, 0, 0, 0, null, null, { shadow: false, far: true });
+  add(ZG.lowerTeeth[tv], L.teeth, jaw, 0, 0, 0, null, null, { shadow: false, far: true });
+  const eyeM = pick(L.eyes), oneEye = Math.random() < .1 ? (Math.random() < .5 ? 0 : 1) : -1;
+  ZG.eyePos.forEach((p, i) => { if (i !== oneEye) { const e = add(ZG.eye, eyeM, head, p.x, p.y, p.z, null, null, { shadow: false }); e.rotation.y = (i ? -1 : 1) * .12 + rand(-.15, .15); e.rotation.x = rand(-.1, .15); } });
+  const hatRoll = Math.random();
+  if (G.mode === 'mine' && hatRoll < .55) { const hh = add(ZG.hardHat, Math.random() < .5 ? L.hats.hard : L.hats.hardDirty, head, 0, 0, 0, null, null); hh.rotation.x = rand(-.15, .05); }
+  else if ((G.mode === 'farm' || look.kind === 'hivis' || look.kind === 'driver') && hatRoll < (look.kind === 'driver' ? .55 : .35)) { const cp = add(ZG.cap, look.kind === 'driver' ? L.hats.cap2 : Math.random() < .5 ? L.hats.cap : L.hats.cap2, head, 0, 0, 0, null, null); cp.rotation.set(rand(-.1, .1), rand(-.3, .3), 0); }
+  else if (G.mode === 'pier' && hatRoll < .4) add(ZG.beanie, L.hats.beanie, head, 0, 0, 0, null, null);
+  else if (Math.random() < .93) { const hr = add(ZG.hairCap, pick(L.hair), head, 0, 0, 0, null, null, { shadow: false }); hr.rotation.y = rand(-.3, .3); hr.scale.setScalar(rand(.98, 1.04)); }
+  // arms: shoulder, elbow, hand; sometimes a forearm is already gone
   const arms = [], elbows = [];
   const missing = Math.random() < .12 ? (Math.random() < .5 ? -1 : 1) : 0;
   for (const s of [-1, 1]) {
     const limb = s < 0 ? 'armL' : 'armR', side = s < 0 ? 0 : 1;
-    const sh = new THREE.Group(); sh.position.set(s * .25, .5, 0); torso.add(sh);
-    add(ZG.upperArms[side], shirt, sh, 0, 0, 0, 'body', limb);
-    add(ZG.sleeveHem, shirtHem, sh, 0, -.31, 0, null, null, { shadow: false, far: true });
-    const el = new THREE.Group(); el.position.y = -.32; sh.add(el);
+    const sh = new THREE.Group(); sh.position.set(s * .19, .5, 0); torso.add(sh);
+    add(ZG.upperArms[side], sleeve, sh, 0, 0, 0, 'body', limb);
+    if (!look.bareArms && look.kind !== 'slicker' && look.kind !== 'coverall' && look.kind !== 'sweater' && look.kind !== 'hoodie') add(ZG.sleeveHem, hem, sh, 0, -.29, 0, null, null, { shadow: false, far: true });
+    const el = new THREE.Group(); el.position.y = -.3; sh.add(el);
+    const longSleeve = ['slicker', 'coverall', 'sweater', 'hoodie', 'flannel', 'driver', 'button'].includes(look.kind) && !look.bareArms;
     if (missing === s) add(ZG.stump, bloodMat, el, 0, .01, 0, null, null, { shadow: false });
     else {
-      add(ZG.foreArm, skin, el, 0, 0, 0, 'body', limb);
-      const hand = add(ZG.hands[side], skin, el, 0, -.32, 0, 'body', limb); hand.rotation.y = s * .3;
+      add(ZG.foreArm, longSleeve && Math.random() < .75 ? sleeve : skin, el, 0, 0, 0, 'body', limb);
+      const hand = add(ZG.hands[side], skin, el, 0, -.27, 0, 'body', limb); hand.rotation.y = s * .3;
     }
     arms.push(sh); elbows.push(el);
   }
@@ -3349,7 +3715,7 @@ function loseArm(z, limb) {
   debris.push({ m: piece, vel: z.hitDir.clone().multiplyScalar(2.5).add(new V3(rand(-1, 1), 2.5, rand(-1, 1))), spin: new V3(rand(-8, 8), rand(-8, 8), rand(-8, 8)), life: 6 });
   z.parts = z.parts.filter(m => !drop.has(m)); shootables = shootables.filter(m => !drop.has(m));
   el.visible = false;
-  const stump = new THREE.Mesh(ZG.stump, bloodMat); stump.position.y = -.32; el.parent.add(stump);
+  const stump = new THREE.Mesh(ZG.stump, bloodMat); stump.position.y = el.position.y; el.parent.add(stump);
   burst(wp, 'blood', 24, 3.5, 1.4);
   if (z.armStyle === 'one') z.armStyle = 'reach';
 }
@@ -5102,7 +5468,7 @@ function buildPier(def) {
   rail(-32, -26, -20, -26); rail(20, -26, 32, -26);
   // land boundary: chain-link to the north, sea wall ends east and west
   K.wall(-32.5, -31.5, -46, -26); K.wall(31.5, 32.5, -46, -26); K.wall(-32, 32, -46.5, -45.5);
-  const fenceM = new THREE.MeshStandardMaterial({ map: T.chain(40, 2.5), transparent: true, alphaTest: .35, side: THREE.DoubleSide, color: 0x9aa0a6, roughness: .5, metalness: .6 });
+  const fenceM = new THREE.MeshStandardMaterial({ map: T.chain(40, 2.5), transparent: true, alphaTest: .08, side: THREE.DoubleSide, color: 0x9aa0a6, roughness: .5, metalness: .6 });
   const fence = new THREE.Mesh(new THREE.PlaneGeometry(64, 3), fenceM); fence.position.set(X(0), 1.5, -46); scene.add(fence);
   for (const sx of [-32, 32]) { const f2 = new THREE.Mesh(new THREE.PlaneGeometry(20, 3), fenceM); f2.position.set(X(sx), 1.5, -36); f2.rotation.y = Math.PI / 2; scene.add(f2); }
   // warehouse
@@ -5877,6 +6243,7 @@ const escapeHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<':
 // ---- match flow ----
 function launchMatch(cfg) {
   G.mode = cfg.mode; G.diff = cfg.diff;
+  zLook().prepare(cfg.mode);   // paint this map's zombies while the loading screen is up
   enterMap(MODES[cfg.mode].map);
   buildParts();
   setupEggs(cfg.mode);
