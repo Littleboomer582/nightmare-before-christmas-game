@@ -1,10 +1,12 @@
 // Renders the launcher icon (android/app/icon.png, 192x192 = 48dp at xxxhdpi) with a headless browser.
 // Run from the repo root:  node android/tools/make_icon.js   (needs Playwright)
+// ICON_SIZE=1024 ICON_OUT=ios/icon-1024.png renders the same art at full size for the iOS app.
 const path = require('path');
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
 
-const html = `<canvas id="c" width="192" height="192"></canvas><script>
-const g = document.getElementById('c').getContext('2d'), S = 192;
+const N = +process.env.ICON_SIZE || 192, OUT = process.env.ICON_OUT || path.join(__dirname, '..', 'app', 'icon.png');
+const html = `<canvas id="c" width="${N}" height="${N}"></canvas><script>
+const g = document.getElementById('c').getContext('2d'), S = 192; g.scale(${N} / 192, ${N} / 192);
 // night sky fading to blood-red fog at the horizon
 let sky = g.createLinearGradient(0, 0, 0, S);
 sky.addColorStop(0, '#05070d'); sky.addColorStop(.62, '#151a26'); sky.addColorStop(1, '#3a0b0b');
@@ -43,9 +45,9 @@ g.shadowColor = 'rgba(255,0,0,.6)'; g.shadowBlur = 10; g.fillText('DED', 182, 18
 
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
-  const p = await b.newPage({ viewport: { width: 192, height: 192 } });
+  const p = await b.newPage({ viewport: { width: N, height: N } });
   await p.setContent(`<body style="margin:0;background:#000">${html}</body>`);
-  await p.locator('#c').screenshot({ path: path.join(__dirname, '..', 'app', 'icon.png') });
+  await p.locator('#c').screenshot({ path: OUT });
   await b.close();
-  console.log('wrote android/app/icon.png');
+  console.log('wrote ' + OUT);
 })();

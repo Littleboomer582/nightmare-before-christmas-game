@@ -105,6 +105,14 @@ Up to four players on any mix of phones (the Android app) and browsers. One play
 - **Zombies** chase whichever standing player is nearest, and rounds have 50% more zombies for each extra player.
 - The host's game must stay open and on screen: if the host leaves, the game ends for everyone.
 
+## iPhone and iPad app
+
+`ios/dist/DeadEndDepot.ipa` is the game packaged as an iOS app (iOS 15 or newer, iPhone and iPad): full screen in landscape, completely offline (fonts, three.js, sounds and voice lines are bundled), with settings, scores and secrets saved on the device, online co-op, the device's own voice for the quotes, and **Choose Menu Song** picking a song from Files.
+
+- **Built on GitHub:** iOS apps can only be compiled with Apple's tools, so `.github/workflows/ios.yml` builds it on a macOS runner whenever the game changes, keeps the IPA as a download on the run, and commits it back to `ios/dist/`. To build it on a Mac yourself: `ios/build.sh [buildNumber] [version]` (needs Xcode).
+- **The app:** `ios/App/main.swift` is a WKWebView that serves the bundled game from `app://localhost/`, keeps the screen awake, hides the status bar and home indicator, and pauses the match when you leave the app. `ios/icon-1024.png` is the same icon art as Android's (`ICON_SIZE=1024 ICON_OUT=ios/icon-1024.png node android/tools/make_icon.js`).
+- **Installing:** the IPA is not signed for any particular device. Install it with a sideloading tool such as Sideloadly or AltStore, which signs it with your Apple ID (a free Apple ID's signature lasts 7 days, then the tool re-signs it), or sign it with a paid Apple Developer account to use TestFlight.
+
 ## Android app
 
 `android/dist/DeadEndDepot.apk` is the game packaged as an Android app (Android 7.0 or newer). It runs full screen in landscape, works completely offline (three.js and the fonts are bundled inside), keeps your settings and leaderboard, and uses the touch controls. The Back button pauses during play, steps back through menus, and exits from the title screen.

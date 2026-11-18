@@ -1,0 +1,46 @@
+# Builds the iOS app (an unsigned IPA) on a macOS runner whenever the game or the iOS app changes,
+# keeps it as a download on the run, and saves it to ios/dist/DeadEndDepot.ipa on the branch.
+name: iOS app
+
+on:
+  push:
+    branches: [claude/loving-bohr-oilhns, main, master]
+    paths: [zombies.html, sounds/**, voice/**, ios/App/**, ios/Info.plist, ios/build.sh, ios/icon-1024.png, android/tools/apk.py, .github/workflows/ios.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the IPA
+        env:
+          APP_VERSION: "2.8"   # keep in step with the Android app's versionName
+        run: bash ios/build.sh "${{ github.run_number }}" "$APP_VERSION"
+
+      - name: Keep it as a download on this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeadEndDepot-ipa
+          path: ios/dist/DeadEndDepot.ipa
+
+      - name: Save it to the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ios/dist/DeadEndDepot.ipa
+          git diff --cached --quiet && exit 0
+          git commit -m "Build the iOS app (unsigned IPA) [skip ci]"
+          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0; sleep $((i * 5)); done
+          exit 1
