@@ -115,19 +115,18 @@ function script() {
   console.log(`voice/SCRIPT.md: ${all.length} lines`);
 }
 
-// cleanup: mono, trimmed, high-passed, levelled, small mp3
+// cleanup: mono, trimmed, high-passed, levelled, small mp3. Two passes: ffmpeg 6.1 can stall when
+// loudnorm follows the reversed trims in one filter graph.
 function clean(src, dst, from, to) {
-  const args = ['-y', '-v', 'error'];
-  if (from != null) args.push('-ss', String(from), '-to', String(to));
-  args.push('-i', src, '-ac', '1', '-ar', '44100', '-af',
-    [   // rumble out, hiss down, silence trimmed off both ends (keeping a breath), soft edges, even loudness
-      'highpass=f=80', 'afftdn=nf=-30',
-      'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05', 'afade=t=in:d=0.01',
-      'areverse', 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.15', 'afade=t=in:d=0.03', 'areverse',
-      'loudnorm=I=-16:TP=-1.5:LRA=11',
-    ].join(','),
-    '-c:a', 'libmp3lame', '-b:a', '64k', dst);
-  execFileSync('ffmpeg', args);
+  const tmp = dst + '.trim.wav', run = args => execFileSync('ffmpeg', ['-nostdin', '-y', '-v', 'error', ...args], { timeout: 60000 });
+  const cut = from != null ? ['-ss', String(from), '-to', String(to)] : [];
+  run([...cut, '-i', src, '-ac', '1', '-ar', '44100', '-af', [   // rumble out, hiss down, silence trimmed off both ends (keeping a breath), soft edges
+    'highpass=f=80', 'afftdn=nf=-30',
+    'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05', 'afade=t=in:d=0.01',
+    'areverse', 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.15', 'afade=t=in:d=0.03', 'areverse',
+  ].join(','), '-c:a', 'pcm_s16le', tmp]);
+  try { run(['-i', tmp, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '64k', dst]); }   // even loudness
+  finally { fs.rmSync(tmp, { force: true }); }
 }
 
 function split(take, sectionNo, opts) {
