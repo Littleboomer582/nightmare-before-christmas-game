@@ -5,6 +5,10 @@
 //   node tools/voice.js split <take> <section>    cuts one long take of a section into a file per line
 //   node tools/voice.js index                     writes voice/voice.json from the files in voice/ (the game reads it)
 //   node tools/voice.js lines                     prints every recordable line as JSON (for matching unnamed takes)
+//   node tools/voice.js clean <file> <name> --generated   adds a line made with the voice copy (listed in voice/generated.json)
+//
+// voice/generated.json lists the lines made with a copy of the player's voice rather than recorded;
+// a real recording (clean or split) replaces the copy and takes the line off that list.
 //
 // A long take is the section's lines read top to bottom with about two seconds of silence between them.
 // File names come from the game's own key function, so a line keeps its file when lines are added or reordered.
@@ -20,6 +24,9 @@ function grab(name) {   // a top-level `const NAME = {...};` table from the game
   return eval('(' + html.slice(a + name.length + 9, b + 2) + ')');
 }
 const QUOTES = grab('QUOTE_LINES'), RADIO = grab('RADIO_TALK');
+const GEN_PATH = path.join(DIR, 'generated.json');
+const generated = () => new Set(fs.existsSync(GEN_PATH) ? JSON.parse(fs.readFileSync(GEN_PATH, 'utf8')) : []);
+const saveGenerated = set => fs.writeFileSync(GEN_PATH, JSON.stringify([...set].sort(), null, 1) + '\n');
 const keySrc = html.match(/\n\s*key: (\(ev, line\) => .+),\n/);
 if (!keySrc) throw new Error('VoicePack.key not found in zombies.html');
 const key = eval(keySrc[1]);
@@ -75,9 +82,10 @@ function lines() {
 
 function script() {
   const all = lines(), md = [];
-  const recorded = new Set((fs.existsSync(DIR) ? fs.readdirSync(DIR) : []).filter(f => /\.(mp3|m4a|ogg|wav)$/i.test(f)).map(f => f.replace(/\.\w+$/, '')));
+  const have = new Set((fs.existsSync(DIR) ? fs.readdirSync(DIR) : []).filter(f => /\.(mp3|m4a|ogg|wav)$/i.test(f)).map(f => f.replace(/\.\w+$/, '')));
+  const gen = generated(), recorded = new Set([...have].filter(f => !gen.has(f))), copied = new Set([...have].filter(f => gen.has(f)));
   md.push('# Dead End Depot voice script', '',
-    `${all.length} lines in ${SECTIONS.length + 1} sections, ${all.filter(l => recorded.has(l.file)).length} recorded so far (marked ✅). The game plays your recording whenever one exists and uses the computer voice for the rest, so you can record a few lines at a time.`,
+    `${all.length} lines in ${SECTIONS.length + 1} sections: ${all.filter(l => recorded.has(l.file)).length} recorded by you (✅), ${all.filter(l => copied.has(l.file)).length} made with a copy of your voice (🤖). Record any 🤖 line yourself and your recording replaces the copy; the game uses the computer voice only for lines with neither.`,
     'Your own lines are welcome too: send them and say when each should play.',
     'Start with section 1: you hear those lines all game long.', '',
     '## How to record', '',
@@ -98,8 +106,8 @@ function script() {
       if (sec && sec[1]) md.push(sec[1], '');
       if (!sec) md.push('Radio messages you find hidden on each map, read by other characters. Use a different voice, or ask a friend. Skip these if you like.', '');
     }
-    const when = l.ev ? WHEN[l.ev] : l.who, done = recorded.has(l.file);
-    md.push(`${++n}. ${done ? '✅ ' : ''}"${l.text}"  `, `   <sub>${when} · \`${l.file}.mp3\`${done ? ' · recorded' : ''}</sub>`);
+    const when = l.ev ? WHEN[l.ev] : l.who, done = recorded.has(l.file), copy = copied.has(l.file);
+    md.push(`${++n}. ${done ? '✅ ' : copy ? '🤖 ' : ''}"${l.text}"  `, `   <sub>${when} · \`${l.file}.mp3\`${done ? ' · recorded' : copy ? ' · voice copy' : ''}</sub>`);
   }
   md.push('', '---', '', 'Made by `node tools/voice.js script` from the lines in zombies.html.', '');
   fs.mkdirSync(DIR, { recursive: true });
@@ -137,6 +145,7 @@ function split(take, sectionNo, opts) {
   pieces.slice(0, order.length).forEach(([a, b], i) => {
     const l = all[order[i]]; if (!l) return;
     clean(take, path.join(DIR, l.file + '.mp3'), a.toFixed(3), b.toFixed(3));   // a later redo overwrites the flub
+    const gen = generated(); if (gen.delete(l.file)) saveGenerated(gen);          // a real take replaces a copy
     console.log(`  ${a.toFixed(1)}-${b.toFixed(1)}s  ${l.file}.mp3  "${l.text}"`);
   });
 }
@@ -153,10 +162,15 @@ function index() {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-const opts = {}; const args = rest.filter(a => { const m = a.match(/^--(\w+)=(.*)$/); if (m) opts[m[1]] = m[2]; return !m; });
+const opts = {}; const args = rest.filter(a => { const m = a.match(/^--(\w+)(?:=(.*))?$/); if (m) opts[m[1]] = m[2] ?? true; return !m; });
 if (cmd === 'script') script();
 else if (cmd === 'split') { split(args[0], args[1], opts); index(); }
-else if (cmd === 'clean') { const [src, file] = args; clean(src, path.join(DIR, file.replace(/\.\w+$/, '') + '.mp3')); index(); }
+else if (cmd === 'clean') {
+  const [src, file] = args, name = file.replace(/\.\w+$/, ''), gen = generated();
+  clean(src, path.join(DIR, name + '.mp3'));
+  if ('generated' in opts || rest.includes('--generated')) gen.add(name); else gen.delete(name);
+  saveGenerated(gen); index();
+}
 else if (cmd === 'index') index();
 else if (cmd === 'lines') console.log(JSON.stringify(lines(), null, 1));
 else console.log('usage: node tools/voice.js script | split <take> <section> [--gap=1.2] [--noise=-38dB] [--order=1,2,2,3] | clean <file> <name> | index');
