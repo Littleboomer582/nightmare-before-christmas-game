@@ -1,0 +1,12 @@
+# Render Blueprint: the Dead End Depot online co-op server (server/).
+# In Render: New > Blueprint, pick this repository, and apply. See server/README.md.
+services:
+  - type: web
+    name: dead-end-depot
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeploy: true

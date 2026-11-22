@@ -1,0 +1,5 @@
+.sound-work/
+server/node_modules/
+ios/build/
+android/.cache/
+android/keystore/
