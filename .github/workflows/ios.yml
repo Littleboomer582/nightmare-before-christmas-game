@@ -26,7 +26,7 @@ jobs:
 
       - name: Build the IPA
         env:
-          APP_VERSION: "2.9"   # keep in step with the Android app's versionName
+          APP_VERSION: "2.10"   # keep in step with the Android app's versionName
         run: bash ios/build.sh "${{ github.run_number }}" "$APP_VERSION"
 
       - name: Keep it as a download on this run

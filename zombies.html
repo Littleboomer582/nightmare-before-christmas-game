@@ -1586,6 +1586,7 @@ const SFX = {
     const p = { pistol: [1800, .12, .45], smg: [2200, .09, .35], rifle: [1500, .14, .45], shotgun: [900, .3, .7], lmg: [1300, .13, .45], sniper: [800, .45, .8], cannon: [700, .35, .7] }[kind];
     if (kind === 'ray') { tone(1500, .22, { type: 'square', vol: .14, slide: .18 }); tone(760, .26, { type: 'sawtooth', vol: .12, slide: .25 }); tone(90, .2, { type: 'sine', vol: .3, slide: .5 }); return; }
     if (kind === 'arc') { noiseHit({ dur: .35, freq: 3000, type: 'highpass', vol: .4 }); tone(120, .3, { type: 'sawtooth', vol: .25, slide: 2 }); return; }
+    if (kind === 'saw') { noiseHit({ dur: .12, freq: 2500, type: 'bandpass', q: 1.5, vol: .35 }); tone(95, .15, { type: 'square', vol: .18, slide: .6 }); tone(900, .45, { type: 'sawtooth', vol: .07, slide: .55 }); return; }
     const [f, d, v] = p || [1500, .12, .4], rv = roomReverb();
     noiseHit({ dur: .03, freq: 5000, type: 'highpass', vol: v * .7 });                      // supersonic crack
     noiseHit({ dur: d, freq: f, vol: v, rev: rv });                                          // the report
@@ -1640,6 +1641,20 @@ const SFX = {
   power() { tone(60, 2.5, { type: 'sawtooth', vol: .25, slide: 2, attack: .3 }); noiseHit({ dur: .3, freq: 800, vol: .5 }); },
   powerup() { [523, 659, 784, 1046].forEach((f, i) => tone(f, .25, { type: 'square', vol: .1, when: i * .07 })); },
   boxSpin() { for (let i = 0; i < 18; i++) tone(rand(500, 900), .08, { type: 'triangle', vol: .08, when: i * .19 }); },
+  // the jack-in-the-box: a sproing, then a cackle that runs down the scale
+  cackle(at) {
+    tone(170, .5, { type: 'triangle', vol: .3, slide: 3.4, at });
+    for (let i = 0; i < 8; i++) { const f = 560 - i * 30 + rand(-20, 20), w = .3 + i * .12; tone(f, .1, { type: 'sawtooth', vol: .09, when: w, slide: .72, at }); tone(f * 1.5, .08, { type: 'square', vol: .035, when: w, slide: .72, at }); }
+  },
+  boxLeave(at) { tone(110, 2.4, { type: 'sawtooth', vol: .12, slide: 6, at }); noiseHit({ dur: 2.2, freq: 600, vol: .18, at }); },
+  boxLand(at) { tone(70, .4, { type: 'sine', vol: .5, slide: .5, at }); noiseHit({ dur: .35, freq: 300, vol: .5, at }); },
+  // Ripsaw blades: off a wall, through a zombie, into a wall, onto the floor
+  saw(kind, at) {
+    if (kind === 'clang') { tone(2300, .3, { type: 'triangle', vol: .14, slide: .92, at }); tone(3450, .22, { type: 'sine', vol: .08, at }); noiseHit({ dur: .05, freq: 5200, type: 'highpass', vol: .25, at }); }
+    else if (kind === 'chop') { noiseHit({ dur: .13, freq: 750, type: 'bandpass', q: 1, vol: .45, at }); tone(260, .08, { type: 'sawtooth', vol: .1, slide: .5, at }); }
+    else if (kind === 'thunk') { noiseHit({ dur: .12, freq: 400, vol: .5, at }); tone(1900, .5, { type: 'triangle', vol: .08, slide: .97, at }); }
+    else tone(2900, .15, { type: 'triangle', vol: .07, at });
+  },
   zap() { noiseHit({ dur: .3, freq: 3500, type: 'highpass', vol: .35 }); tone(95, .35, { type: 'sawtooth', vol: .22, slide: 2.5 }); tone(1900, .12, { type: 'square', vol: .06, slide: .4 }); },
   upgrade() { [220, 277, 330, 440, 554].forEach((f, i) => tone(f, .6, { type: 'sawtooth', vol: .1, when: i * .12 })); },
   // recording-only events: silent unless a recording is loaded
@@ -1731,7 +1746,24 @@ const W = {
   gale:     { name: 'Gale Cannon', up: 'Gale Cannon', kind: 'gale', dmg: 0, head: 1, rpm: 60, auto: true, mag: 0, reserve: 0, reload: 1, spread: 0, len: .5, color: 0x7a4a2a },
   nail:     { name: 'Nail Gun', up: 'Nail Gun Railspike', kind: 'nail', dmg: 150, head: 2.5, rpm: 520, auto: true, mag: 40, reserve: 200, reload: 2.2, spread: .022, pierce: 3, len: .3, color: 0xd8a21e, built: true },
   arc:      { name: 'Arc Thrower', up: 'Arc Storm', kind: 'arc', dmg: 1500, head: 1, rpm: 90, auto: false, mag: 6, reserve: 36, reload: 3, spread: .01, chain: 5, len: .45, color: 0x2b2f3a, box: 1 },
+  saw:      { name: 'Ripsaw', up: 'Ripsaw Reaper', kind: 'saw', dmg: 1100, head: 1, rpm: 110, auto: false, mag: 6, reserve: 42, reload: 2.8, spread: .004, len: .42, color: 0x3d4238, box: 1 },
 };
+// A circular saw blade: hooked teeth round the rim and an arbor hole, lying in the XY plane.
+const SAW_GEO = (() => {
+  const sh = new THREE.Shape(), n = 20, R = .17, r = .136, step = Math.PI * 2 / n;
+  for (let i = 0; i < n; i++) {
+    const a = i * step, tip = [Math.cos(a) * R, Math.sin(a) * R], gul = [Math.cos(a + step * .3) * r, Math.sin(a + step * .3) * r];
+    if (i === 0) sh.moveTo(...tip); else sh.lineTo(...tip);
+    sh.lineTo(...gul);
+  }
+  sh.closePath();
+  sh.holes.push(new THREE.Path().absarc(0, 0, .028, 0, Math.PI * 2, true));
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + .4; sh.holes.push(new THREE.Path().absarc(Math.cos(a) * .075, Math.sin(a) * .075, .014, 0, Math.PI * 2, true)); }
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: .005, bevelEnabled: false, curveSegments: 10 });
+  geo.translate(0, 0, -.0025);
+  return geo;
+})();
+const SAW_BLUR = new THREE.RingGeometry(.1, .172, 32);
 for (const k in W) W[k].id = k;
 W.gale.built = true;
 for (const k of ['m14', 'dbl', 'mp5', 'ak74u', 'm16', 'r870']) W[k].box = 2;
@@ -1741,7 +1773,7 @@ function makeWeapon(id, upgraded = false) {
   const magSize = upgraded ? Math.round(d.mag * 1.5) : d.mag;
   return { def: d, up: upgraded, magSize, mag: magSize, reserveMax: upgraded ? d.reserve * 2 : d.reserve, reserve: upgraded ? d.reserve * 2 : d.reserve };
 }
-const wDamage = w => w.def.dmg * (w.up ? (w.def.kind === 'ray' || w.def.kind === 'arc' ? 1.6 : 2.6) : 1);
+const wDamage = w => w.def.dmg * (w.up ? (w.def.kind === 'ray' || w.def.kind === 'arc' || w.def.kind === 'saw' ? 1.6 : 2.6) : 1);
 const wName = w => w.up ? w.def.up : w.def.name;
 
 // Extrude a side silhouette (x = forward, y = up) into a beveled solid; forward maps to -z.
@@ -1810,6 +1842,7 @@ function buildGun(def, up) {
     ray:     [[-.07, -.015], [-.07, .03], [-.02, .052], [.55, .05], [.9, .035], [1, .022], [1, -.018], [.55, -.038], [.1, -.035]],
     arc:     [[0, -.045], [0, .035], [.3, .055], [.85, .045], [1, .015], [1, -.035], [.45, -.06]],
     nail:    [[0, -.05], [0, .05], [.62, .062], [.8, .035], [1, .022], [1, -.03], [.45, -.05]],
+    saw:     [[0, -.05], [0, .05], [.45, .062], [.72, .05], [1, .044], [1, -.036], [.55, -.06], [.2, -.055]],
   };
   // receiver / slide
   add(sideProfile(P(profiles[k]), thick, .005), body);
@@ -1818,7 +1851,7 @@ function buildGun(def, up) {
     for (let i = 0; i < 6; i++) add(new THREE.BoxGeometry(thick + .002, .028, .004), dark, 0, .024, .03 - i * .009); // slide serrations
   }
   // barrel + muzzle
-  const bl = k === 'nail' ? .03 : k === 'pistol' ? .02 : k === 'cannon' ? .1 : k === 'sniper' ? .38 : k === 'shotgun' ? .3 : k === 'lmg' ? .25 : .2;
+  const bl = k === 'nail' || k === 'saw' ? .03 : k === 'pistol' ? .02 : k === 'cannon' ? .1 : k === 'sniper' ? .38 : k === 'shotgun' ? .3 : k === 'lmg' ? .25 : .2;
   const br = k === 'shotgun' || k === 'cannon' ? .02 : k === 'lmg' ? .017 : .013;
   const by = k === 'pistol' || k === 'cannon' ? .018 : .006;
   const brl = def.twin ? part('barrels', 0, -.03, -L * .42) : g;   // a double-barrel breaks open at this hinge
@@ -1882,6 +1915,26 @@ function buildGun(def, up) {
     add(new THREE.BoxGeometry(.03, .045, L * .85), poly, 0, -.07, -L * .5, 0, strip).rotation.x = -.3;
     add(new THREE.BoxGeometry(thick + .012, .06, .09), poly, 0, .07, -.05);                     // cylinder cap
     cyl(.011, .011, .05, dark, 0, -.155, .05, 8);                                              // air fitting under the grip
+  }
+  if (k === 'saw') {   // Ripsaw: scrap launcher; the next blade waits in a guard on top, spares ride in a drum underneath
+    const steel = pbr({ color: up ? 0xffb08a : 0xc9ced4, emissive: up ? 0x7a1a06 : 0x000000, roughness: .28, metalness: .95 });
+    const plate = pbr({ color: 0x3b3d3f, roughness: .55, metalness: .6, side: THREE.DoubleSide });
+    const tape = pbr({ color: 0x8d8f92, roughness: .85, metalness: .05 });
+    const rust = pbr({ color: 0x6a3f24, roughness: .8, metalness: .4 });
+    // the next blade lies flat on the launch deck, the way it flies
+    const blade = new THREE.Mesh(SAW_GEO, steel); blade.scale.setScalar(.56); blade.rotation.x = -Math.PI / 2; blade.position.set(0, .078, -L * .64); g.add(blade);
+    add(new THREE.TorusGeometry(.102, .011, 6, 18, Math.PI), dark, 0, .078, -L * .64).rotation.x = Math.PI / 2;     // guard round the back of it
+    add(new THREE.CylinderGeometry(.03, .03, .012, 14), plate, 0, .066, -L * .64);                               // the spindle it spins on
+    add(new THREE.CylinderGeometry(.011, .011, .03, 8), dark, 0, .084, -L * .64);
+    cyl(.03, .03, .1, rust, thick / 2 + .03, .02, -.09, 14);                                                     // motor, bolted to the right side
+    for (let i = 0; i < 3; i++) add(new THREE.TorusGeometry(.033, .004, 6, 14), dark, thick / 2 + .03, .02, -.06 - i * .03);
+    add(new THREE.BoxGeometry(.012, .055, .012), poly, -(thick / 2 + .03), .05, -.05);                           // pull-cord handle on the left
+    add(new THREE.CylinderGeometry(.002, .002, .03, 4), dark, -(thick / 2 + .015), .05, -.05).rotation.z = Math.PI / 2;
+    const drum = part('mag', 0, -.075, -L * .45);
+    add(new THREE.CylinderGeometry(.072, .072, .05, 20), poly, 0, -.075, -L * .45, 0, drum);
+    add(new THREE.CylinderGeometry(.075, .075, .014, 20), steel, 0, -.064, -L * .45, 0, drum);                 // the stack of blades
+    for (const z0 of [-.13, -L * .86]) add(new THREE.BoxGeometry(thick + .012, .112, .034), tape, 0, 0, z0);   // duct tape
+    g.userData.spin = blade;
   }
   if (up) add(new THREE.BoxGeometry(thick + .012, .012, L * .7), new THREE.MeshBasicMaterial({ color: 0xd36bff }), 0, .02, -L / 2);
   // sights, top rail, ejection port
@@ -2358,6 +2411,8 @@ const QUOTE_LINES = {
   boxSpin: ["Come on, come on. Something good.", "Spin, you magic box. Spin.", "Give me something with a big magazine.", "Get a gun. Here we go."],
   box_ray: ["A ray pistol. Sure. Nothing makes sense anymore.", "Oh, that's beautiful. Pew pew.", "Somebody built this to end the world. Good."],
   box_arc: ["Lightning in a box. I'll take it.", "This thing hums. I like things that hum.", "Now that's a weapon."],
+  box_saw: ["Saw blades that bounce. Somebody had a long weekend.", "Oh, that's nasty. I love it.", "Let's see who gets to keep their arms."],
+  boxMove: ["Oh, come on! Where are you going?", "Don't you laugh at me, you little clown.", "Great. The box ran off. Of course it did."],
   boxBig: ["{w}! Oh, this changes things.", "Heavy. Good. Heavy is good.", "Now we're cooking."],
   boxMeh: ["{w}. It'll do.", "The box gave me a {w}. Could be worse.", "Huh. {w}. Fine.", "Not my first pick. It'll do.", "Could be worse. Could be a lot worse."],
   perk_iron: ["Tastes like rust and courage.", "I feel tougher already. Also a little sick.", "Mmm. Makes me stronger, and tastes better."],
@@ -3026,7 +3081,7 @@ const OpPreview = {
 
 function boxQuote(id) {
   const d = W[id];
-  if (id === 'ray' || id === 'arc') return 'box_' + id;
+  if (id === 'ray' || id === 'arc' || id === 'saw') return 'box_' + id;
   return d.kind === 'lmg' || d.kind === 'sniper' || d.kind === 'cannon' || ['galil', 'fal', 'm1216'].includes(id) ? 'boxBig' : 'boxMeh';
 }
 let hitmT = 0;
@@ -3757,6 +3812,16 @@ function loseArm(z, limb) {
   burst(wp, 'blood', 24, 3.5, 1.4);
   if (z.armStyle === 'one') z.armStyle = 'reach';
 }
+// The head (and whatever is on it) comes off and tumbles away.
+function sawDecap(z) {
+  const nk = z.neck, wp = nk.getWorldPosition(new V3());
+  nk.traverse(o => o.userData = {});   // no longer a hit target (and clone() would try to copy the whole zombie)
+  const piece = nk.clone(true); scene.add(piece);
+  piece.position.copy(wp); piece.quaternion.copy(nk.getWorldQuaternion(new THREE.Quaternion())); piece.scale.copy(nk.getWorldScale(new V3()));
+  debris.push({ m: piece, vel: z.hitDir.clone().multiplyScalar(2).add(new V3(rand(-.8, .8), 3.2, rand(-.8, .8))), spin: new V3(rand(-9, 9), rand(-9, 9), rand(-9, 9)), life: 6 });
+  nk.visible = false;
+  burst(wp, CHEATS.confetti ? 'conf2' : 'blood', 26, 3.8, 1.5);
+}
 function makeCrawler(z, limb) {
   z.crawler = true; z.speed = Math.min(z.speed, rand(.7, 1.1)); z.gait = 'walk';
   Quotes.say('crawler', { chance: .3, cd: 40 });
@@ -3782,7 +3847,7 @@ function updateDebris(dt) {
 function killZombie(z, how, hitPoint) {
   if (z.dead) return;
   zombieDeathFx(z, how); G.alive--;
-  const pts = { head: 100, body: 60, melee: 130, splash: 50, nuke: 0 }[how] ?? 50;
+  const pts = { head: 100, body: 60, melee: 130, splash: 50, nuke: 0, saw: 60 }[how] ?? 50;
   if (!Net.hitBy) {   // yours (a teammate's kill is credited to them by the host)
     P.kills++; if (how === 'head') P.headshots++;
     if (pts) addPoints(pts);
@@ -3801,6 +3866,10 @@ function zombieDeathFx(z, how) {
   removeZombieParts(z);
   if (CHEATS.confetti) confettiBurst(z.pos.clone().setY(1.3));
   if (how === 'head') { burst(z.head.getWorldPosition(new V3()), CHEATS.confetti ? 'conf1' : 'blood', 22, 3.5, 1.5); z.neck.visible = false; }
+  else if (how === 'saw') {   // the blade takes the head clean off, or an arm goes flying
+    if (z.sawHead || Math.random() < .35) sawDecap(z);
+    else { const arm = ['armL', 'armR'].find(a => !z.lost[a]); if (arm && Math.random() < .6) loseArm(z, arm); }
+  }
   else if (how !== 'nuke' && Math.random() < .6) SFX.zdeath(z.pos.clone().setY(1.3));
   if (z.state !== 'climb' && z.zone !== 'out') decal(z.pos.x + rand(-.3, .3), z.pos.z + rand(-.3, .3), rand(.9, 1.5), .85, 25);
 }
@@ -3817,13 +3886,18 @@ function damageZombie(z, dmg, how, point, limb, dir) {
   z.hitDir.copy(away); z.knock = Math.max(z.knock, pow * .45); z.hitLean = Math.max(z.hitLean, pow * .55);
   z.hitTwist = limb === 'armL' ? .35 : limb === 'armR' ? -.35 : rand(-.15, .15);
   if (how === 'head') z.neck.rotation.x = -.6;
-  if (Net.isClient) { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); z.flinch = .15; if (how === 'head' || how === 'body') P.hits++; return; }
-  // heavy hits can take a limb: an arm drops off, or a leg goes and it crawls
-  if (z.hp > 0 && (limb === 'armL' || limb === 'armR') && !z.lost[limb] && dmg >= 90 && Math.random() < .35) loseArm(z, limb);
-  if (z.hp > 0 && (limb === 'legL' || limb === 'legR') && !z.crawler && dmg >= 100 && Math.random() < .3) makeCrawler(z, limb);
+  if (Net.isClient) { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); z.flinch = .15; if (how === 'head' || how === 'body' || how === 'saw') P.hits++; return; }
+  if (how === 'saw') {   // a saw blade takes limbs far more often than a bullet
+    if (z.hp > 0 && (limb === 'armL' || limb === 'armR') && !z.lost[limb] && Math.random() < .8) loseArm(z, limb);
+    if (z.hp > 0 && (limb === 'legL' || limb === 'legR') && !z.crawler && Math.random() < .65) makeCrawler(z, limb);
+  } else {
+    // heavy hits can take a limb: an arm drops off, or a leg goes and it crawls
+    if (z.hp > 0 && (limb === 'armL' || limb === 'armR') && !z.lost[limb] && dmg >= 90 && Math.random() < .35) loseArm(z, limb);
+    if (z.hp > 0 && (limb === 'legL' || limb === 'legR') && !z.crawler && dmg >= 100 && Math.random() < .3) makeCrawler(z, limb);
+  }
   if (z.hp <= 0) { killZombie(z, how, point); }
   else { if (!Net.hitBy) { if (how !== 'splash' && how !== 'nuke') addPoints(10); hitmarker(false); } z.flinch = .15; }
-  if (!Net.hitBy && (how === 'head' || how === 'body')) P.hits++;
+  if (!Net.hitBy && (how === 'head' || how === 'body' || how === 'saw')) P.hits++;
 }
 
 const dPlayer = z => Math.hypot(z.pos.x - P.pos.x, z.pos.z - P.pos.z);
@@ -4275,7 +4349,13 @@ function renderPerks() {
 }
 
 // ---- Mystery box ----
-const mbox = { state: 'idle', t: 0, weapon: null, display: null, cost: 950, lid: null, beam: null, pos: new V3(2.5, 0, -7.35) };
+// It moves. Every map has several spots for it (a faded "?" stencil marks each one). After a few spins
+// a jack-in-the-box pops out cackling instead of a gun: you get your points back and the box flies off
+// to another spot. Its beam shows where it went. Online, everyone's box goes to the same spot.
+const mbox = { state: 'idle', t: 0, weapon: null, display: null, cost: 950, lid: null, beam: null, pos: new V3(2.5, 0, -7.35),
+  spots: [[2.5, -7.35, 0]], spot: 0, target: 0, spins: 0, moveAfter: 6, marks: [], netHold: 0, jacked: false };
+// Route 9: two in the depot and two in the bus lot (all Depot Survival gets), then the gas station and the mill.
+const ROUTE_BOXES = [[2.5, -7.35, 0], [-9.25, 7.25, Math.PI], [13.25, 25.35, Math.PI], [-17.35, 16.75, Math.PI / 2], [-101.25, 19.55, 0], [87.45, 46.75, -Math.PI / 2]];
 function buildBox() {
   const g = new THREE.Group(); g.position.copy(mbox.pos); scene.add(g); mbox.group = g;
   const boxM = mat(0x4a3018, { map: T.wood() });
@@ -4285,11 +4365,13 @@ function buildBox() {
   const lid = new THREE.Mesh(new THREE.BoxGeometry(1.7, .12, .75), boxM); lid.position.set(0, .06, .375); lidPivot.add(lid);
   const qTex = textTex(['?'], { w: 128, h: 128, color: '#9ff3ff', font: 'Creepster', size: 110, glow: '#3fd0ff' });
   for (const sx of [-.5, .5]) { const q = new THREE.Mesh(new THREE.PlaneGeometry(.45, .45), new THREE.MeshBasicMaterial({ map: qTex, transparent: true })); q.position.set(sx, .35, .38); g.add(q); }
+  // the beam ignores the fog, so you can find the box from across the map
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(.5, .7, 40, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0x59d4ff, transparent: true, opacity: .14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    new THREE.MeshBasicMaterial({ color: 0x59d4ff, transparent: true, opacity: .14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   beam.position.y = 20; g.add(beam);
   mbox.col = addCollider(mbox.pos.x - .85, mbox.pos.x + .85, mbox.pos.z - .4, mbox.pos.z + .4, 0, .82);
   mbox.lid = lidPivot; mbox.beam = beam;
+  mbox.jack = buildJack(); g.add(mbox.jack.g);
   interactables.push(mbox.it = {
     pos: mbox.pos.clone().add(new V3(0, 0, .5)), r: 1.8,
     prompt() {
@@ -4308,12 +4390,75 @@ function buildBox() {
     },
   });
 }
+// The jack-in-the-box: a grinning clown head on a coil spring, tucked inside the box until it pops.
+function buildJack() {
+  const g = new THREE.Group(); g.position.y = .35; g.scale.setScalar(1.5); g.visible = false;
+  const spring = new THREE.Group(); g.add(spring);
+  const coil = new THREE.CatmullRomCurve3(Array.from({ length: 57 }, (_, i) => new V3(Math.cos(i * .785) * .075, i / 56 * .6, Math.sin(i * .785) * .075)));
+  spring.add(new THREE.Mesh(new THREE.TubeGeometry(coil, 200, .011, 6, false), M.metal));
+  const head = new THREE.Group(); g.add(head);
+  const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); head.add(o); return o; };
+  const skin = mat(0xf1e7da, { roughness: .45 }), black = new THREE.MeshBasicMaterial({ color: 0x0b0b0b });
+  add(new THREE.SphereGeometry(.15, 22, 16), skin, 0, .15, 0).scale.set(1, 1.08, .95);
+  add(new THREE.SphereGeometry(.036, 14, 10), mat(0xd01818, { roughness: .3 }), 0, .14, .145);                     // nose
+  for (const sx of [-1, 1]) {
+    add(new THREE.SphereGeometry(.024, 12, 8), black, sx * .052, .2, .118);                                         // eyes
+    add(new THREE.SphereGeometry(.007, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 }), sx * .05, .205, .14); // glints
+    add(new THREE.BoxGeometry(.06, .012, .01), black, sx * .055, .245, .12).rotation.z = sx * -.35;                 // brows
+    add(new THREE.SphereGeometry(.03, 10, 8), mat(0xe0404a, { roughness: .6 }), sx * .088, .115, .105).scale.z = .4; // cheeks
+    add(new THREE.SphereGeometry(.07, 12, 10), mat(0xe0502a, { roughness: .95 }), sx * .14, .19, -.03);             // tufts of hair
+  }
+  const mouth = add(new THREE.CircleGeometry(.075, 18, Math.PI, Math.PI), black, 0, .1, .135);                        // the grin
+  mouth.scale.y = .8;
+  add(new THREE.TorusGeometry(.075, .011, 6, 18, Math.PI), mat(0x7a0c0c), 0, .1, .133).rotation.z = Math.PI;
+  for (let i = -2; i <= 2; i++) add(new THREE.BoxGeometry(.018, .02, .008), skin, i * .024, .088, .138);            // teeth
+  const hat = add(new THREE.ConeGeometry(.085, .22, 16), mat(0x2a5ad0, { roughness: .6 }), .02, .36, -.01); hat.rotation.z = -.28;
+  add(new THREE.SphereGeometry(.028, 10, 8), mat(0xffd23a), .05, .47, -.01);
+  const ruff = add(new THREE.TorusGeometry(.11, .035, 8, 20), mat(0xf4f0e8, { roughness: .9 }), 0, 0, 0); ruff.rotation.x = Math.PI / 2;
+  return { g, spring, head };
+}
+const boxMarkTex = canvasTex(256, 128, g => {
+  g.strokeStyle = 'rgba(160,230,255,.55)'; g.lineWidth = 5; g.setLineDash([16, 10]); g.strokeRect(8, 8, 240, 112);
+  g.fillStyle = 'rgba(160,230,255,.5)'; g.font = 'bold 92px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 128, 70);
+});
+function boxSpots() {
+  if (activeMap) return activeMap.boxes.map(([x, z, r]) => [activeMap.ox + x, z, r]);
+  return G.mode === 'depot' ? ROUTE_BOXES.slice(0, 4) : ROUTE_BOXES;
+}
+// At the start of a match: this map's spots, the stencils, and the box at its first spot.
+function setupBox() {
+  mbox.spots = boxSpots();
+  for (const m of mbox.marks) scene.remove(m);
+  mbox.marks = mbox.spots.map(([x, z, r]) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.8, .9), new THREE.MeshBasicMaterial({ map: boxMarkTex, transparent: true, opacity: .6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.rotation.set(-Math.PI / 2, 0, r); m.position.set(x, .015, z); scene.add(m); return m;
+  });
+  mbox.spins = 0; mbox.moveAfter = 4 + (Math.random() * 7 | 0); mbox.target = 0;
+  placeBoxAt(0);
+}
+function placeBoxAt(i) {
+  const [x, z, r] = mbox.spots[i];
+  mbox.spot = i; moveBox(x, z, r); mbox.col.off = false;
+  mbox.group.visible = true; mbox.group.position.y = 0;
+  mbox.marks.forEach((m, k) => m.visible = k !== i);
+}
 // Each map puts the box somewhere different; rotY 0 faces +z.
 function moveBox(x, z, rotY = 0) {
   mbox.pos.set(x, 0, z); mbox.group.position.copy(mbox.pos); mbox.group.rotation.y = rotY;
   const side = Math.abs(Math.sin(rotY)) > .5, hx = side ? .4 : .85, hz = side ? .85 : .4;
   Object.assign(mbox.col, { minX: x - hx, maxX: x + hx, minZ: z - hz, maxZ: z + hz });
   mbox.it.pos.set(x + Math.sin(rotY) * .5, 0, z + Math.cos(rotY) * .5);
+}
+// Send the box to spot i. Online, a teammate asks the host, and the host's choice reaches everyone.
+function boxRequestMove(i, fromNet) {
+  if (!Number.isInteger(i) || i < 0 || i >= mbox.spots.length || i === mbox.target) return;
+  mbox.target = i;
+  if (Net.isClient && !fromNet) { netSend({ t: 'a', k: 'bx', s: i, f: mbox.spot }); mbox.netHold = G.time + 4; }
+}
+function nextBoxSpot() {
+  const n = mbox.spots.length; if (n < 2) return mbox.spot;
+  let i; do i = Math.random() * n | 0; while (i === mbox.spot);
+  return i;
 }
 function boxPool() {
   const pool = [];
@@ -4327,21 +4472,76 @@ function setBoxDisplay(id) {
   mbox.group.add(mbox.display);
 }
 function closeBox() { mbox.state = 'idle'; if (mbox.display) mbox.group.remove(mbox.display); mbox.display = null; }
+function jackPops() {
+  if (mbox.display) { mbox.group.remove(mbox.display); mbox.display = null; }
+  mbox.state = 'jack'; mbox.t = 0; mbox.jacked = true; mbox.jack.g.visible = true;
+  const at = mbox.pos.clone().setY(1.3);
+  SFX.cackle(at);
+  for (let c = 0; c < 5; c++) burst(at, 'conf' + c, 5, 3, .8);
+  addPoints(mbox.cost, true); P.earned -= mbox.cost;   // your points back (not counted as score)
+  announce('THE BOX IS MOVING', '#9ff3ff', 2.6);
+  Quotes.say('boxMove', { prio: 2, cd: 5 });
+}
 function updateBox(dt) {
-  const open = mbox.state !== 'idle';
+  const st = mbox.state;
+  const open = st === 'rolling' || st === 'ready' || st === 'jack';
   mbox.lid.rotation.x += ((open ? -1.9 : 0) - mbox.lid.rotation.x) * Math.min(1, dt * 6);
-  mbox.beam.material.opacity = .1 + Math.sin(G.time * 2) * .04;
-  if (mbox.state === 'rolling') {
+  const beamK = st === 'leaving' ? Math.max(0, 1 - mbox.t / 1.2) : st === 'away' ? 0 : st === 'arriving' ? Math.min(1, mbox.t / 1.2) : 1;
+  mbox.beam.material.opacity = (.1 + Math.sin(G.time * 2) * .04) * beamK;
+  if (st === 'idle' && mbox.target !== mbox.spot) {   // off it goes
+    mbox.state = 'leaving'; mbox.t = 0; mbox.col.off = true;
+    SFX.boxLeave(mbox.pos.clone().setY(1));
+    if (!mbox.jacked) announce('THE BOX IS MOVING', '#9ff3ff', 2.6);   // someone else's jack-in-the-box
+    mbox.jacked = false;
+    return;
+  }
+  if (st === 'rolling') {
     mbox.t += dt;
     const pool = boxPool();
     const step = .08 + mbox.t * .05;
     if (!mbox.lastSwap || G.time - mbox.lastSwap > step) { mbox.lastSwap = G.time; mbox.weapon = pick(pool); setBoxDisplay(mbox.weapon); }
     if (mbox.display) mbox.display.position.y = .7 + Math.min(1, mbox.t / 3) * .5;
-    if (mbox.t > 3.6) { mbox.state = 'ready'; mbox.t = 0; tone(1046, .3, { type: 'triangle', vol: .2 }); }
-  } else if (mbox.state === 'ready') {
+    if (mbox.t > 3.6) {
+      if (mbox.spots.length > 1 && ++mbox.spins >= mbox.moveAfter) jackPops();
+      else { mbox.state = 'ready'; mbox.t = 0; tone(1046, .3, { type: 'triangle', vol: .2 }); }
+    }
+  } else if (st === 'ready') {
     mbox.t += dt;
     if (mbox.display) mbox.display.position.y = 1.2 - Math.max(0, mbox.t - 5) * .12;
     if (mbox.t > 9) closeBox();
+  } else if (st === 'jack') {   // pops up, wobbles and cackles, then ducks back in
+    mbox.t += dt;
+    const t = mbox.t, j = mbox.jack;
+    const s = t < 2.5 ? Math.min(1, t / .16) * (1 + Math.sin(Math.min(t, 1.5) * 17) * .22 * Math.exp(-t * 2.5)) : Math.max(0, 1 - (t - 2.5) / .25);
+    j.spring.scale.y = Math.max(.02, s); j.head.position.y = .6 * s;
+    j.head.rotation.z = Math.sin(t * 13) * .32 * Math.exp(-Math.max(0, t - .3) * .5);
+    j.head.rotation.y = Math.sin(t * 4.5) * .35;
+    if (t > 2.8) {
+      j.g.visible = false; mbox.state = 'idle'; mbox.spins = 0; mbox.moveAfter = 4 + (Math.random() * 7 | 0);
+      boxRequestMove(nextBoxSpot());
+    }
+  } else if (st === 'leaving') {   // shudders, lifts off spinning and is gone in a shower of sparks
+    mbox.t += dt;
+    const t = mbox.t, g = mbox.group;
+    g.position.y = t < .6 ? Math.abs(Math.sin(t * 40)) * .03 : (t - .6) * (t - .6) * 3.2;
+    if (t > .6) g.rotation.y += dt * (t - .6) * 9;
+    if (t > .6 && Math.random() < dt * 25) burst(g.position.clone().add(new V3(rand(-.8, .8), 0, rand(-.4, .4))), 'spark', 1, 1.5, .5);
+    if (t > 2.6) {
+      burst(g.position.clone().add(new V3(0, .4, 0)), 'spark', 24, 5); g.visible = false;
+      mbox.marks[mbox.spot].visible = true; mbox.state = 'away'; mbox.t = 0;
+    }
+  } else if (st === 'away') {
+    mbox.t += dt;
+    if (mbox.t > 3.5) { placeBoxAt(mbox.target); mbox.group.position.y = 9; mbox.state = 'arriving'; mbox.t = 0; }
+  } else if (st === 'arriving') {   // drops out of the sky onto its new spot
+    mbox.t += dt;
+    const land = .75;
+    if (mbox.t < land) mbox.group.position.y = 9 * (1 - (mbox.t / land) ** 2);
+    else {
+      mbox.group.position.y = 0; mbox.state = 'idle';
+      burst(mbox.pos.clone().setY(.15), 'dust', 18, 3); SFX.boxLand(mbox.pos.clone().setY(.5));
+      if (Math.hypot(P.pos.x - mbox.pos.x, P.pos.z - mbox.pos.z) < 12) camShake = Math.max(camShake, .25);
+    }
   }
 }
 
@@ -4995,11 +5195,12 @@ function fire() {
   P.pitch = Math.min(1.5, P.pitch + climb); P.yaw += rand(-1, 1) * climb * .55;
   vm.rollKick = rand(-1, 1) * .05;
   puff(muzzleWorld(), 'smoke', d.kind === 'shotgun' ? .14 : .07, .9);
-  flashSprite.visible = d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'nail'; flashSprite.material.rotation = Math.random() * 6;
+  flashSprite.visible = d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'nail' && d.kind !== 'saw'; flashSprite.material.rotation = Math.random() * 6;
   flashSprite.scale.setScalar(rand(.28, .4));
-  if (d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'shotgun' && d.kind !== 'nail') ejectCasing();
+  if (d.kind !== 'ray' && d.kind !== 'arc' && d.kind !== 'shotgun' && d.kind !== 'nail' && d.kind !== 'saw') ejectCasing();
   muzzleLight.color.setHex(d.kind === 'ray' ? (w.up ? 0x9f7bff : 0xff7a2a) : d.kind === 'arc' ? 0x7fdcff : 0xffb050);
   muzzleLight.intensity = 2.5; gunFlashLight.intensity = 2; vm.flashT = .05;
+  if (d.kind === 'saw' && vm.gun && vm.gun.userData.spin) { vm.gun.userData.spinV = 80; vm.gun.userData.hideT = rate * .6; }   // the loaded blade launches; the next one drops in
 
   const camPos = camera.getWorldPosition(new V3());
   const fwd = new V3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -5015,6 +5216,7 @@ function fire() {
       dir.addScaledVector(right, Math.cos(a) * r).addScaledVector(up, Math.sin(a) * r).normalize();
     }
     if (d.kind === 'ray') { spawnRayBolt(camPos, dir, mz, dmg, w.up); continue; }
+    if (d.kind === 'saw') { spawnSawBlade(camPos, dir, mz, dmg, w.up); continue; }
     ray.set(camPos, dir); ray.far = 150;
     const hits = ray.intersectObjects(shootables, false);
     let pierce = d.pierce || 1, end = camPos.clone().addScaledVector(dir, 60);
@@ -5106,6 +5308,109 @@ function arcChain(first, pt, dmg, up) {
     cur = best; if (best) point = best.pos.clone().setY(1.2);
   }
   worldFlash(pt, col, 2, 5, .25);
+}
+// Ripsaw: spinning blades cut through a zombie, ricochet to the next one and bounce off walls.
+// Whatever survives a cut often loses an arm or its legs. A spent blade drops, or bites into a wall.
+const sawBlades = [];
+const SAW_MAT = {
+  steel: pbr({ color: 0xc9ced4, roughness: .28, metalness: .95 }),
+  hot: pbr({ color: 0xffb08a, emissive: 0xb02a08, roughness: .3, metalness: .85 }),
+  blur: new THREE.MeshBasicMaterial({ color: 0xdfe6ee, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  blurHot: new THREE.MeshBasicMaterial({ color: 0xff6a3a, transparent: true, opacity: .28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+};
+function spawnSawBlade(camPos, dir, mz, dmg, up) {
+  ray.set(camPos, dir); ray.far = 80;
+  const h = ray.intersectObjects(shootables, false)[0];
+  const aim = h ? h.point : camPos.clone().addScaledVector(dir, 80);
+  const start = aim.distanceTo(camPos) < 1.5 ? camPos.clone() : mz.clone();
+  const g = new THREE.Group(), tilt = new THREE.Group();
+  const disc = new THREE.Mesh(SAW_GEO, up ? SAW_MAT.hot : SAW_MAT.steel); disc.rotation.x = -Math.PI / 2; tilt.add(disc);
+  const blur = new THREE.Mesh(SAW_BLUR, up ? SAW_MAT.blurHot : SAW_MAT.blur); blur.rotation.x = -Math.PI / 2; tilt.add(blur);
+  tilt.rotation.z = .35; g.add(tilt); g.position.copy(start); scene.add(g);
+  const speed = up ? 34 : 27;
+  sawBlades.push({ g, tilt, disc, blur, pos: start, vel: aim.sub(start).normalize().multiplyScalar(speed), speed, dmg, up,
+    life: 3.5, hits: 0, max: up ? 9 : 5, walls: up ? 4 : 2, hit: new Set(), stuck: 0, fallV: null });
+}
+// The nearest zombie the blade can see from where it is (straight ahead only, after a wall).
+function sawNextTarget(b, from) {
+  let best = null, bd = b.up ? 12 : 9;
+  const fwd = b.vel.clone().setY(0).normalize();
+  for (const z of zombies) {
+    if (z.dead || z.rise < 1 || b.hit.has(z) || z === from) continue;
+    const to = new V3(z.pos.x - b.pos.x, 0, z.pos.z - b.pos.z), d = to.length();
+    if (d > bd || d < .3 || (!from && to.dot(fwd) < d * .2)) continue;
+    const aim = z.pos.clone().setY(z.crawler ? .35 : rand(.5, 1.6)), dist = b.pos.distanceTo(aim);
+    ray.set(b.pos, aim.clone().sub(b.pos).divideScalar(dist)); ray.far = dist;
+    if (ray.intersectObjects(shootables, false).some(x => !x.object.userData.z)) continue;
+    bd = d; best = aim;
+  }
+  return best;
+}
+function sawCut(b, z) {
+  b.hit.add(z); b.hits++;
+  const y = b.pos.y, dir = b.vel.clone().setY(0).normalize();
+  const head = y > 1.5 && !z.crawler, limb = head ? null : y > .9 ? pick(['armL', 'armR']) : pick(['legL', 'legR']);
+  z.sawHead = head;
+  damageZombie(z, b.dmg * Math.pow(.9, b.hits - 1) * (head ? 1.5 : 1), 'saw', b.pos.clone(), limb, dir);
+  burst(b.pos, 'blood', 12, 3.5, 1.3);
+  SFX.saw('chop', b.pos.clone());
+}
+function updateSawBlades(dt) {
+  for (let i = sawBlades.length - 1; i >= 0; i--) {
+    const b = sawBlades[i];
+    if (b.stuck > 0) {   // stuck in a wall or lying on the floor, winding down
+      b.stuck -= dt; b.disc.rotation.z += dt * Math.max(0, b.stuck - 3.5) * 30; b.blur.visible = false;
+      if (b.stuck <= 0) { scene.remove(b.g); sawBlades.splice(i, 1); }
+      continue;
+    }
+    b.disc.rotation.z += dt * 55;
+    if (b.fallV) {   // spent: it drops to the floor
+      b.fallV.y -= 14 * dt; b.pos.addScaledVector(b.fallV, dt);
+      if (b.pos.y <= .03) { b.pos.y = .03; b.tilt.rotation.z = 0; b.stuck = 4; SFX.saw('clink', b.pos.clone()); }
+      b.g.position.copy(b.pos); continue;
+    }
+    b.life -= dt;
+    const step = b.speed * dt, dir = b.vel.clone().normalize();
+    // the first zombie the blade passes through on this step
+    let zt = Infinity, zz = null;
+    const hl = dir.x * dir.x + dir.z * dir.z;
+    for (const z of zombies) {
+      if (z.dead || z.rise < 1 || b.hit.has(z)) continue;
+      const t = hl > 1e-6 ? clamp(((z.pos.x - b.pos.x) * dir.x + (z.pos.z - b.pos.z) * dir.z) / hl, 0, step) : 0;
+      const py = b.pos.y + dir.y * t;
+      if (t < zt && py > .05 && py < (z.crawler ? .7 : 1.95) && Math.hypot(z.pos.x - b.pos.x - dir.x * t, z.pos.z - b.pos.z - dir.z * t) < .45) { zt = t; zz = z; }
+    }
+    ray.set(b.pos, dir); ray.far = step;
+    const wall = ray.intersectObjects(shootables, false).find(x => !x.object.userData.z);
+    const floorT = dir.y < 0 ? Math.max(0, b.pos.y - .04) / -dir.y : Infinity;   // the ground isn't always something you can shoot
+    const wt = Math.min(wall ? wall.distance : Infinity, floorT);
+    if (zz && zt <= wt) {
+      b.pos.addScaledVector(dir, zt); b.g.position.copy(b.pos);
+      sawCut(b, zz);
+      if (b.hits >= b.max) { b.fallV = dir.multiplyScalar(4); continue; }
+      const next = sawNextTarget(b, zz);
+      if (next) b.vel.copy(next).sub(b.pos).normalize().multiplyScalar(b.speed);
+      continue;
+    }
+    if (wt <= step) {
+      const n = wall && wall.distance <= floorT ? wall.face.normal.clone().transformDirection(wall.object.matrixWorld) : new V3(0, 1, 0);
+      b.pos.addScaledVector(dir, wt).addScaledVector(n, .04); b.g.position.copy(b.pos);
+      burst(b.pos, 'spark', 12, 4, .4);
+      if (b.walls-- > 0) {   // ricochet, and go looking for the next one
+        b.vel.reflect(n);
+        const next = sawNextTarget(b, null);
+        if (next) b.vel.copy(next).sub(b.pos).normalize().multiplyScalar(b.speed);
+        SFX.saw('clang', b.pos.clone());
+      } else {   // out of bounce: it bites into the wall and stays a while
+        b.stuck = 5; b.g.lookAt(b.pos.clone().add(n)); b.tilt.rotation.set(0, 0, 0);
+        SFX.saw('thunk', b.pos.clone());
+      }
+      continue;
+    }
+    b.pos.addScaledVector(dir, step); b.g.position.copy(b.pos);
+    b.g.rotation.y = Math.atan2(dir.x, dir.z);
+    if (b.life <= 0) b.fallV = dir.multiplyScalar(6);
+  }
 }
 function startReload() {
   const w = P.weapons[P.cur];
@@ -5314,6 +5619,12 @@ function updateWeapon(dt) {
     if (w.def.burst && W_STATE.burstLeft === 0) W_STATE.fireCd += .22;
   }
   if (!input.lmb) W_STATE.fired = false;
+  const sud = vm.gun && vm.gun.userData;
+  if (sud && sud.spin) {   // Ripsaw: the loaded blade idles, spins up when you fire, and is gone while the next drops in
+    sud.hideT = Math.max(0, (sud.hideT || 0) - dt);
+    sud.spin.visible = sud.hideT <= 0 && (w.mag > 0 || W_STATE.reloading > 0);
+    sud.spinV = Math.max(5, (sud.spinV || 5) - dt * 40); sud.spin.rotation.z += dt * sud.spinV;
+  }
 
   // view model pose
   const adsTarget = input.rmb && W_STATE.reloading <= 0 && !P.sprinting ? 1 : 0;
@@ -6266,7 +6577,7 @@ const MAPDEFS = {
     spots: [[-25, -28], [2, -38], [26, -28], [5, -27.5], [-17, -24], [17, -24], [-2, 4], [16, 8], [-14, -10], [7.2, 18], [10.8, 33], [-2.5, 44.5], [20.5, 41.6], [-8, -16], [9.5, 27], [-2, -30]],
     builds: ['shield', 'turret', 'trap', 'gale', 'spikes'],
     spawns: [[-19.2, -20], [-19.2, -8], [-19.2, 4], [19.2, -18], [19.2, -4], [19.2, 6], [-12, 9.2], [16, 9.2], [6.8, 20], [11.2, 30], [-3.2, 43], [21.2, 45], [10, 45.2], [-20, -44], [0, -44.6], [20, -44]],
-    box: [12, -12, 0], box_rot: 0,
+    boxes: [[12, -12, 0], [-12.25, -29.55, 0], [15.75, -30.55, 0], [-19.35, -14.25, Math.PI / 2], [18.75, 40.65, 0]],
     shots: [
       { from: [-6, 2, -10], to: [-2, 2.4, -6], look: [10, 2.5, 40] },
       { from: [24, 1.8, -24], to: [20, 2.2, -26], look: [13, 2.4, -33] },
@@ -6286,7 +6597,7 @@ const MAPDEFS = {
     spots: [[-24, -4], [-12, -20], [0, -42], [-2.5, -49], [-28, 20], [-8, 30], [12, 28], [28, -26], [26, 4], [-26, -26], [8, -6], [-10, 14], [30, 24], [-4, 10], [20, -22], [-18, 26]],
     builds: ['shield', 'turret', 'trap', 'gale', 'lure'],
     spawns: [[0, -49], [2, -45], [-32, -30], [-32, 0], [-32, 28], [32, -30], [32, 2], [32, 28], [-15, 32], [15, 32], [-8, -32], [8, -32]],
-    box: [-6, 17, 0],
+    boxes: [[-6, 17, 0], [14.75, -10.55, 0], [-24.05, 8.75, -Math.PI / 2], [22.55, 10.75, Math.PI / 2], [1.75, 34.45, Math.PI], [-34.55, -20.75, Math.PI / 2]],
     shots: [
       { from: [-8, 2, 14], to: [-4, 2.4, 12], look: [0, 1, 0] },
       { from: [6, 2, -24], to: [2, 2.2, -26], look: [0, 2, -40] },
@@ -6311,7 +6622,7 @@ const MAPDEFS = {
     fog: 0x141a16, density: .05, zenith: 0x05070a,
     spots: [], spawns: [],
     nav: [[-8.5, -2], [-11, -5], [-11, 5], [-6, -5], [-6, 5], [-5.2, 0], [-2.8, 0], [1, 0], [-2, -5], [-2, 4], [4, -5], [4.2, 1.5], [4.8, 3], [7.2, 3], [11, 0], [8, -4.5], [14, -3.5], [8, 3], [12.5, 4]],
-    box: [3.5, -7.35, 0],
+    boxes: [[3.5, -7.35, 0], [-12.25, 3.75, Math.PI / 2], [15.25, 1.25, -Math.PI / 2]],
     shots: [
       { from: [-11, 1.7, 5], to: [-10, 1.9, 4], look: [-8.5, 1, 1] },
       { from: [-1, 1.7, -4], to: [0, 1.8, -3], look: [4.2, 1, 7] },
@@ -6348,7 +6659,7 @@ const MAPDEFS = {
     spots: [[-27.6, -10], [-22.5, 1], [-17.5, -12], [-12.5, 2.5], [-7.2, -10], [4, -12], [12.5, -1], [17.5, -12], [22.5, 2], [27.6, -12.5], [-20, -17.6],
       [0, -20], [20, -19.5], [-25, 12.5], [21, 16], [-14.8, 16.2], [-25, -29.8], [-10, -30.5], [4, -26.5], [33.5, -11.5], [39.5, 3.5], [-17, 26.5], [17, 31.5]],
     spawns: [[-44, 50], [-20, 52], [0, 52], [22, 52], [48, 50], [-46, 28], [52, 28], [-40, -46], [-12, -48], [8, -46], [40, -40], [52, -20], [52, 4]],
-    box: [0, -1, 0],
+    boxes: [[0, -1, 0], [-29.55, -21.75, Math.PI / 2], [29.55, -21.75, -Math.PI / 2], [-7.25, -35.45, 0], [32.75, -13.35, 0], [-25.25, 20.95, 0]],
     shots: [
       { from: [0, 3, 32], to: [0, 2.6, 26], look: [0, 5, 18] },
       { from: [-12.5, 1.8, 6], to: [-12.5, 1.9, 0], look: [-12.5, 1.5, -16] },
@@ -6429,7 +6740,6 @@ function enterMap(key) {
   activeMap = def;
   if (def.classic) def.open = new Set(['kitchen']);
   P.pos.set(def.ox + def.start[0], 0, def.start[1]); P.yaw = def.yaw; P.pitch = 0;
-  moveBox(def.ox + def.box[0], def.box[1], def.box[2]);
   setAtmosphere(def.fog, def.density, def.zenith);
 }
 
@@ -6477,6 +6787,8 @@ const TIPS = [
   'Rebuilding a window earns 10 points per board. Do it between rounds.',
   'Headshots are worth more points than body shots, and knife kills more still.',
   'The bus waits 25 seconds at each stop. It honks before it leaves.',
+  'The mystery box moves. When a jack-in-the-box pops out you get your points back: follow the beam to where the box went.',
+  'Ripsaw blades bounce from zombie to zombie and off walls. Tough ones often lose an arm, or their legs.',
   'Turn on the power before you buy perks. The switch is on the generator in the bus lot.',
   'The Ray Pistol\'s splash hurts you at point blank. Punch it up, or drink Blastproof Bitters.',
   'You can hold four perks at a time. Choose the ones that fit how you play.',
@@ -6696,6 +7008,7 @@ function launchMatch(cfg) {
   G.mode = cfg.mode; G.diff = cfg.diff;
   zLook().prepare(cfg.mode);   // paint this map's zombies while the loading screen is up
   enterMap(MODES[cfg.mode].map);
+  setupBox();
   buildParts();
   setupEggs(cfg.mode);
   G.round = cfg.start - 1;
@@ -7012,7 +7325,7 @@ let NET_WAKE_MS = 75000;   // a free server that went to sleep takes up to about
 const NET_TOPIC = 'deadenddepot/coop1/';
 const NET_COLORS = ['#ffcf6a', '#6ad0ff', '#8dff7a', '#ff7ab8'];
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   // no I or O to misread
-const HOWS = ['body', 'head', 'melee', 'splash', 'nuke'], LIMBS = [null, 'armL', 'armR', 'legL', 'legR'];
+const HOWS = ['body', 'head', 'melee', 'splash', 'nuke', 'saw'], LIMBS = [null, 'armL', 'armR', 'legL', 'legR'];
 const ZSTATES = ['rise', 'toWindow', 'break', 'climb', 'chase'];
 const PU_KEYS = Object.keys(PU);
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -7360,6 +7673,7 @@ function buildSnapshot() {
   }
   const m = { t: 's', r: G.round, z: zs, b: windows.map(w => w.boards).join(''), wf: Object.keys(WORLD).filter(k => WORLD[k].is()),
     pu: powerups.filter(q => q.life > 0 && !q.taken).map(q => [q.id, PU_KEYS.indexOf(q.type), Math.round(q.s.position.x * 10), Math.round(q.s.position.z * 10), Math.round(q.life * 10)]) };
+  m.bx = mbox.target;
   if (!activeMap) m.bus = [Math.round(bus.x * 100), bus.state === 'stop' ? 1 : 0, Math.round(bus.t * 10), bus.stop, bus.next, bus.dir, bus.f, bus.open ? 1 : 0];
   return m;
 }
@@ -7374,6 +7688,7 @@ function applySnapshot(m) {
   if (Array.isArray(m.wf)) for (const k of m.wf) if (own(WORLD, k)) openWorld(k, true);
   if (Array.isArray(m.pu)) applyNetPowerups(m.pu);
   if (Array.isArray(m.bus) && !activeMap) applyNetBus(m.bus);
+  if (Number.isInteger(m.bx) && G.time > mbox.netHold) boxRequestMove(m.bx, true);
 }
 function applyNetZombies(list) {
   const seen = new Set();
@@ -7456,6 +7771,7 @@ function applyNetHits(pid, list) {
 function applyNetAction(m) {
   if (m.k === 'w' && own(WORLD, m.f)) openWorld(m.f, true);
   else if (m.k === 'rep') { const w = windows[num(m.i, -1)]; if (w) repairBoard(w); }
+  else if (m.k === 'bx' && num(m.f, -1) === mbox.target) boxRequestMove(num(m.s, -1), true);
   else if (m.k === 'pu') { const q = powerups.find(o => o.id === m.i && o.life > 0 && !o.taken); if (q) { q.taken = true; q.life = 0; applyPowerup(q.type); } }
 }
 function netHit(z, dmg, how, limb, dir) {
@@ -7667,6 +7983,7 @@ function frame(now) {
     updateGrenades(dt);
     updateBus(dt);
     updateRayBolts(dt);
+    updateSawBlades(dt);
     updateBuildables(dt);
     updateZombies(dt);
     if (!Net.isClient) updateRounds(dt);   // the host runs the rounds

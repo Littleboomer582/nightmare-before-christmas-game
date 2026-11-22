@@ -1,6 +1,6 @@
 # Dead End Depot voice script
 
-196 lines in 10 sections: 16 recorded by you (✅), 180 made with a copy of your voice (🤖). Record any 🤖 line yourself and your recording replaces the copy; the game uses the computer voice only for lines with neither.
+202 lines in 10 sections: 16 recorded by you (✅), 186 made with a copy of your voice (🤖). Record any 🤖 line yourself and your recording replaces the copy; the game uses the computer voice only for lines with neither.
 Your own lines are welcome too: send them and say when each should play.
 Start with section 1: you hear those lines all game long.
 
@@ -274,11 +274,23 @@ One plays when a match begins, plus one for the map.
    <sub>the arc gun from the box · `box_arc--this-thing-hums-i-like-things.mp3` · voice copy</sub>
 18. 🤖 "Now that's a weapon."  
    <sub>the arc gun from the box · `box_arc--now-thats-a-weapon.mp3` · voice copy</sub>
-19. 🤖 "Punched up. Shiny. Deadly."  
+19. 🤖 "Saw blades that bounce. Somebody had a long weekend."  
+   <sub>the Ripsaw (saw-blade launcher) from the box · `box_saw--saw-blades-that-bounce-somebody-had.mp3` · voice copy</sub>
+20. 🤖 "Oh, that's nasty. I love it."  
+   <sub>the Ripsaw (saw-blade launcher) from the box · `box_saw--oh-thats-nasty-i-love-it.mp3` · voice copy</sub>
+21. 🤖 "Let's see who gets to keep their arms."  
+   <sub>the Ripsaw (saw-blade launcher) from the box · `box_saw--lets-see-who-gets-to-keep.mp3` · voice copy</sub>
+22. 🤖 "Oh, come on! Where are you going?"  
+   <sub>the jack-in-the-box pops out and the box flies away · `boxMove--oh-come-on-where-are-you.mp3` · voice copy</sub>
+23. 🤖 "Don't you laugh at me, you little clown."  
+   <sub>the jack-in-the-box pops out and the box flies away · `boxMove--dont-you-laugh-at-me-you.mp3` · voice copy</sub>
+24. 🤖 "Great. The box ran off. Of course it did."  
+   <sub>the jack-in-the-box pops out and the box flies away · `boxMove--great-the-box-ran-off-of.mp3` · voice copy</sub>
+25. 🤖 "Punched up. Shiny. Deadly."  
    <sub>upgrading a gun · `forge--punched-up-shiny-deadly.mp3` · voice copy</sub>
-20. 🤖 "That machine just made my gun angry."  
+26. 🤖 "That machine just made my gun angry."  
    <sub>upgrading a gun · `forge--that-machine-just-made-my-gun.mp3` · voice copy</sub>
-21. ✅ "I wonder, if I can put guns in there, can I put my knife in there?"  
+27. ✅ "I wonder, if I can put guns in there, can I put my knife in there?"  
    <sub>upgrading a gun · `forge--i-wonder-if-i-can-put.mp3` · recorded</sub>
 
 ## Section 7: Perks
